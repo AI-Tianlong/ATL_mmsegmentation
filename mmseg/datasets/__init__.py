@@ -21,6 +21,7 @@ from .potsdam import PotsdamDataset
 from .refuge import REFUGEDataset
 from .stare import STAREDataset
 from .synapse import SynapseDataset
+from .ATL_ISAR_Seg import ATL_ISAR_Seg
 # yapf: disable
 from .transforms import (CLAHE, AdjustGamma, BioMedical3DPad,
                          BioMedical3DRandomCrop, BioMedical3DRandomFlip,
@@ -51,5 +52,5 @@ __all__ = [
     'BioMedicalGaussianNoise', 'BioMedicalGaussianBlur',
     'BioMedicalRandomGamma', 'BioMedical3DPad', 'RandomRotFlip',
     'SynapseDataset', 'REFUGEDataset', 'MapillaryDataset_v1',
-    'MapillaryDataset_v2'
+    'MapillaryDataset_v2', 'ATL_ISAR_Seg'
 ]
