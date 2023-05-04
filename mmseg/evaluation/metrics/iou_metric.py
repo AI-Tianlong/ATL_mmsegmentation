@@ -13,7 +13,10 @@ from PIL import Image
 from prettytable import PrettyTable
 
 from mmseg.registry import METRICS
-
+from mmengine.logging import MessageHub
+from mmengine.logging.history_buffer import HistoryBuffer
+import torch
+torch.max
 
 @METRICS.register_module()
 class IoUMetric(BaseMetric):
@@ -86,11 +89,22 @@ class IoUMetric(BaseMetric):
                                              self.ignore_index))
             # format_result
             if self.output_dir is not None:
+
+                # From log to get dataset path
+                # create empty `MessageHub`.
+                message_hub = MessageHub.get_current_instance()
+                message_hub.get_info('data_root')
+               
+                
+                # mkdir_or_exist(data_sample['img_path'])
+
                 basename = osp.splitext(osp.basename(
-                    data_sample['img_path']))[0]
+                    data_sample['img_path']))[0]    
                 png_filename = osp.abspath(
                     osp.join(self.output_dir, f'{basename}.png'))
                 output_mask = pred_label.cpu().numpy()
+
+                print('=========================================================')
                 # The index range of official ADE20k dataset is from 0 to 150.
                 # But the index range of output is from 0 to 149.
                 # That is because we set reduce_zero_label=True.

@@ -111,7 +111,7 @@ def main():
     if args.out is not None:
         cfg.test_evaluator['output_dir'] = args.out
         cfg.test_evaluator['keep_results'] = True
-
+        
     # build the runner from config
     runner = Runner.from_cfg(cfg)
 
