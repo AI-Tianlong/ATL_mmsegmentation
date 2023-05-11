@@ -5,11 +5,9 @@ import os
 import os.path as osp
 from PIL import Image
 
-
 import mmcv
 import numpy as np
 from mmengine.utils import ProgressBar, mkdir_or_exist
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -42,7 +40,6 @@ GID_COLORMAP = dict(
 palette = list(GID_COLORMAP.values())
 classes = list(GID_COLORMAP.keys())
 
-
 #############用列表来存一个 RGB 和一个类别的对应################
 def colormap2label(palette):   
     colormap2label_list = np.zeros(256**3, dtype = np.longlong)
@@ -62,7 +59,6 @@ def RGB2mask(RGB_label, colormap2label_list):
     mask_label = label_indices(RGB_label, colormap2label_list) # .numpy()
     return mask_label
 
-
 colormap2label_list = colormap2label(palette)
 
 def clip_big_image(image_path, clip_save_dir, args, to_label=False):
@@ -76,7 +72,6 @@ def clip_big_image(image_path, clip_save_dir, args, to_label=False):
     
     """
 
-    
     image = mmcv.imread(image_path, channel_order='rgb')
     # image = mmcv.bgr2gray(image)
 
@@ -156,7 +151,6 @@ def main():
     mkdir_or_exist(osp.join(out_dir, 'ann_dir', 'train'))
     mkdir_or_exist(osp.join(out_dir, 'ann_dir', 'val'))
 
-
     src_path_list = glob.glob(os.path.join(args.dataset_img_path, '*.tif'))  
     print(f'Find {len(src_path_list)} pictures')
 
@@ -173,7 +167,6 @@ def main():
         prog_bar.update()
                       
     print('Done!')
-
 
 if __name__ == '__main__':
     main()

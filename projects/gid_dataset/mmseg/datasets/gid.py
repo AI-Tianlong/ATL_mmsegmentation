@@ -1,10 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from mmseg.datasets.basesegdataset import BaseSegDataset
-
 from mmseg.registry import DATASETS
 
-
-@DATASETS.register_module()       # 注册数据集类
+# 注册数据集类
+@DATASETS.register_module()       
 class GID_Dataset(BaseSegDataset):
     """Gaofen Image Dataset (GID)
 
@@ -54,5 +53,4 @@ class GID_Dataset(BaseSegDataset):
             seg_map_suffix=seg_map_suffix, 
             reduce_zero_label=reduce_zero_label,
             **kwargs)
-
-
+        
