@@ -9,6 +9,13 @@ import mmcv
 import numpy as np
 from mmengine.utils import ProgressBar, mkdir_or_exist
 
+"""Command:
+python projects/gid_dataset/tools/dataset_converters/gid.py \
+/home/xiaopengyou1/AITianlong/Datasets/GID/15/images \
+/home/xiaopengyou1/AITianlong/Datasets/GID/15/labels
+"""
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description='Convert GID dataset to mmsegmentation format')
@@ -170,6 +177,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    """
-    python projects/gid_dataset/tools/dataset_converters/gid.py D:/ATL/AI_work/Datasets/GID/GID/15/images D:/ATL/AI_work/Datasets/GID/GID/15/labels 
-    """
