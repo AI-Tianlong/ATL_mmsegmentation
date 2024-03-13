@@ -1,13 +1,14 @@
 _base_ = [
-    '../_base_/models/upernet_beit.py', '../_base_/datasets/ade20k_640x640.py',
+    '../_base_/models/upernet_beit.py', '../_base_/datasets/potsdam.py',
     '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
 ]
-crop_size = (640, 640)
+crop_size = (512, 512)
 data_preprocessor = dict(size=crop_size)
 model = dict(
     data_preprocessor=data_preprocessor,
-    pretrained='pretrain/beit_base_patch16_224_pt22k_ft22k.pth',
-    test_cfg=dict(mode='slide', crop_size=(640, 640), stride=(426, 426)))
+    pretrained=
+    '/opt/AI-Tianlong/openmmlab/mmsegmentation/checkpoints/beitv2_large_patch16_224_pt1k_ft21k.pth',
+    test_cfg=dict(mode='slide', crop_size=(512, 512), stride=(341, 341)))
 
 optim_wrapper = dict(
     _delete_=True,

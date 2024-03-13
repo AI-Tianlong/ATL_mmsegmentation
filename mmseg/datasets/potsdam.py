@@ -15,10 +15,11 @@ class PotsdamDataset(BaseSegDataset):
         classes=('impervious_surface', 'building', 'low_vegetation', 'tree',
                  'car', 'clutter'),
         palette=[[255, 255, 255], [0, 0, 255], [0, 255, 255], [0, 255, 0],
-                 [255, 255, 0], [255, 0, 0]])
+                 [255, 255, 0], [255, 0, 0]]
+        )
 
     def __init__(self,
-                 img_suffix='.png',
+                 img_suffix='.tif',
                  seg_map_suffix='.png',
                  reduce_zero_label=True,
                  **kwargs) -> None:

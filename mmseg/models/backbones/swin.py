@@ -662,6 +662,7 @@ class SwinTransformer(BaseModule):
                 param.requires_grad = False
 
     def init_weights(self):
+        print(f"进入到swin的init_weights")
         if self.init_cfg is None:
             print_log(f'No pre-trained weights for '
                       f'{self.__class__.__name__}, '

@@ -1,0 +1,7 @@
+[[    nan     nan     nan ...     nan     nan     nan]
+ [    nan     nan     nan ...     nan     nan     nan]
+ [    nan     nan     nan ...     nan     nan     nan]
+ ...
+ [    nan     nan     nan ... 0.0679  0.0691  0.0694 ]
+ [    nan     nan     nan ... 0.06795 0.0676  0.07085]
+ [    nan     nan     nan ... 0.06875 0.0688  0.071  ]]

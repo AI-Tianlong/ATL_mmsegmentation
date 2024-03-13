@@ -34,8 +34,15 @@ class RSImage:
         self.width = self.dataset.RasterXSize
         self.height = self.dataset.RasterYSize
         self.channel = self.dataset.RasterCount
+
+        print(f"图像的尺寸: {self.height, self.width, self.channel}")
+
         self.trans = self.dataset.GetGeoTransform()
         self.proj = self.dataset.GetProjection()
+        
+        print(f"self.trans: {self.trans}")
+        print(f"self.proj: {self.proj}")
+
         self.band_list = []
         self.band_list.extend(
             self.dataset.GetRasterBand(c + 1) for c in range(self.channel))

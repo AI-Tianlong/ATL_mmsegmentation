@@ -42,7 +42,7 @@ def main():
         thread=args.thread,
         device=args.device)
     image = RSImage(args.image)
-
+    print(f"=== 开始推理")
     inferencer.run(image, args.window_size, args.stride, args.output_path)
 
 

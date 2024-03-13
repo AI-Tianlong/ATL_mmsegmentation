@@ -535,16 +535,21 @@ class LoadSingleRSImageFromFile(BaseTransform):
         Returns:
             dict: The dict contains loaded image and meta information.
         """
-
+ 
         filename = results['img_path']
         ds = gdal.Open(filename)
         if ds is None:
             raise Exception(f'Unable to open file: {filename}')
         img = np.einsum('ijk->jki', ds.ReadAsArray())
 
+        # print("[atl-log-img]",img)
+        img = np.nan_to_num(img, nan=0)
+        # print("[atl-log-img]",img)
+        # img = img*10
+        
         if self.to_float32:
             img = img.astype(np.float32)
-
+    
         results['img'] = img
         results['img_shape'] = img.shape[:2]
         results['ori_shape'] = img.shape[:2]

@@ -76,14 +76,20 @@ def parse_args():
         '--keys',
         type=str,
         nargs='+',
+        # default=['mIoU','loss','lr'],
+        # default=['lr'],
         default=['mIoU'],
+        # default=['loss'],
         help='the metric that you want to plot')
     parser.add_argument('--title', type=str, help='title of figure')
     parser.add_argument(
         '--legend',
         type=str,
         nargs='+',
-        default=None,
+        # default=['mIoU','loss','lr'],
+        # default=['lr'],
+        default=['mIoU'],
+        # default=['loss'],
         help='legend of each plot')
     parser.add_argument(
         '--backend', type=str, default=None, help='backend of plt')

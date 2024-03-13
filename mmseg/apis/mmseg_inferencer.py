@@ -22,7 +22,7 @@ from mmseg.visualization import SegLocalVisualizer
 InputType = Union[str, np.ndarray]
 InputsType = Union[InputType, Sequence[InputType]]
 PredType = Union[SegDataSample, SampleList]
-
+from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 
 class MMSegInferencer(BaseInferencer):
     """Semantic segmentation inferencer, provides inference and visualization
@@ -356,7 +356,9 @@ class MMSegInferencer(BaseInferencer):
                 dataset = map(self.pipeline, dataset)
                 ...
         """
+        print("========================================")
         pipeline_cfg = cfg.test_dataloader.dataset.pipeline
+        print(pipeline_cfg)
         # Loading annotations is also not applicable
         for transform in ('LoadAnnotations', 'LoadDepthAnnotation'):
             idx = self._get_transform_idx(pipeline_cfg, transform)
@@ -364,19 +366,21 @@ class MMSegInferencer(BaseInferencer):
                 del pipeline_cfg[idx]
 
         load_img_idx = self._get_transform_idx(pipeline_cfg,
-                                               'LoadImageFromFile')
+                                               LoadSingleRSImageFromFile)
+        print()
         if load_img_idx == -1:
             raise ValueError(
                 'LoadImageFromFile is not found in the test pipeline')
         pipeline_cfg[load_img_idx]['type'] = 'InferencerLoader'
         return Compose(pipeline_cfg)
 
-    def _get_transform_idx(self, pipeline_cfg: ConfigType, name: str) -> int:
+    def _get_transform_idx(self, pipeline_cfg: ConfigType, name) -> int:
         """Returns the index of the transform in a pipeline.
 
         If the transform is not found, returns -1.
         """
         for i, transform in enumerate(pipeline_cfg):
+            print(transform['type'])
             if transform['type'] == name:
                 return i
         return -1

@@ -54,7 +54,7 @@ model = dict(
                         init_cfg=None),
                     ffn_cfg=dict(
                         embed_dims=256,
-                        feedforward_channels=1024,
+                        feedforward_channels=2048,
                         num_fcs=2,
                         ffn_drop=0.0,
                         act_cfg=dict(type='ReLU', inplace=True))),

@@ -159,5 +159,7 @@ class Mask2FormerHead(MMDET_Mask2FormerHead):
             mask_pred_results, size=size, mode='bilinear', align_corners=False)
         cls_score = F.softmax(mask_cls_results, dim=-1)[..., :-1]
         mask_pred = mask_pred_results.sigmoid()
-        seg_logits = torch.einsum('bqc, bqhw->bchw', cls_score, mask_pred)
+        seg_logits = torch.einsum('bqc, bqhw->bchw', cls_score,
+                                  mask_pred).contiguous()
+        # seg_logits = torch.einsum('bqc, bqhw->bchw', cls_score, mask_pred)
         return seg_logits

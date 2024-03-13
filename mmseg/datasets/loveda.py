@@ -18,8 +18,8 @@ class LoveDADataset(BaseSegDataset):
                  [159, 129, 183], [0, 255, 0], [255, 195, 128]])
 
     def __init__(self,
-                 img_suffix='.png',
-                 seg_map_suffix='.png',
+                 img_suffix='.tif',
+                 seg_map_suffix='.tif',
                  reduce_zero_label=True,
                  **kwargs) -> None:
         super().__init__(

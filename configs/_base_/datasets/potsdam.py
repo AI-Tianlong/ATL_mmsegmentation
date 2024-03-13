@@ -4,7 +4,7 @@ data_root = 'data/potsdam'
 crop_size = (512, 512)
 train_pipeline = [
     dict(type='LoadImageFromFile'),
-    dict(type='LoadAnnotations', reduce_zero_label=True),
+    dict(type='LoadAnnotations', reduce_zero_label=False),
     dict(
         type='RandomResize',
         scale=(512, 512),
@@ -41,7 +41,7 @@ tta_pipeline = [
 ]
 train_dataloader = dict(
     batch_size=4,
-    num_workers=4,
+    num_workers=12,
     persistent_workers=True,
     sampler=dict(type='InfiniteSampler', shuffle=True),
     dataset=dict(
@@ -52,7 +52,7 @@ train_dataloader = dict(
         pipeline=train_pipeline))
 val_dataloader = dict(
     batch_size=1,
-    num_workers=4,
+    num_workers=12,
     persistent_workers=True,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(

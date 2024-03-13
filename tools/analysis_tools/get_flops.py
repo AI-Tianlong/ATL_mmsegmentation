@@ -28,7 +28,7 @@ def parse_args():
         '--shape',
         type=int,
         nargs='+',
-        default=[2048, 1024],
+        default=None,
         help='input image size')
     parser.add_argument(
         '--cfg-options',
@@ -86,7 +86,7 @@ def inference(args: argparse.Namespace, logger: MMLogger) -> dict:
                                   'supported yet.')
     outputs = get_model_complexity_info(
         model,
-        input_shape,
+        # input_shape, #注释掉这里
         inputs=data['inputs'],
         show_table=False,
         show_arch=False)
