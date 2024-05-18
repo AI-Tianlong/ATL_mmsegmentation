@@ -14,13 +14,13 @@ from mmseg.models.backbones import BEiTAdapter
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
 with read_base():
-    from .._base_.models.mask2former_beit_potsdam import *
     from .._base_.datasets.loveda import *
     from .._base_.default_runtime import *
+    from .._base_.models.mask2former_beit_potsdam import *
     from .._base_.schedules.schedule_80k import *
 
 # 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
-    
+
 num_classes = 7  # loss 要用，也要加
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
@@ -31,20 +31,18 @@ For debugging consider passing CUDA_LAUNCH_BLOCKING=1.
 Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
 """
 
-
 crop_size = (512, 512)
 # pretrained = 'https://conversationhub.blob.core.windows.net/beit-share-public/beit/beit_large_patch16_224_pt22k_ft22k.pth'
 pretrained = None
 data_preprocessor.update(
-    dict( 
-    type=SegDataPreProcessor,
-    mean=[123.675, 116.28, 103.53],
-    std=[58.395, 57.12, 57.375],
-    bgr_to_rgb=True,
-    pad_val=0,
-    seg_pad_val=255,
-    size=crop_size)
-    )
+    dict(
+        type=SegDataPreProcessor,
+        mean=[123.675, 116.28, 103.53],
+        std=[58.395, 57.12, 57.375],
+        bgr_to_rgb=True,
+        pad_val=0,
+        seg_pad_val=255,
+        size=crop_size))
 
 model.update(
     dict(
@@ -85,7 +83,7 @@ model.update(
                 loss_weight=2.0,
                 reduction='mean',
                 class_weight=[1.0] * num_classes + [0.1]),
-            ),
+        ),
         test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341))))
 
 # dataset config

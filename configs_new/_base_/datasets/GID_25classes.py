@@ -1,12 +1,12 @@
 from mmcv.transforms.loading import LoadImageFromFile
-from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmcv.transforms.processing import (RandomFlip, RandomResize, Resize,
                                         TestTimeAug)
 from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
 
 from mmseg.datasets.GID_25classes import GID25Dataset
 from mmseg.datasets.transforms.formatting import PackSegInputs
-from mmseg.datasets.transforms.loading import LoadAnnotations
+from mmseg.datasets.transforms.loading import (LoadAnnotations,
+                                               LoadSingleRSImageFromFile)
 from mmseg.datasets.transforms.transforms import (PhotoMetricDistortion,
                                                   RandomCrop)
 from mmseg.evaluation import IoUMetric
@@ -26,11 +26,11 @@ train_pipeline = [
         keep_ratio=True),
     dict(type=RandomCrop, crop_size=crop_size, cat_max_ratio=0.75),
     dict(type=RandomFlip, prob=0.5),
-    dict(type=PhotoMetricDistortion), # 多通道 不太能用这个
+    dict(type=PhotoMetricDistortion),  # 多通道 不太能用这个
     dict(type=PackSegInputs)
 ]
 
-val_pipeline = [#
+val_pipeline = [  #
     dict(type=LoadSingleRSImageFromFile),
     dict(type=Resize, scale=(512, 512), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
@@ -39,7 +39,7 @@ val_pipeline = [#
     dict(type=PackSegInputs)
 ]
 
-test_pipeline = [#
+test_pipeline = [  #
     dict(type=LoadSingleRSImageFromFile),
     # dict(type=Resize, scale=(512, 512), keep_ratio=True),
     # dict(type=Resize, scale=(6800, 7200), keep_ratio=True),
@@ -66,7 +66,7 @@ tta_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=2,
+    batch_size=4,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type=InfiniteSampler, shuffle=True),
@@ -74,7 +74,7 @@ train_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         data_prefix=dict(
-            img_path='img_dir/train', seg_map_path='ann_dir/train'),
+            img_path='all_data/img_dir', seg_map_path='all_data/ann_dir'),
         pipeline=train_pipeline))
 
 val_dataloader = dict(
@@ -85,7 +85,7 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
+        data_prefix=dict(img_path='all_data/img_dir', seg_map_path='all_data/ann_dir'),
         pipeline=val_pipeline))
 # 想用大图去推理
 test_dataloader = dict(
@@ -96,10 +96,16 @@ test_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=None,
-        data_prefix=dict(img_path='/opt/AI-Tianlong/Datasets/GID_25classes/big_inference', 
-                         seg_map_path='/opt/AI-Tianlong/Datasets/GID_25classes/big_inference'),
+        data_prefix=dict(
+            img_path='/opt/AI-Tianlong/Datasets/GID_25classes/Google_4m/Google图源_4326_3通道',
+            seg_map_path=None,
+        ),
         pipeline=test_pipeline))
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
-test_evaluator = dict(type=IoUMetric, iou_metrics=['mIoU', 'mFscore'],format_only=True,keep_results=True)
+test_evaluator = dict(
+    type=IoUMetric,
+    iou_metrics=['mIoU', 'mFscore'],
+    format_only=True,
+    keep_results=True)

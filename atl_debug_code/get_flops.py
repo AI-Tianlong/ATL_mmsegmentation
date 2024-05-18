@@ -1,13 +1,12 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import argparse
 import tempfile
-from pathlib import Path
 from functools import partial
+from pathlib import Path
 
-import torch
 import numpy as np
-from mmengine import Config, DictAction
-from mmengine import MMLogger
+import torch
+from mmengine import Config, DictAction, MMLogger
 from mmengine.model import revert_sync_batchnorm
 from mmengine.registry import init_default_scope
 from mmengine.runner import Runner

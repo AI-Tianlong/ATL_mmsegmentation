@@ -11,10 +11,8 @@ class ATL2024Bisai(BaseSegDataset):
     ``reduce_zero_label`` should be set to True. The ``img_suffix`` and
     ``seg_map_suffix`` are both fixed to '.png'.
     """
-    METAINFO = dict(  
-        classes=("Not Water", "Water"),
-        palette=[[0,0,0], [0, 0, 255]]
-                 )
+    METAINFO = dict(
+        classes=('Not Water', 'Water'), palette=[[0, 0, 0], [0, 0, 255]])
 
     def __init__(self,
                  img_suffix='.png',
@@ -26,4 +24,3 @@ class ATL2024Bisai(BaseSegDataset):
             seg_map_suffix=seg_map_suffix,
             reduce_zero_label=reduce_zero_label,
             **kwargs)
-        

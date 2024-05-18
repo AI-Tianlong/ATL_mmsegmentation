@@ -1,18 +1,17 @@
 from mmcv.transforms.loading import LoadImageFromFile
-from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmcv.transforms.processing import (RandomFlip, RandomResize, Resize,
                                         TestTimeAug)
 from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
 
+from mmseg.datasets.GID_25classes import GID25Dataset
+from mmseg.datasets.loveda import LoveDADataset
+from mmseg.datasets.potsdam import PotsdamDataset
 from mmseg.datasets.transforms.formatting import PackSegInputs
-from mmseg.datasets.transforms.loading import LoadAnnotations
+from mmseg.datasets.transforms.loading import (LoadAnnotations,
+                                               LoadSingleRSImageFromFile)
 from mmseg.datasets.transforms.transforms import (PhotoMetricDistortion,
                                                   RandomCrop)
 from mmseg.evaluation import IoUMetric
-
-from mmseg.datasets.GID_25classes import GID25Dataset
-from mmseg.datasets.potsdam import PotsdamDataset
-from mmseg.datasets.loveda import LoveDADataset
 
 # dataset settings
 dataset_type = LoveDADataset
@@ -29,11 +28,11 @@ train_pipeline = [
         keep_ratio=True),
     dict(type=RandomCrop, crop_size=crop_size, cat_max_ratio=0.75),
     dict(type=RandomFlip, prob=0.5),
-    dict(type=PhotoMetricDistortion), # 多通道 不太能用这个
+    dict(type=PhotoMetricDistortion),  # 多通道 不太能用这个
     dict(type=PackSegInputs)
 ]
 
-val_pipeline = [#
+val_pipeline = [  #
     dict(type=LoadSingleRSImageFromFile),
     dict(type=Resize, scale=(512, 512), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
@@ -42,7 +41,7 @@ val_pipeline = [#
     dict(type=PackSegInputs)
 ]
 
-test_pipeline = [#
+test_pipeline = [  #
     dict(type=LoadSingleRSImageFromFile),
     # dict(type=Resize, scale=(512, 512), keep_ratio=True),
     # dict(type=Resize, scale=(6800, 7200), keep_ratio=True),
@@ -99,10 +98,15 @@ test_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=None,
-        data_prefix=dict(img_path='/opt/AI-Tianlong/Datasets/ATL_DATASETS/Harbin/南岗区', 
-                         seg_map_path='/opt/AI-Tianlong/Datasets/ATL_DATASETS/Harbin/南岗区'),
+        data_prefix=dict(
+            img_path='/opt/AI-Tianlong/Datasets/ATL_DATASETS/Harbin/南岗区',
+            seg_map_path='/opt/AI-Tianlong/Datasets/ATL_DATASETS/Harbin/南岗区'),
         pipeline=test_pipeline))
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
-test_evaluator = dict(type=IoUMetric, iou_metrics=['mIoU', 'mFscore'],format_only=True,keep_results=True)
+test_evaluator = dict(
+    type=IoUMetric,
+    iou_metrics=['mIoU', 'mFscore'],
+    format_only=True,
+    keep_results=True)

@@ -21,17 +21,17 @@ def main():
     parser.add_argument(
         '--window-size',
         help='window xsize,ysize',
-        default=(224, 224),
+        default=(512, 512),
         type=int,
         nargs=2)
     parser.add_argument(
         '--stride',
         help='window xstride,ystride',
-        default=(224, 224),
+        default=(341, 341),
         type=int,
         nargs=2)
     parser.add_argument(
-        '--thread', default=1, type=int, help='number of inference threads')
+        '--thread', default=8, type=int, help='number of inference threads')
     parser.add_argument(
         '--device', default='cuda:0', help='Device used for inference')
     args = parser.parse_args()
@@ -42,7 +42,7 @@ def main():
         thread=args.thread,
         device=args.device)
     image = RSImage(args.image)
-    print(f"=== 开始推理")
+    print(f'=== 开始推理')
     inferencer.run(image, args.window_size, args.stride, args.output_path)
 
 

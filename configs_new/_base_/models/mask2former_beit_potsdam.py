@@ -4,7 +4,6 @@ from mmdet.models.layers import Mask2FormerTransformerDecoder
 from mmdet.models.layers.msdeformattn_pixel_decoder import \
     MSDeformAttnPixelDecoder
 from mmdet.models.layers.positional_encoding import SinePositionalEncoding
-
 from mmdet.models.layers.transformer.detr_layers import (
     DetrTransformerDecoder, DetrTransformerDecoderLayer,
     DetrTransformerEncoder, DetrTransformerEncoderLayer)
@@ -25,7 +24,6 @@ from mmseg.models.data_preprocessor import SegDataPreProcessor
 from mmseg.models.decode_heads.mask2former_head import Mask2FormerHead
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
-
 num_classes = 6  # loss 要用，也要加
 
 norm_cfg = dict(type=SyncBN, requires_grad=True)
@@ -42,15 +40,11 @@ model = dict(
     type=EncoderDecoder,
     pretrained=None,
     data_preprocessor=data_preprocessor,
-    backbone=dict(
-        type=BEiT,
-
-    ),
+    backbone=dict(type=BEiT, ),
     decode_head=dict(
         type=Mask2FormerHead,  # 千万别自己实现，全是坑
         in_channels=[1024, 1024, 1024,
                      1024],  # BEiT-Adapter [1024,1024,1024,1024]
-
         in_index=[0, 1, 2, 3],
         feat_channels=256,
         out_channels=256,

@@ -1,6 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import logging
 import math
+# from mmcv.ops.multi_scale_deform_attn \
+#     import MultiScaleDeformableAttention as MSDeformAttn
+import pdb
 import warnings
 from functools import partial
 
@@ -12,27 +15,264 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint as cp
+from mmengine.logging import print_log
 from mmengine.model import BaseModule, ModuleList
 from mmengine.model.weight_init import (constant_init, kaiming_init,
                                         trunc_normal_)
 from mmengine.runner import Runner, load_checkpoint
+from mmengine.runner.checkpoint import (_load_checkpoint,
+                                        _load_checkpoint_with_prefix)
 from PIL import Image
+from scipy import interpolate
 from timm.models.layers import DropPath, drop_path, to_2tuple, trunc_normal_
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.cuda.amp import custom_bwd, custom_fwd
 from torch.nn.init import constant_, normal_, xavier_uniform_
+from torch.nn.modules.batchnorm import _BatchNorm
 
 from mmseg.registry import MODELS
-from torch.nn.modules.batchnorm import _BatchNorm
-from mmengine.runner.checkpoint import _load_checkpoint, _load_checkpoint_with_prefix
-from mmengine.logging import print_log
-from scipy import interpolate
 
+import mmcv 
 
-# from mmcv.ops.multi_scale_deform_attn \
-#     import MultiScaleDeformableAttention as MSDeformAttn
-import pdb
+# 在做多尺度的时候，需要对输入的特征图进行插值，这里是插值的函数
+class SETR_Resize(object):
+    """Resize images & seg.
+
+    This transform resizes the input image to some scale. If the input dict
+    contains the key "scale", then the scale in the input dict is used,
+    otherwise the specified scale in the init method is used.
+
+    ``img_scale`` can either be a tuple (single-scale) or a list of tuple
+    (multi-scale). There are 3 multiscale modes:
+
+    - ``ratio_range is not None``: randomly sample a ratio from the ratio range
+    and multiply it with the image scale.
+
+    - ``ratio_range is None and multiscale_mode == "range"``: randomly sample a
+    scale from the a range.
+
+    - ``ratio_range is None and multiscale_mode == "value"``: randomly sample a
+    scale from multiple scales.
+
+    Args:
+        img_scale (tuple or list[tuple]): Images scales for resizing.
+        multiscale_mode (str): Either "range" or "value".
+        ratio_range (tuple[float]): (min_ratio, max_ratio)
+        keep_ratio (bool): Whether to keep the aspect ratio when resizing the
+            image.
+    """
+    def __init__(self,
+                 img_scale=None,
+                 multiscale_mode='range',
+                 ratio_range=None,
+                 keep_ratio=True,
+                 crop_size=None,
+                 setr_multi_scale=False):
+        print(f"【ATL-LOG】===> 进入SETR_RESIZE")
+        if img_scale is None:
+            self.img_scale = None
+        else:
+            if isinstance(img_scale, list):
+                self.img_scale = img_scale
+            else:
+                self.img_scale = [img_scale]
+            # assert mmcv.is_list_of(self.img_scale, tuple)
+
+        if ratio_range is not None:
+            # mode 1: given a scale and a range of image ratio
+            assert len(self.img_scale) == 1
+        else:
+            # mode 2: given multiple scales or a range of scales
+            assert multiscale_mode in ['value', 'range']
+
+        self.multiscale_mode = multiscale_mode
+        self.ratio_range = ratio_range
+        self.keep_ratio = keep_ratio
+        self.crop_size = crop_size
+        self.setr_multi_scale = setr_multi_scale
+
+    @staticmethod
+    def random_select(img_scales):
+        """Randomly select an img_scale from given candidates.
+
+        Args:
+            img_scales (list[tuple]): Images scales for selection.
+
+        Returns:
+            (tuple, int): Returns a tuple ``(img_scale, scale_dix)``,
+                where ``img_scale`` is the selected image scale and
+                ``scale_idx`` is the selected index in the given candidates.
+        """
+
+        assert mmcv.is_list_of(img_scales, tuple)
+        scale_idx = np.random.randint(len(img_scales))
+        img_scale = img_scales[scale_idx]
+        return img_scale, scale_idx
+
+    @staticmethod
+    def random_sample(img_scales):
+        """Randomly sample an img_scale when ``multiscale_mode=='range'``.
+
+        Args:
+            img_scales (list[tuple]): Images scale range for sampling.
+                There must be two tuples in img_scales, which specify the lower
+                and uper bound of image scales.
+
+        Returns:
+            (tuple, None): Returns a tuple ``(img_scale, None)``, where
+                ``img_scale`` is sampled scale and None is just a placeholder
+                to be consistent with :func:`random_select`.
+        """
+        
+        assert mmcv.is_list_of(img_scales, tuple) and len(img_scales) == 2
+        img_scale_long = [max(s) for s in img_scales]
+        img_scale_short = [min(s) for s in img_scales]
+        long_edge = np.random.randint(
+            min(img_scale_long),
+            max(img_scale_long) + 1)
+        short_edge = np.random.randint(
+            min(img_scale_short),
+            max(img_scale_short) + 1)
+        img_scale = (long_edge, short_edge)
+        return img_scale, None
+    
+    @staticmethod
+    def random_sample_ratio(img_scale, ratio_range):
+        """Randomly sample an img_scale when ``ratio_range`` is specified.
+
+        A ratio will be randomly sampled from the range specified by
+        ``ratio_range``. Then it would be multiplied with ``img_scale`` to
+        generate sampled scale.
+
+        Args:
+            img_scale (tuple): Images scale base to multiply with ratio.
+            ratio_range (tuple[float]): The minimum and maximum ratio to scale
+                the ``img_scale``.
+
+        Returns:
+            (tuple, None): Returns a tuple ``(scale, None)``, where
+                ``scale`` is sampled ratio multiplied with ``img_scale`` and
+                None is just a placeholder to be consistent with
+                :func:`random_select`.
+        """
+
+        assert isinstance(img_scale, tuple) and len(img_scale) == 2
+        min_ratio, max_ratio = ratio_range
+        assert min_ratio <= max_ratio
+        ratio = np.random.random_sample() * (max_ratio - min_ratio) + min_ratio
+        scale = int(img_scale[0] * ratio), int(img_scale[1] * ratio)
+        return scale, None
+
+    def _random_scale(self, results):
+        """Randomly sample an img_scale according to ``ratio_range`` and
+        ``multiscale_mode``.
+
+        If ``ratio_range`` is specified, a ratio will be sampled and be
+        multiplied with ``img_scale``.
+        If multiple scales are specified by ``img_scale``, a scale will be
+        sampled according to ``multiscale_mode``.
+        Otherwise, single scale will be used.
+
+        Args:
+            results (dict): Result dict from :obj:`dataset`.
+
+        Returns:
+            dict: Two new keys 'scale` and 'scale_idx` are added into
+                ``results``, which would be used by subsequent pipelines.
+        """
+
+        if self.ratio_range is not None:
+            scale, scale_idx = self.random_sample_ratio(
+                self.img_scale[0], self.ratio_range)
+        elif len(self.img_scale) == 1:
+            scale, scale_idx = self.img_scale[0], 0
+        elif self.multiscale_mode == 'range':
+            scale, scale_idx = self.random_sample(self.img_scale)
+        elif self.multiscale_mode == 'value':
+            scale, scale_idx = self.random_select(self.img_scale)
+        else:
+            raise NotImplementedError
+
+        results['scale'] = scale
+        results['scale_idx'] = scale_idx
+
+    def _resize_img(self, results):
+        """Resize images with ``results['scale']``."""
+
+        if self.keep_ratio:
+            if self.setr_multi_scale:
+                if min(results['scale']) < self.crop_size[0]:
+                    new_short = self.crop_size[0]
+                else:
+                    new_short = min(results['scale'])
+
+                h, w = results['img'].shape[:2]
+                if h > w:
+                    new_h, new_w = new_short * h / w, new_short
+                else:
+                    new_h, new_w = new_short, new_short * w / h
+                results['scale'] = (new_h, new_w)
+
+            img, scale_factor = mmcv.imrescale(results['img'],
+                                               results['scale'],
+                                               return_scale=True)
+            # the w_scale and h_scale has minor difference
+            # a real fix should be done in the mmcv.imrescale in the future
+            new_h, new_w = img.shape[:2]
+            h, w = results['img'].shape[:2]
+            w_scale = new_w / w
+            h_scale = new_h / h
+        else:
+            img, w_scale, h_scale = mmcv.imresize(results['img'],
+                                                  results['scale'],
+                                                  return_scale=True)
+        scale_factor = np.array([w_scale, h_scale, w_scale, h_scale],
+                                dtype=np.float32)
+        results['img'] = img
+        results['img_shape'] = img.shape
+        results['pad_shape'] = img.shape  # in case that there is no padding
+        results['scale_factor'] = scale_factor
+        results['keep_ratio'] = self.keep_ratio
+
+    def _resize_seg(self, results):
+        """Resize semantic segmentation map with ``results['scale']``."""
+        for key in results.get('seg_fields', []):
+            if self.keep_ratio:
+                gt_seg = mmcv.imrescale(results[key],
+                                        results['scale'],
+                                        interpolation='nearest')
+            else:
+                gt_seg = mmcv.imresize(results[key],
+                                       results['scale'],
+                                       interpolation='nearest')
+            results['gt_semantic_seg'] = gt_seg
+
+    def __call__(self, results):
+        """Call function to resize images, bounding boxes, masks, semantic
+        segmentation map.
+
+        Args:
+            results (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Resized results, 'img_shape', 'pad_shape', 'scale_factor',
+                'keep_ratio' keys are added into result dict.
+        """
+
+        if 'scale' not in results:
+            self._random_scale(results)
+        self._resize_img(results)
+        self._resize_seg(results)
+        return results
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += (f'(img_scale={self.img_scale}, '
+                     f'multiscale_mode={self.multiscale_mode}, '
+                     f'ratio_range={self.ratio_range}, '
+                     f'keep_ratio={self.keep_ratio})')
+        return repr_str
 
 class MSDeformAttnFunction(Function):
 
@@ -577,31 +817,32 @@ class RelativePositionBias(nn.Module):
 class BEiT_ATL(BaseModule):
     """Vision Transformer with support for patch or hybrid CNN input stage."""
 
-    def __init__(self,
-                 img_size=512,  # ✔  img_size
-                 patch_size=16,  # ✔  patch_size
-                 in_channels=10,  # ✔ in_channels
-                 num_classes=80,  # x
-                 embed_dim=768,  # ✔ embed_dims
-                 depth=12,  # ✔ num_layers
-                 num_heads=12,  # ✔ num_heads
-                 mlp_ratio=4.,  # ✔ mlp_ratio
-                 qkv_bias=False,  # ✔ qv_bias=True,
-                 qk_scale=None,
-                 drop_rate=0.,
-                 attn_drop_rate=0.,  # ✔ attn_drop_rate
-                 drop_path_rate=0.,  # ✔ drop_path_rate
-                 hybrid_backbone=None,
-                 norm_layer=None,
-                 init_values=None,  # ✔ init_values=0.1,
-                 use_checkpoint=False,
-                 use_abs_pos_emb=False,
-                 use_rel_pos_bias=True,
-                 use_shared_rel_pos_bias=False,
-                 pretrained=None,  # ✔ pretrained
-                 with_cp=False,
-                 init_cfg=None):
-        
+    def __init__(
+            self,
+            img_size=512,  # ✔  img_size     
+            patch_size=16,  # ✔  patch_size
+            in_channels=10,  # ✔ in_channels
+            num_classes=80,  # x
+            embed_dim=768,  # ✔ embed_dims
+            depth=12,  # ✔ num_layers
+            num_heads=12,  # ✔ num_heads
+            mlp_ratio=4.,  # ✔ mlp_ratio
+            qkv_bias=False,  # ✔ qv_bias=True,
+            qk_scale=None,
+            drop_rate=0.,
+            attn_drop_rate=0.,  # ✔ attn_drop_rate
+            drop_path_rate=0.,  # ✔ drop_path_rate
+            hybrid_backbone=None,
+            norm_layer=None,
+            init_values=None,  # ✔ init_values=0.1,
+            use_checkpoint=False,
+            use_abs_pos_emb=False,
+            use_rel_pos_bias=True,
+            use_shared_rel_pos_bias=False,
+            pretrained=None,  # ✔ pretrained
+            with_cp=False,
+            init_cfg=None):
+
         # BEiTAdapter的init_cfg ---> BEiT_ATL的init_cfg ---> BaseModule的init_cfg
         super().__init__(init_cfg=init_cfg)
 
@@ -673,8 +914,8 @@ class BEiT_ATL(BaseModule):
         trunc_normal_(self.cls_token, std=.02)
         self.apply(self._init_weights)
 
-
 # 结合beit(mmseg 1.x) 和 vit-adapter mmcv_custom的代码
+
     def resize_rel_pos_embed(self, checkpoint):
         """Resize relative pos_embed weights.
 
@@ -690,22 +931,21 @@ class BEiT_ATL(BaseModule):
         """
         if 'state_dict' in checkpoint:
             state_dict = checkpoint['state_dict']
-            print_log(f"【ATL-log】checkpoint 中的keys: {checkpoint.keys()}")
-            print_log(f"【ATL-log】state_dict 中的keys: {state_dict.keys()}")
+            print_log(f'【ATL-log】checkpoint 中的keys: {checkpoint.keys()}')
+            print_log(f'【ATL-log】state_dict 中的keys: {state_dict.keys()}')
             print_log(f"【ATL-log】已正常从 checkpoint['state_dict'] 导入权重")
-            
 
         elif 'module' in checkpoint:
             state_dict = checkpoint['module']
-            print_log(f"【ATL-log】checkpoint 中的keys: {checkpoint.keys()}")
-            print_log(f"【ATL-log】state_dict 中的keys: {state_dict.keys()}")
+            print_log(f'【ATL-log】checkpoint 中的keys: {checkpoint.keys()}')
+            print_log(f'【ATL-log】state_dict 中的keys: {state_dict.keys()}')
             print_log(f"【ATL-log】已正常从 checkpoint['module'] 导入权重")
 
         else:
             state_dict = checkpoint
-            print_log(f"【ATL-log】checkpoint 中的keys: {checkpoint.keys()}")
-            print_log(f"【ATL-log】state_dict 中的keys: {state_dict.keys()}")
-            print_log(f"【ATL-log】已正常从 checkpoint 导入权重")
+            print_log(f'【ATL-log】checkpoint 中的keys: {checkpoint.keys()}')
+            print_log(f'【ATL-log】state_dict 中的keys: {state_dict.keys()}')
+            print_log(f'【ATL-log】已正常从 checkpoint 导入权重')
 
         if list(state_dict.keys())[0].startswith('module.'):
             state_dict = {k[7:]: v for k, v in state_dict.items()}
@@ -733,10 +973,10 @@ class BEiT_ATL(BaseModule):
                 if src_size != dst_size:
                     extra_tokens = rel_pos_bias[-num_extra_tokens:, :]
                     rel_pos_bias = rel_pos_bias[:-num_extra_tokens, :]
-                
+
                     def geometric_progression(a, r, n):
                         return a * (1.0 - r**n) / (1.0 - r)
-                    
+
                     left, right = 1.01, 1.5
                     while right - left > 1e-6:
                         q = (left + right) / 2.0
@@ -748,7 +988,7 @@ class BEiT_ATL(BaseModule):
 
                     # if q > 1.13492:
                     #     q = 1.13492
-                            
+
                     dis = []
                     cur = 1
                     for i in range(src_size // 2):
@@ -756,7 +996,7 @@ class BEiT_ATL(BaseModule):
                         cur += q**(i + 1)
 
                     r_ids = [-_ for _ in reversed(dis)]
-                    
+
                     x = r_ids + [0] + dis
                     y = r_ids + [0] + dis
                     t = dst_size // 2.0
@@ -765,20 +1005,18 @@ class BEiT_ATL(BaseModule):
 
                     all_rel_pos_bias = []
 
-                        
                     for i in range(num_attn_heads):
                         z = rel_pos_bias[:, i].view(src_size,
                                                     src_size).float().numpy()
                         f = interpolate.interp2d(x, y, z, kind='cubic')
                         all_rel_pos_bias.append(
-                            torch.Tensor(f(dx, dy)).contiguous().view(-1, 1).to(
-                                rel_pos_bias.device))
+                            torch.Tensor(f(dx, dy)).contiguous().view(
+                                -1, 1).to(rel_pos_bias.device))
 
                     rel_pos_bias = torch.cat(all_rel_pos_bias, dim=-1)
                     new_rel_pos_bias = torch.cat((rel_pos_bias, extra_tokens),
-                                                dim=0)
+                                                 dim=0)
                     state_dict[key] = new_rel_pos_bias
-  
 
         if 'pos_embed' in state_dict:
             pos_embed_checkpoint = state_dict['pos_embed']
@@ -789,7 +1027,7 @@ class BEiT_ATL(BaseModule):
                 (pos_embed_checkpoint.shape[-2] - num_extra_tokens)**0.5)
             # height (== width) for the new position embedding
             new_size = int(num_patches**0.5)
-        
+
             # class_token and dist_token are kept unchanged
             if orig_size != new_size:
                 extra_tokens = pos_embed_checkpoint[:, :num_extra_tokens]
@@ -798,27 +1036,29 @@ class BEiT_ATL(BaseModule):
                 pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size,
                                                 embedding_size).permute(
                                                     0, 3, 1, 2)
-                pos_tokens = torch.nn.functional.interpolate(pos_tokens,
-                                                            size=(new_size,
-                                                                new_size),
-                                                            mode='bicubic',
-                                                            align_corners=False)
+                pos_tokens = torch.nn.functional.interpolate(
+                    pos_tokens,
+                    size=(new_size, new_size),
+                    mode='bicubic',
+                    align_corners=False)
                 pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
                 new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
                 state_dict['pos_embed'] = new_pos_embed
 
         # interpolate position bias table if needed
         relative_position_bias_table_keys = [
-        k for k in state_dict.keys() if 'relative_position_bias_table' in k
-            ]
+            k for k in state_dict.keys() if 'relative_position_bias_table' in k
+        ]
         for table_key in relative_position_bias_table_keys:
             table_pretrained = state_dict[table_key]
             table_current = self.state_dict()[table_key]
             L1, nH1 = table_pretrained.size()
             L2, nH2 = table_current.size()
             if nH1 != nH2:
-                print_log(f'Error in loading {table_key}, pass',
-                    logger='current',level=logging.WARNING)
+                print_log(
+                    f'Error in loading {table_key}, pass',
+                    logger='current',
+                    level=logging.WARNING)
             else:
                 if L1 != L2:
                     S1 = int(L1**0.5)
@@ -829,10 +1069,8 @@ class BEiT_ATL(BaseModule):
                         mode='bicubic')
                     state_dict[table_key] = table_pretrained_resized.view(
                         nH2, L2).permute(1, 0)
-        
 
         return state_dict
- 
 
     def init_weights(self, pretrained=None):
         """Initialize the weights in backbone.
@@ -841,11 +1079,13 @@ class BEiT_ATL(BaseModule):
             pretrained (str, optional): Path to pre-trained weights.
                 Defaults to None.
         """
-        print_log(f"【ATL-log】---> 进入到BEiT_ATL的init_weights")
+        print_log(f'【ATL-log】---> 进入到BEiT_ATL的init_weights')
 
         if (isinstance(self.init_cfg, dict)
                 and self.init_cfg.get('type') == 'Pretrained'):
-            print_log(f"【ATL-log】---> 符合 init_cfg == dict,并且self.init_cfg.get('type') == 'Pretrained'")
+            print_log(
+                f"【ATL-log】---> 符合 init_cfg == dict,并且self.init_cfg.get('type') == 'Pretrained'"
+            )
             checkpoint = _load_checkpoint(
                 self.init_cfg['checkpoint'], logger=None, map_location='cpu')
             state_dict = self.resize_rel_pos_embed(checkpoint)
@@ -854,13 +1094,11 @@ class BEiT_ATL(BaseModule):
             # new_patch_weight = torch.randn(1024, 10, 16, 16)  # 用于替换的新参数，这里只改变通道数
             # state_dict['patch_embed.proj.weight'] = new_patch_weight
 
-            self.load_state_dict(state_dict, False)   
+            self.load_state_dict(state_dict, False)
 
         # 走了第一步，就不走这个了
         elif self.init_cfg is not None:
             super().init_weights()
-
-
 
     def fix_init_weight(self):
 
@@ -872,7 +1110,7 @@ class BEiT_ATL(BaseModule):
             rescale(layer.mlp.fc2.weight.data, layer_id + 1)
 
     def _init_weights(self, m):
-        print_log(f"【ATL-log】---> BEiT_ATL _init_weights权重已经被调用")
+        print_log(f'【ATL-log】---> BEiT_ATL _init_weights权重已经被调用')
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
@@ -1260,7 +1498,12 @@ class SpatialPriorModule(nn.Module):
 
         self.stem = nn.Sequential(*[
             nn.Conv2d(
-                in_chans, inplanes, kernel_size=3, stride=2, padding=1, bias=False),
+                in_chans,
+                inplanes,
+                kernel_size=3,
+                stride=2,
+                padding=1,
+                bias=False),
             nn.SyncBatchNorm(inplanes),
             nn.ReLU(inplace=True),
             nn.Conv2d(
@@ -1388,12 +1631,14 @@ class BEiTAdapter(BEiT_ATL):
                  *args,
                  **kwargs):
 
-        super().__init__(init_values=init_values, 
-                         with_cp=with_cp, 
-                         in_channels=in_channels,
-                         init_cfg = init_cfg,
-                         *args, **kwargs)
-        
+        super().__init__(
+            init_values=init_values,
+            with_cp=with_cp,
+            in_channels=in_channels,
+            init_cfg=init_cfg,
+            *args,
+            **kwargs)
+
         self.num_block = len(self.blocks)
         self.pretrain_size = (pretrain_size, pretrain_size)
         self.flags = [
@@ -1405,7 +1650,10 @@ class BEiTAdapter(BEiT_ATL):
 
         self.level_embed = nn.Parameter(torch.zeros(3, embed_dim))
         self.spm = SpatialPriorModule(
-            inplanes=conv_inplane, embed_dim=embed_dim, with_cp=False,in_chans=in_channels)
+            inplanes=conv_inplane,
+            embed_dim=embed_dim,
+            with_cp=False,
+            in_chans=in_channels)
         self.interactions = nn.Sequential(*[
             InteractionBlockWithCls(
                 dim=embed_dim,
@@ -1434,9 +1682,6 @@ class BEiTAdapter(BEiT_ATL):
         self.apply(self._init_deform_weights)
         normal_(self.level_embed)
 
-
-
-
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -1463,7 +1708,7 @@ class BEiTAdapter(BEiT_ATL):
     def _init_deform_weights(self, m):
         if isinstance(m, MSDeformAttn):
             m._reset_parameters()
-            
+
     def _add_level_embed(self, c2, c3, c4):
         c2 = c2 + self.level_embed[0]
         c3 = c3 + self.level_embed[1]
@@ -1471,6 +1716,7 @@ class BEiTAdapter(BEiT_ATL):
         return c2, c3, c4
 
     def forward(self, x):
+        # print(f'[ATL-LOG-BEiT-Adapter-forward] x.shape: {x.shape} x.dtype: {x.dtype} x.device: {x.device}')
 
         deform_inputs1, deform_inputs2 = deform_inputs(x.contiguous())
 
@@ -1502,6 +1748,7 @@ class BEiTAdapter(BEiT_ATL):
                               deform_inputs1, deform_inputs2, H, W)
 
             outs.append(x.transpose(1, 2).view(bs, dim, H, W).contiguous())
+            # outs.append(x.transpose(1, 2).contiguous().view(bs, dim, H, W)) ATL瞎改的
 
         # Split & Reshape
         c2 = c[:, 0:c2.size(1), :]
@@ -1529,7 +1776,7 @@ class BEiTAdapter(BEiT_ATL):
         f3 = self.norm3(c3)
         f4 = self.norm4(c4)
         return [f1, f2, f3, f4]
-    
+
     # def train(self, mode=True):
     #     super().train(mode)
     #     if mode and self.norm_eval:

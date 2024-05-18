@@ -68,9 +68,8 @@ model.update(
                 loss_weight=2.0,
                 reduction='mean',
                 class_weight=[1.0] * num_classes + [0.1]),
-            ),
-        test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)))
-        )
+        ),
+        test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341))))
 
 # dataset config
 train_pipeline = [

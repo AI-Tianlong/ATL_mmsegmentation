@@ -1,6 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import logging
 import math
+# from mmcv.ops.multi_scale_deform_attn \
+#     import MultiScaleDeformableAttention as MSDeformAttn
+import pdb
 import warnings
 from functools import partial
 
@@ -16,20 +19,18 @@ from mmengine.model import BaseModule, ModuleList
 from mmengine.model.weight_init import (constant_init, kaiming_init,
                                         trunc_normal_)
 from mmengine.runner import Runner, load_checkpoint
+from mmengine.runner.checkpoint import (_load_checkpoint,
+                                        _load_checkpoint_with_prefix)
 from PIL import Image
 from timm.models.layers import DropPath, drop_path, to_2tuple, trunc_normal_
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.cuda.amp import custom_bwd, custom_fwd
 from torch.nn.init import constant_, normal_, xavier_uniform_
+from torch.nn.modules.batchnorm import _BatchNorm
 
 from mmseg.registry import MODELS
-from torch.nn.modules.batchnorm import _BatchNorm
-from mmengine.runner.checkpoint import _load_checkpoint, _load_checkpoint_with_prefix
 
-# from mmcv.ops.multi_scale_deform_attn \
-#     import MultiScaleDeformableAttention as MSDeformAttn
-import pdb
 
 class MSDeformAttnFunction(Function):
 
@@ -679,9 +680,9 @@ class BEiT_ATL(BaseModule):
         # if self.pos_embed is not None:
         #     trunc_normal_(self.pos_embed, std=.02)
         trunc_normal_(self.cls_token, std=.02)
-        
+
         # self.init_weights(pretrained)
-   
+
     def init_weights(self, pretrained=None):
         """Initialize the weights in backbone.
 
@@ -689,8 +690,9 @@ class BEiT_ATL(BaseModule):
             pretrained (str, optional): Path to pre-trained weights.
                 Defaults to None.
         """
+
         def _init_weights(self, m):
-            
+
             if isinstance(m, nn.Linear):
                 trunc_normal_(m.weight, std=.02)
                 if isinstance(m, nn.Linear) and m.bias is not None:
@@ -698,11 +700,12 @@ class BEiT_ATL(BaseModule):
             elif isinstance(m, nn.LayerNorm):
                 nn.init.constant_(m.bias, 0)
                 nn.init.constant_(m.weight, 1.0)
+
         self.apply(_init_weights)
 
         # pretrained = 'checkpoints/beitv2_large_patch16_224_pt1k_ft21k.pth'
         if isinstance(pretrained, str):
-            print(f"---> BEiT_ATL中的init_weights已经被调用了！！！！")
+            print(f'---> BEiT_ATL中的init_weights已经被调用了！！！！')
             pdb.set_trace()
             checkpoint = _load_checkpoint(pretrained)
 
@@ -1103,7 +1106,12 @@ class SpatialPriorModule(nn.Module):
 
         self.stem = nn.Sequential(*[
             nn.Conv2d(
-                in_chans, inplanes, kernel_size=3, stride=2, padding=1, bias=False),
+                in_chans,
+                inplanes,
+                kernel_size=3,
+                stride=2,
+                padding=1,
+                bias=False),
             nn.SyncBatchNorm(inplanes),
             nn.ReLU(inplace=True),
             nn.Conv2d(
@@ -1232,8 +1240,12 @@ class BEiTAdapter(BEiT_ATL):
                  **kwargs):
 
         super().__init__(
-            init_values=init_values, with_cp=with_cp, in_channels=in_channels,*args, **kwargs)
-        
+            init_values=init_values,
+            with_cp=with_cp,
+            in_channels=in_channels,
+            *args,
+            **kwargs)
+
         self.num_block = len(self.blocks)
         self.pretrain_size = (pretrain_size, pretrain_size)
         self.flags = [
@@ -1245,7 +1257,10 @@ class BEiTAdapter(BEiT_ATL):
 
         self.level_embed = nn.Parameter(torch.zeros(3, embed_dim))
         self.spm = SpatialPriorModule(
-            inplanes=conv_inplane, embed_dim=embed_dim, with_cp=False,in_chans=in_channels)
+            inplanes=conv_inplane,
+            embed_dim=embed_dim,
+            with_cp=False,
+            in_chans=in_channels)
         self.interactions = nn.Sequential(*[
             InteractionBlockWithCls(
                 dim=embed_dim,
@@ -1274,9 +1289,6 @@ class BEiTAdapter(BEiT_ATL):
         self.apply(self._init_deform_weights)
         normal_(self.level_embed)
 
-
-
-
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -1303,7 +1315,7 @@ class BEiTAdapter(BEiT_ATL):
     def _init_deform_weights(self, m):
         if isinstance(m, MSDeformAttn):
             m._reset_parameters()
-            
+
     def _add_level_embed(self, c2, c3, c4):
         c2 = c2 + self.level_embed[0]
         c3 = c3 + self.level_embed[1]
@@ -1369,7 +1381,7 @@ class BEiTAdapter(BEiT_ATL):
         f3 = self.norm3(c3)
         f4 = self.norm4(c4)
         return [f1, f2, f3, f4]
-    
+
     # def train(self, mode=True):
     #     super().train(mode)
     #     if mode and self.norm_eval:

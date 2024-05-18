@@ -1,11 +1,14 @@
-from mmseg.datasets.transforms.loading import LoadAnnotations
 from mmcv.transforms.loading import LoadImageFromFile
-from mmcv.transforms.processing import RandomResize, RandomFlip, Resize, TestTimeAug
-from mmseg.datasets.transforms.transforms import RandomCrop, PhotoMetricDistortion
-from mmseg.datasets.transforms.formatting import PackSegInputs
-from mmengine.dataset.sampler import InfiniteSampler, DefaultSampler
-from mmseg.evaluation import IoUMetric
+from mmcv.transforms.processing import (RandomFlip, RandomResize, Resize,
+                                        TestTimeAug)
+from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
+
 from mmseg.datasets.loveda import LoveDADataset
+from mmseg.datasets.transforms.formatting import PackSegInputs
+from mmseg.datasets.transforms.loading import LoadAnnotations
+from mmseg.datasets.transforms.transforms import (PhotoMetricDistortion,
+                                                  RandomCrop)
+from mmseg.evaluation import IoUMetric
 
 # dataset settings
 dataset_type = LoveDADataset
@@ -40,12 +43,12 @@ tta_pipeline = [
         transforms=[[
             dict(type=Resize, scale_factor=r, keep_ratio=True)
             for r in img_ratios
-            ],
-            [
-                dict(type=RandomFlip, prob=0., direction='horizontal'),
-                dict(type=RandomFlip, prob=1., direction='horizontal')
-            ], [dict(type=LoadAnnotations)], 
-            [dict(type=PackSegInputs)]])
+        ],
+                    [
+                        dict(type=RandomFlip, prob=0., direction='horizontal'),
+                        dict(type=RandomFlip, prob=1., direction='horizontal')
+                    ], [dict(type=LoadAnnotations)],
+                    [dict(type=PackSegInputs)]])
 ]
 train_dataloader = dict(
     batch_size=2,

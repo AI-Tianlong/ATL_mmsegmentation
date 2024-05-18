@@ -1,19 +1,19 @@
 from mmcv.transforms.loading import LoadImageFromFile
-from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmcv.transforms.processing import (RandomFlip, RandomResize, Resize,
                                         TestTimeAug)
 from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
 
 from mmseg.datasets.atl_s2_five_billion import ATLS2FIveBillionDataset
 from mmseg.datasets.transforms.formatting import PackSegInputs
-from mmseg.datasets.transforms.loading import LoadAnnotations
+from mmseg.datasets.transforms.loading import (LoadAnnotations,
+                                               LoadSingleRSImageFromFile)
 from mmseg.datasets.transforms.transforms import (PhotoMetricDistortion,
                                                   RandomCrop)
 from mmseg.evaluation import IoUMetric
 
 # dataset settings
 dataset_type = ATLS2FIveBillionDataset
-data_root = 'data/atl_s2_five_billion/'
+data_root = 'data/atl_s2_5B_2024-4-11'
 
 crop_size = (512, 512)
 train_pipeline = [
@@ -30,7 +30,7 @@ train_pipeline = [
     dict(type=PackSegInputs)
 ]
 
-val_pipeline = [#
+val_pipeline = [  #
     dict(type=LoadSingleRSImageFromFile),
     dict(type=Resize, scale=(512, 512), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
@@ -39,7 +39,7 @@ val_pipeline = [#
     dict(type=PackSegInputs)
 ]
 
-test_pipeline = [#
+test_pipeline = [  #
     dict(type=LoadSingleRSImageFromFile),
     # dict(type=Resize, scale=(512, 512), keep_ratio=True),
     # dict(type=Resize, scale=(6800, 7200), keep_ratio=True),
@@ -74,7 +74,7 @@ train_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         data_prefix=dict(
-            img_path='img_dir/train', seg_map_path='ann_dir/train'),
+            img_path='img_dir/', seg_map_path='ann_dir/'),
         pipeline=train_pipeline))
 
 val_dataloader = dict(
@@ -85,22 +85,29 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
+        data_prefix=dict(img_path='img_dir/', seg_map_path='ann_dir/'),
         pipeline=val_pipeline))
 # 想用大图去推理
 test_dataloader = dict(
     batch_size=1,
-    num_workers=4,
+    num_workers=16,
     persistent_workers=True,
     sampler=dict(type=DefaultSampler, shuffle=False),
     dataset=dict(
         type=dataset_type,
         data_root=None,
-        data_prefix=dict(img_path='/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/5billion-S2/Big-image/images-origin', 
-                         seg_map_path='/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/5billion-S2/Big-image/0---mask_labels_with_name_location_10m'),
-        ann_file='/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/5billion-S2/Big-image/code/val_list.txt',
+        data_prefix=dict(
+            img_path=
+            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/ATL推理大图/双鸭山/要推理的images-矢量裁切-补全的',
+            # seg_map_path=''
+        ),
+        # ann_file='',
         pipeline=test_pipeline))
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
-test_evaluator = dict(type=IoUMetric, iou_metrics=['mIoU', 'mFscore'],format_only=True,keep_results=True)
+test_evaluator = dict(
+    type=IoUMetric,
+    iou_metrics=['mIoU', 'mFscore'],
+    format_only=True,
+    keep_results=True)

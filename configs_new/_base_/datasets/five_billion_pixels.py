@@ -1,12 +1,12 @@
 from mmcv.transforms.loading import LoadImageFromFile
-from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmcv.transforms.processing import (RandomFlip, RandomResize, Resize,
                                         TestTimeAug)
 from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
 
 from mmseg.datasets.five_billion_pixels import FiveBillionPixelsDataset
 from mmseg.datasets.transforms.formatting import PackSegInputs
-from mmseg.datasets.transforms.loading import LoadAnnotations
+from mmseg.datasets.transforms.loading import (LoadAnnotations,
+                                               LoadSingleRSImageFromFile)
 from mmseg.datasets.transforms.transforms import (PhotoMetricDistortion,
                                                   RandomCrop)
 from mmseg.evaluation import IoUMetric
@@ -28,7 +28,7 @@ train_pipeline = [
     # dict(type=PhotoMetricDistortion), # 多通道 不太能用这个
     dict(type=PackSegInputs)
 ]
-test_pipeline = [#
+test_pipeline = [  #
     dict(type=LoadSingleRSImageFromFile),
     dict(type=Resize, scale=(512, 512), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
@@ -72,7 +72,8 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        data_prefix=dict(img_path='img_8bit_NirRGB/val', seg_map_path='ann_dir/val'),
+        data_prefix=dict(
+            img_path='img_8bit_NirRGB/val', seg_map_path='ann_dir/val'),
         pipeline=test_pipeline))
 # 想用大图去推理
 # test_dataloader =  dict(

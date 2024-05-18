@@ -1,6 +1,9 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import logging
 import math
+# from mmcv.ops.multi_scale_deform_attn \
+#     import MultiScaleDeformableAttention as MSDeformAttn
+import pdb
 import warnings
 from functools import partial
 
@@ -12,27 +15,24 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint as cp
+from mmengine.logging import print_log
 from mmengine.model import BaseModule, ModuleList
 from mmengine.model.weight_init import (constant_init, kaiming_init,
                                         trunc_normal_)
 from mmengine.runner import Runner, load_checkpoint
+from mmengine.runner.checkpoint import (_load_checkpoint,
+                                        _load_checkpoint_with_prefix)
 from PIL import Image
+from scipy import interpolate
 from timm.models.layers import DropPath, drop_path, to_2tuple, trunc_normal_
 from torch.autograd import Function
 from torch.autograd.function import once_differentiable
 from torch.cuda.amp import custom_bwd, custom_fwd
 from torch.nn.init import constant_, normal_, xavier_uniform_
+from torch.nn.modules.batchnorm import _BatchNorm
 
 from mmseg.registry import MODELS
-from torch.nn.modules.batchnorm import _BatchNorm
-from mmengine.runner.checkpoint import _load_checkpoint, _load_checkpoint_with_prefix
-from mmengine.logging import print_log
-from scipy import interpolate
 
-
-# from mmcv.ops.multi_scale_deform_attn \
-#     import MultiScaleDeformableAttention as MSDeformAttn
-import pdb
 
 class MSDeformAttnFunction(Function):
 
@@ -577,31 +577,32 @@ class RelativePositionBias(nn.Module):
 class BEiT_ATL(BaseModule):
     """Vision Transformer with support for patch or hybrid CNN input stage."""
 
-    def __init__(self,
-                 img_size=512,  # ✔  img_size
-                 patch_size=16,  # ✔  patch_size
-                 in_channels=10,  # ✔ in_channels
-                 num_classes=80,  # x
-                 embed_dim=768,  # ✔ embed_dims
-                 depth=12,  # ✔ num_layers
-                 num_heads=12,  # ✔ num_heads
-                 mlp_ratio=4.,  # ✔ mlp_ratio
-                 qkv_bias=False,  # ✔ qv_bias=True,
-                 qk_scale=None,
-                 drop_rate=0.,
-                 attn_drop_rate=0.,  # ✔ attn_drop_rate
-                 drop_path_rate=0.,  # ✔ drop_path_rate
-                 hybrid_backbone=None,
-                 norm_layer=None,
-                 init_values=None,  # ✔ init_values=0.1,
-                 use_checkpoint=False,
-                 use_abs_pos_emb=False,
-                 use_rel_pos_bias=True,
-                 use_shared_rel_pos_bias=False,
-                 pretrained=None,  # ✔ pretrained
-                 with_cp=False,
-                 init_cfg=None):
-        
+    def __init__(
+            self,
+            img_size=512,  # ✔  img_size
+            patch_size=16,  # ✔  patch_size
+            in_channels=10,  # ✔ in_channels
+            num_classes=80,  # x
+            embed_dim=768,  # ✔ embed_dims
+            depth=12,  # ✔ num_layers
+            num_heads=12,  # ✔ num_heads
+            mlp_ratio=4.,  # ✔ mlp_ratio
+            qkv_bias=False,  # ✔ qv_bias=True,
+            qk_scale=None,
+            drop_rate=0.,
+            attn_drop_rate=0.,  # ✔ attn_drop_rate
+            drop_path_rate=0.,  # ✔ drop_path_rate
+            hybrid_backbone=None,
+            norm_layer=None,
+            init_values=None,  # ✔ init_values=0.1,
+            use_checkpoint=False,
+            use_abs_pos_emb=False,
+            use_rel_pos_bias=True,
+            use_shared_rel_pos_bias=False,
+            pretrained=None,  # ✔ pretrained
+            with_cp=False,
+            init_cfg=None):
+
         # BEiTAdapter的init_cfg ---> BEiT_ATL的init_cfg ---> BaseModule的init_cfg
         super().__init__(init_cfg=init_cfg)
 
@@ -673,8 +674,8 @@ class BEiT_ATL(BaseModule):
         trunc_normal_(self.cls_token, std=.02)
         self.apply(self._init_weights)
 
-
 # 结合beit(mmseg 1.x) 和 vit-adapter mmcv_custom的代码
+
     def resize_rel_pos_embed(self, checkpoint):
         """Resize relative pos_embed weights.
 
@@ -690,15 +691,14 @@ class BEiT_ATL(BaseModule):
         """
         if 'state_dict' in checkpoint:
             state_dict = checkpoint['state_dict']
-            print(f"checkpoint 中的keys: {checkpoint.keys()}")
-            print(f"state_dict 中的keys: {state_dict.keys()}")
+            print(f'checkpoint 中的keys: {checkpoint.keys()}')
+            print(f'state_dict 中的keys: {state_dict.keys()}')
             print(f"已正常从 checkpoint['state_dict'] 导入权重")
-            
 
         elif 'module' in checkpoint:
             state_dict = checkpoint['module']
-            print(f"checkpoint 中的keys: {checkpoint.keys()}")
-            print(f"state_dict 中的keys: {state_dict.keys()}")
+            print(f'checkpoint 中的keys: {checkpoint.keys()}')
+            print(f'state_dict 中的keys: {state_dict.keys()}')
             print(f"已正常从 checkpoint['module'] 导入权重")
 
         if list(state_dict.keys())[0].startswith('module.'):
@@ -727,10 +727,10 @@ class BEiT_ATL(BaseModule):
                 if src_size != dst_size:
                     extra_tokens = rel_pos_bias[-num_extra_tokens:, :]
                     rel_pos_bias = rel_pos_bias[:-num_extra_tokens, :]
-                
+
                     def geometric_progression(a, r, n):
                         return a * (1.0 - r**n) / (1.0 - r)
-                    
+
                     left, right = 1.01, 1.5
                     while right - left > 1e-6:
                         q = (left + right) / 2.0
@@ -742,7 +742,7 @@ class BEiT_ATL(BaseModule):
 
                     # if q > 1.13492:
                     #     q = 1.13492
-                            
+
                     dis = []
                     cur = 1
                     for i in range(src_size // 2):
@@ -750,7 +750,7 @@ class BEiT_ATL(BaseModule):
                         cur += q**(i + 1)
 
                     r_ids = [-_ for _ in reversed(dis)]
-                    
+
                     x = r_ids + [0] + dis
                     y = r_ids + [0] + dis
                     t = dst_size // 2.0
@@ -759,20 +759,18 @@ class BEiT_ATL(BaseModule):
 
                     all_rel_pos_bias = []
 
-                        
                     for i in range(num_attn_heads):
                         z = rel_pos_bias[:, i].view(src_size,
                                                     src_size).float().numpy()
                         f = interpolate.interp2d(x, y, z, kind='cubic')
                         all_rel_pos_bias.append(
-                            torch.Tensor(f(dx, dy)).contiguous().view(-1, 1).to(
-                                rel_pos_bias.device))
+                            torch.Tensor(f(dx, dy)).contiguous().view(
+                                -1, 1).to(rel_pos_bias.device))
 
                     rel_pos_bias = torch.cat(all_rel_pos_bias, dim=-1)
                     new_rel_pos_bias = torch.cat((rel_pos_bias, extra_tokens),
-                                                dim=0)
+                                                 dim=0)
                     state_dict[key] = new_rel_pos_bias
-  
 
         if 'pos_embed' in state_dict:
             pos_embed_checkpoint = state_dict['pos_embed']
@@ -783,7 +781,7 @@ class BEiT_ATL(BaseModule):
                 (pos_embed_checkpoint.shape[-2] - num_extra_tokens)**0.5)
             # height (== width) for the new position embedding
             new_size = int(num_patches**0.5)
-        
+
             # class_token and dist_token are kept unchanged
             if orig_size != new_size:
                 extra_tokens = pos_embed_checkpoint[:, :num_extra_tokens]
@@ -792,27 +790,29 @@ class BEiT_ATL(BaseModule):
                 pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size,
                                                 embedding_size).permute(
                                                     0, 3, 1, 2)
-                pos_tokens = torch.nn.functional.interpolate(pos_tokens,
-                                                            size=(new_size,
-                                                                new_size),
-                                                            mode='bicubic',
-                                                            align_corners=False)
+                pos_tokens = torch.nn.functional.interpolate(
+                    pos_tokens,
+                    size=(new_size, new_size),
+                    mode='bicubic',
+                    align_corners=False)
                 pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
                 new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
                 state_dict['pos_embed'] = new_pos_embed
 
         # interpolate position bias table if needed
         relative_position_bias_table_keys = [
-        k for k in state_dict.keys() if 'relative_position_bias_table' in k
-            ]
+            k for k in state_dict.keys() if 'relative_position_bias_table' in k
+        ]
         for table_key in relative_position_bias_table_keys:
             table_pretrained = state_dict[table_key]
             table_current = self.state_dict()[table_key]
             L1, nH1 = table_pretrained.size()
             L2, nH2 = table_current.size()
             if nH1 != nH2:
-                print_log(f'Error in loading {table_key}, pass',
-                    logger='current',level=logging.WARNING)
+                print_log(
+                    f'Error in loading {table_key}, pass',
+                    logger='current',
+                    level=logging.WARNING)
             else:
                 if L1 != L2:
                     S1 = int(L1**0.5)
@@ -823,10 +823,8 @@ class BEiT_ATL(BaseModule):
                         mode='bicubic')
                     state_dict[table_key] = table_pretrained_resized.view(
                         nH2, L2).permute(1, 0)
-        
 
         return state_dict
- 
 
     def init_weights(self, pretrained=None):
         """Initialize the weights in backbone.
@@ -835,26 +833,27 @@ class BEiT_ATL(BaseModule):
             pretrained (str, optional): Path to pre-trained weights.
                 Defaults to None.
         """
-        print(f"---> 进入到BEiT_ATL的init_weights")
+        print(f'---> 进入到BEiT_ATL的init_weights')
 
         if (isinstance(self.init_cfg, dict)
                 and self.init_cfg.get('type') == 'Pretrained'):
-            print(f"---> 符合 init_cfg==dict,并且self.init_cfg.get('type') == 'Pretrained'")
+            print(
+                f"---> 符合 init_cfg==dict,并且self.init_cfg.get('type') == 'Pretrained'"
+            )
             checkpoint = _load_checkpoint(
                 self.init_cfg['checkpoint'], logger=None, map_location='cpu')
             state_dict = self.resize_rel_pos_embed(checkpoint)
 
             # 2. 修改checkpoint中的参数
-            new_patch_weight = torch.randn(1024, 10, 16, 16)  # 用于替换的新参数，这里只改变通道数
+            new_patch_weight = torch.randn(1024, 10, 16,
+                                           16)  # 用于替换的新参数，这里只改变通道数
             state_dict['patch_embed.proj.weight'] = new_patch_weight
 
-            self.load_state_dict(state_dict, False)   
+            self.load_state_dict(state_dict, False)
 
         # 走了第一步，就不走这个了
         elif self.init_cfg is not None:
             super().init_weights()
-
-
 
     def fix_init_weight(self):
 
@@ -866,7 +865,7 @@ class BEiT_ATL(BaseModule):
             rescale(layer.mlp.fc2.weight.data, layer_id + 1)
 
     def _init_weights(self, m):
-        print(f"---> BEiT_ATL _init_weights权重已经被调用")
+        print(f'---> BEiT_ATL _init_weights权重已经被调用')
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
@@ -1254,7 +1253,12 @@ class SpatialPriorModule(nn.Module):
 
         self.stem = nn.Sequential(*[
             nn.Conv2d(
-                in_chans, inplanes, kernel_size=3, stride=2, padding=1, bias=False),
+                in_chans,
+                inplanes,
+                kernel_size=3,
+                stride=2,
+                padding=1,
+                bias=False),
             nn.SyncBatchNorm(inplanes),
             nn.ReLU(inplace=True),
             nn.Conv2d(
@@ -1382,12 +1386,14 @@ class BEiTAdapter(BEiT_ATL):
                  *args,
                  **kwargs):
 
-        super().__init__(init_values=init_values, 
-                         with_cp=with_cp, 
-                         in_channels=in_channels,
-                         init_cfg = init_cfg,
-                         *args, **kwargs)
-        
+        super().__init__(
+            init_values=init_values,
+            with_cp=with_cp,
+            in_channels=in_channels,
+            init_cfg=init_cfg,
+            *args,
+            **kwargs)
+
         self.num_block = len(self.blocks)
         self.pretrain_size = (pretrain_size, pretrain_size)
         self.flags = [
@@ -1399,7 +1405,10 @@ class BEiTAdapter(BEiT_ATL):
 
         self.level_embed = nn.Parameter(torch.zeros(3, embed_dim))
         self.spm = SpatialPriorModule(
-            inplanes=conv_inplane, embed_dim=embed_dim, with_cp=False,in_chans=in_channels)
+            inplanes=conv_inplane,
+            embed_dim=embed_dim,
+            with_cp=False,
+            in_chans=in_channels)
         self.interactions = nn.Sequential(*[
             InteractionBlockWithCls(
                 dim=embed_dim,
@@ -1428,9 +1437,6 @@ class BEiTAdapter(BEiT_ATL):
         self.apply(self._init_deform_weights)
         normal_(self.level_embed)
 
-
-
-
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
             trunc_normal_(m.weight, std=.02)
@@ -1457,7 +1463,7 @@ class BEiTAdapter(BEiT_ATL):
     def _init_deform_weights(self, m):
         if isinstance(m, MSDeformAttn):
             m._reset_parameters()
-            
+
     def _add_level_embed(self, c2, c3, c4):
         c2 = c2 + self.level_embed[0]
         c3 = c3 + self.level_embed[1]
@@ -1523,7 +1529,7 @@ class BEiTAdapter(BEiT_ATL):
         f3 = self.norm3(c3)
         f4 = self.norm4(c4)
         return [f1, f2, f3, f4]
-    
+
     # def train(self, mode=True):
     #     super().train(mode)
     #     if mode and self.norm_eval:

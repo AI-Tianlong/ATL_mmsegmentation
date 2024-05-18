@@ -1,7 +1,6 @@
 # Copyright (c) Shanghai AI Lab. All rights reserved.
 from mmcv.transforms import (LoadImageFromFile, RandomChoice,
                              RandomChoiceResize, RandomFlip)
-from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmengine.config import read_base
 from mmengine.optim.optimizer import OptimWrapper
 from mmengine.optim.scheduler.lr_scheduler import LinearLR, PolyLR
@@ -10,37 +9,37 @@ from torch.optim import AdamW
 from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
                                        PhotoMetricDistortion, RandomCrop,
                                        ResizeShortestEdge)
+from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
 from mmseg.models.backbones import BEiTAdapter
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
 with read_base():
-    from .._base_.models.mask2former_beit_potsdam import *
     from .._base_.datasets.ATL_free import *
     from .._base_.default_runtime import *
+    from .._base_.models.mask2former_beit_potsdam import *
     from .._base_.schedules.schedule_80k import *
 
 # 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
 
 # reduce_zero_label = True
-num_classes = 7  # loss 要用，也要加 # 加上背景是25类 
+num_classes = 7  # loss 要用，也要加 # 加上背景是25类
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
 crop_size = (512, 512)
 # pretrained = None
-pretrained ='/opt/AI-Tianlong/checkpoints/vit-adapter-offical/beitv2_large_patch16_224_pt1k_ft21k.pth'
+pretrained = '/opt/AI-Tianlong/checkpoints/vit-adapter-offical/beitv2_large_patch16_224_pt1k_ft21k.pth'
 # pretrained = '/opt/AI-Tianlong/openmmlab/mmsegmentation/checkpoints/atl_beit_adapter_checkpoints/mmseg1.x_beit_adapter_potsdam_iter-56000_miou_80.14.pth'
 data_preprocessor.update(
-    dict( 
-    type=SegDataPreProcessor,
-    mean=[123.675, 116.28, 103.53],
-    std=[58.395, 57.12, 57.375],
-    bgr_to_rgb=True,
-    pad_val=0,
-    seg_pad_val=255,
-    size=crop_size)
-    )
+    dict(
+        type=SegDataPreProcessor,
+        mean=[123.675, 116.28, 103.53],
+        std=[58.395, 57.12, 57.375],
+        bgr_to_rgb=True,
+        pad_val=0,
+        seg_pad_val=255,
+        size=crop_size))
 
 model.update(
     dict(
@@ -48,7 +47,7 @@ model.update(
         data_preprocessor=data_preprocessor,
         backbone=dict(
             type=BEiTAdapter,
-            init_cfg=dict(type='Pretrained', checkpoint=pretrained), #预训练参数
+            init_cfg=dict(type='Pretrained', checkpoint=pretrained),  #预训练参数
             img_size=512,
             patch_size=16,
             embed_dim=1024,
@@ -68,22 +67,21 @@ model.update(
             deform_ratio=0.5,
             with_cp=False,  # set with_cp=True to save memory
             interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]],
-            )
-        ),  #backbone 完全一样
-        decode_head=dict(
-            in_channels=[1024, 1024, 1024, 1024],
-            feat_channels=256,
-            out_channels=256,
-            num_queries=100,
-            num_classes=num_classes,
-            loss_cls=dict(
-                type=CrossEntropyLoss,
-                use_sigmoid=False,
-                loss_weight=2.0,
-                reduction='mean',
-                class_weight=[1.0] * num_classes + [0.1]),
-            ),
-        test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)))
+        )),  #backbone 完全一样
+    decode_head=dict(
+        in_channels=[1024, 1024, 1024, 1024],
+        feat_channels=256,
+        out_channels=256,
+        num_queries=100,
+        num_classes=num_classes,
+        loss_cls=dict(
+            type=CrossEntropyLoss,
+            use_sigmoid=False,
+            loss_weight=2.0,
+            reduction='mean',
+            class_weight=[1.0] * num_classes + [0.1]),
+    ),
+    test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)))
 
 # dataset config
 train_pipeline = [
@@ -132,10 +130,11 @@ load_from = '/opt/AI-Tianlong/checkpoints/atl_beit_adapter_checkpoints/mmseg1.x_
 # load_from = None
 
 train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=1000)
-default_hooks.update(dict(
-    timer=dict(type=IterTimerHook),
-    logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
-    param_scheduler=dict(type=ParamSchedulerHook),
-    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=1000),
-    sampler_seed=dict(type=DistSamplerSeedHook),
-    visualization=dict(type=SegVisualizationHook)))
+default_hooks.update(
+    dict(
+        timer=dict(type=IterTimerHook),
+        logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
+        param_scheduler=dict(type=ParamSchedulerHook),
+        checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=1000),
+        sampler_seed=dict(type=DistSamplerSeedHook),
+        visualization=dict(type=SegVisualizationHook)))

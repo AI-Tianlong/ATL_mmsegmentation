@@ -1,10 +1,11 @@
-import numpy as np
-from PIL import Image
-from tqdm import tqdm, trange
-from ATL_Tools import mkdir_or_exist, find_data_list
 import os
+
+import numpy as np
+from ATL_Tools import find_data_list, mkdir_or_exist
 from osgeo import gdal
 from PIL import Image
+from tqdm import tqdm, trange
+
 Image.MAX_IMAGE_PIXELS = None
 
 MASK_path = '/opt/AI-Tianlong/openmmlab/mmsegmentation/atl_big_nangang_loveda'
@@ -20,13 +21,13 @@ label_lists = find_data_list(MASK_path, suffix='.png')
 # 是否包含0类，classes和palette里没包含
 reduce_zero_label = True
 # 给生成的RGB图像添加空间
-add_meta_info = True 
+add_meta_info = True
 
 METAINFO = dict(
     classes=('background', 'building', 'road', 'water', 'barren', 'forest',
-                'agricultural'),
+             'agricultural'),
     palette=[[255, 255, 255], [255, 0, 0], [255, 255, 0], [0, 0, 255],
-                [159, 129, 183], [0, 255, 0], [255, 195, 128]])
+             [159, 129, 183], [0, 255, 0], [255, 195, 128]])
 
 classes = METAINFO['classes']
 palette = METAINFO['palette']
@@ -35,35 +36,40 @@ palette = METAINFO['palette']
 
 if reduce_zero_label:
     new_palette = [[0, 0, 0]] + palette
-    print(f"palette: {new_palette}")
+    print(f'palette: {new_palette}')
 else:
     new_palette = palette
-    print(f"palette: {new_palette}")
+    print(f'palette: {new_palette}')
 
 new_palette = np.array(new_palette)
 
-
 for mask_label_path in tqdm(label_lists, colour='Green'):
     mask_label = np.array(Image.open(mask_label_path)).astype(np.uint8)
-    h,w = mask_label.shape
+    h, w = mask_label.shape
 
     RGB_label = new_palette[mask_label]
-    output_path = os.path.join(RGB_path, os.path.basename(mask_label_path).replace('.png', '.tif'))
+    output_path = os.path.join(
+        RGB_path,
+        os.path.basename(mask_label_path).replace('.png', '.tif'))
 
     driver = gdal.GetDriverByName('GTiff')
     RGB_label_gdal = driver.Create(output_path, w, h, 3, gdal.GDT_Byte)
 
-    RGB_label_gdal.GetRasterBand(1).WriteArray(RGB_label[:,:,0])
-    RGB_label_gdal.GetRasterBand(2).WriteArray(RGB_label[:,:,1])
-    RGB_label_gdal.GetRasterBand(3).WriteArray(RGB_label[:,:,2])
+    RGB_label_gdal.GetRasterBand(1).WriteArray(RGB_label[:, :, 0])
+    RGB_label_gdal.GetRasterBand(2).WriteArray(RGB_label[:, :, 1])
+    RGB_label_gdal.GetRasterBand(3).WriteArray(RGB_label[:, :, 2])
 
     if add_meta_info:
-        IMG_gdal = gdal.Open(os.path.join(IMG_path, os.path.basename(mask_label_path).replace('.png', '.tif')), gdal.GA_ReadOnly)
-        assert not IMG_gdal==None , "IMG_gdal is None"
+        IMG_gdal = gdal.Open(
+            os.path.join(
+                IMG_path,
+                os.path.basename(mask_label_path).replace('.png', '.tif')),
+            gdal.GA_ReadOnly)
+        assert not IMG_gdal == None, 'IMG_gdal is None'
         trans = IMG_gdal.GetGeoTransform()
         proj = IMG_gdal.GetProjection()
 
         RGB_label_gdal.SetGeoTransform(trans)
         RGB_label_gdal.SetProjection(proj)
-        print("给标签添加空间信息成功！")
+        print('给标签添加空间信息成功！')
     RGB_label_gdal = None

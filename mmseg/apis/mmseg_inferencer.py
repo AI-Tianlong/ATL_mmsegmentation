@@ -24,6 +24,7 @@ InputsType = Union[InputType, Sequence[InputType]]
 PredType = Union[SegDataSample, SampleList]
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 
+
 class MMSegInferencer(BaseInferencer):
     """Semantic segmentation inferencer, provides inference and visualization
     interfaces. Note: MMEngine >= 0.5.0 is required.
@@ -356,7 +357,7 @@ class MMSegInferencer(BaseInferencer):
                 dataset = map(self.pipeline, dataset)
                 ...
         """
-        print("========================================")
+        print('========================================')
         pipeline_cfg = cfg.test_dataloader.dataset.pipeline
         print(pipeline_cfg)
         # Loading annotations is also not applicable

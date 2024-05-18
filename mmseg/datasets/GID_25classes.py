@@ -12,21 +12,20 @@ class GID25Dataset(BaseSegDataset):
     ``seg_map_suffix`` is '.png'.
     """
     METAINFO = dict(
-        classes=("industrial area", "paddy field","irrigated field",   
-                 "dry cropland", "garden land","arbor forest", "shrub forest",
-                 "park", "natural meadow",  "artificial meadow", "river",
-                 "urban residential", "lake", "pond", "fish pond", "snow",
-                 "bareland","rural residential","stadium","square","road",
-                 "overpass","railway station","airport"),
-        palette=[[200, 0, 0], [0, 200, 0], [150, 250, 0],
-                 [150, 200, 150], [200, 0, 200], [150, 0, 250],
-                 [150, 150, 250], [200, 150, 200], [250, 200, 0],
-                 [200, 200, 0], [0, 0, 200], [250, 0, 150],
-                 [0, 150, 200], [0, 200, 250], [150, 200, 250],
+        classes=('industrial area', 'paddy field', 'irrigated field',
+                 'dry cropland', 'garden land', 'arbor forest', 'shrub forest',
+                 'park', 'natural meadow', 'artificial meadow', 'river',
+                 'urban residential', 'lake', 'pond', 'fish pond', 'snow',
+                 'bareland', 'rural residential', 'stadium', 'square', 'road',
+                 'overpass', 'railway station', 'airport'),
+        palette=[[200, 0, 0], [0, 200, 0], [150, 250, 0], [150, 200, 150],
+                 [200, 0, 200], [150, 0, 250], [150, 150, 250],
+                 [200, 150, 200], [250, 200, 0], [200, 200, 0], [0, 0, 200],
+                 [250, 0, 150], [0, 150, 200], [0, 200, 250], [150, 200, 250],
                  [250, 250, 250], [200, 200, 200], [200, 150, 150],
-                 [250, 200, 150], [150, 150, 0], [250, 150, 150],
-                 [250, 150, 0], [250, 200, 250], [200, 150, 0]]
-                 )
+                 [250, 200, 150], [150, 150, 0], [250, 150,
+                                                  150], [250, 150, 0],
+                 [250, 200, 250], [200, 150, 0]])
 
     def __init__(self,
                  img_suffix='.tif',
@@ -38,4 +37,3 @@ class GID25Dataset(BaseSegDataset):
             seg_map_suffix=seg_map_suffix,
             reduce_zero_label=reduce_zero_label,
             **kwargs)
-        

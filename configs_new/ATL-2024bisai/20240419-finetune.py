@@ -1,7 +1,7 @@
 # Copyright (c) Shanghai AI Lab. All rights reserved.
 from mmcv.transforms import (LoadImageFromFile, RandomChoice,
                              RandomChoiceResize, RandomFlip)
-from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
+from mmcv.transforms.processing import (Resize, TestTimeAug)
 from mmengine.config import read_base
 from mmengine.optim.optimizer import OptimWrapper
 from mmengine.optim.scheduler.lr_scheduler import LinearLR, PolyLR
@@ -10,42 +10,39 @@ from torch.optim import AdamW
 from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
                                        PhotoMetricDistortion, RandomCrop,
                                        ResizeShortestEdge)
+from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
 from mmseg.models.backbones import BEiTAdapter
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
-
+from mmseg.models.backbones.beit_adapter import SETR_Resize
+from mmcv.transforms.processing import MultiScaleFlipAug
 with read_base():
-    from .._base_.models.mask2former_beit_potsdam import *
-    from .._base_.datasets.atl_s2_five_billion import *
+    from .._base_.datasets.atl_2024_bisai import *
     from .._base_.default_runtime import *
+    from .._base_.models.mask2former_beit_potsdam import *
     from .._base_.schedules.schedule_80k import *
 
 # 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
 
-# reduce_zero_label = True 所以是24类
-num_classes = 25  # loss 要用，也要加 # 加上背景是25类 
+# reduce_zero_label = True
+num_classes = 2  # loss 要用，也要加 # 加上背景是25类
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
-crop_size = (512, 512)
-# pretrained = None
-pretrained ='/opt/AI-Tianlong/checkpoints/atl_s2_checkpoint/10_channel_beitv2_large_patch16_224_pt1k_ft21k.pth'
-# pretrained = None
+crop_size = (1024, 1024)
+# crop_size = (512, 512)
+pretrained = None
+# pretrained = '/opt/AI-Tianlong/checkpoints/vit-adapter-offical/beitv2_large_patch16_224_pt1k_ft21k.pth'
+# pretrained = '/opt/AI-Tianlong/openmmlab/mmsegmentation/checkpoints/atl_beit_adapter_checkpoints/mmseg1.x_beit_adapter_potsdam_iter-56000_miou_80.14.pth'
 data_preprocessor.update(
-    dict( 
-    type=SegDataPreProcessor,
-    # mean=[123.675, 116.28, 103.53],
-    # std=[58.395, 57.12, 57.375],
-    #       B2       B3      B4      B5      B6      B7     B8       B8A     B11    B12
-    # mean=[0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    # std= [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-    # bgr_to_rgb=True,
-    mean=None,
-    std=None,
-    pad_val=0,
-    seg_pad_val=255,
-    size=crop_size)
-    )
+    dict(
+        type=SegDataPreProcessor,
+        mean=[123.675, 116.28, 103.53],
+        std=[58.395, 57.12, 57.375],
+        bgr_to_rgb=True,
+        pad_val=0,
+        seg_pad_val=255,
+        size=crop_size))
 
 model.update(
     dict(
@@ -54,10 +51,10 @@ model.update(
         data_preprocessor=data_preprocessor,
         backbone=dict(
             type=BEiTAdapter,
-            img_size=512,
+            img_size=1024,  # 注意这里得改
             patch_size=16,
             embed_dim=1024,
-            in_channels=10,  # 4个波段
+            in_channels=3,  # 4个波段
             depth=24,
             num_heads=16,
             mlp_ratio=4,
@@ -86,8 +83,9 @@ model.update(
                 loss_weight=2.0,
                 reduction='mean',
                 class_weight=[1.0] * num_classes + [0.1]),
-            ),
-        test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341))))
+        ),
+        # test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341))))
+        test_cfg=dict(mode='whole')))
 
 # dataset config
 train_pipeline = [
@@ -95,15 +93,35 @@ train_pipeline = [
     dict(type=LoadAnnotations),
     dict(
         type=RandomChoiceResize,
-        scales=[int(x * 0.1 * 512) for x in range(5, 21)],
+        scales=[int(x * 0.1 * 1024) for x in range(5, 21)],
         resize_type=ResizeShortestEdge,
         max_size=2048),
     dict(type=RandomCrop, crop_size=crop_size, cat_max_ratio=0.75),
     dict(type=RandomFlip, prob=0.5),
-    # dict(type=PhotoMetricDistortion),
+    dict(type=PhotoMetricDistortion),
     dict(type=PackSegInputs)
 ]
 train_dataloader.update(dataset=dict(pipeline=train_pipeline))  # potsdam的变量
+
+img_ratios = [0.5,0.75,1.0]
+tta_pipeline = [
+    dict(type=LoadSingleRSImageFromFile),
+    dict(
+        type=TestTimeAug,
+        transforms=[
+            [
+                dict(type=Resize, scale_factor=r, keep_ratio=True) 
+                for r in img_ratios
+            ],
+             # 看看尺寸多少
+            [dict(dict(type=Resize, scale=crop_size, keep_ratio=True))],
+            [
+                dict(type=RandomFlip, prob=0., direction='horizontal'),
+                dict(type=RandomFlip, prob=1., direction='horizontal')
+            ], 
+            # [dict(type=LoadAnnotations)],
+            [dict(type=PackSegInputs)]])
+]
 
 # optimizer
 optimizer = dict(
@@ -132,5 +150,10 @@ param_scheduler = [
     )
 ]
 
-load_from = None
+train_cfg.update(dict(type=IterBasedTrainLoop, max_iters=10000, val_interval=100))
+default_hooks.update(
+    dict(logger=dict(type=LoggerHook, interval=10, log_metric_by_epoch=False)),
+         checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=100))
+
+load_from = '/opt/AI-Tianlong/openmmlab/mmsegmentation/work_dirs/ATL-bisai-80k-GID-PT/iter_69000.pth'
 # load_from = None

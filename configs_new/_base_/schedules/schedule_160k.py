@@ -7,7 +7,6 @@ from torch.optim.sgd import SGD
 
 from mmseg.engine import SegVisualizationHook
 
-
 # optimizer
 optimizer = dict(
     type=SGD,

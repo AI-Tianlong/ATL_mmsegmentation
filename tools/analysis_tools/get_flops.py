@@ -25,11 +25,7 @@ def parse_args():
         description='Get the FLOPs of a segmentor')
     parser.add_argument('config', help='train config file path')
     parser.add_argument(
-        '--shape',
-        type=int,
-        nargs='+',
-        default=None,
-        help='input image size')
+        '--shape', type=int, nargs='+', default=None, help='input image size')
     parser.add_argument(
         '--cfg-options',
         nargs='+',

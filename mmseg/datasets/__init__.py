@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 # yapf: disable
 from .ade import ADE20KDataset
+from .atl_s2_five_billion import ATLS2FIveBillionDataset
 from .basesegdataset import BaseCDDataset, BaseSegDataset
 from .bdd100k import BDD100KDataset
 from .chase_db1 import ChaseDB1Dataset
@@ -11,6 +12,8 @@ from .dataset_wrappers import MultiImageMixDataset
 from .decathlon import DecathlonDataset
 from .drive import DRIVEDataset
 from .dsdl import DSDLSegDataset
+from .five_billion_pixels import FiveBillionPixelsDataset
+from .GID_25classes import GID25Dataset
 from .hrf import HRFDataset
 from .isaid import iSAIDDataset
 from .isprs import ISPRSDataset
@@ -25,9 +28,7 @@ from .potsdam import PotsdamDataset
 from .refuge import REFUGEDataset
 from .stare import STAREDataset
 from .synapse import SynapseDataset
-from .five_billion_pixels import FiveBillionPixelsDataset
-from .GID_25classes import GID25Dataset
-from .atl_s2_five_billion import ATLS2FIveBillionDataset
+from .atl_2024_bisai import  ATL2024Bisai
 # yapf: disable
 from .transforms import (CLAHE, AdjustGamma, Albu, BioMedical3DPad,
                          BioMedical3DRandomCrop, BioMedical3DRandomFlip,
@@ -63,5 +64,6 @@ __all__ = [
     'MapillaryDataset_v2', 'Albu', 'LEVIRCDDataset',
     'LoadMultipleRSImageFromFile', 'LoadSingleRSImageFromFile',
     'ConcatCDInput', 'BaseCDDataset', 'DSDLSegDataset', 'BDD100KDataset',
-    'NYUDataset','FiveBillionPixelsDataset','GID25Dataset','ATLS2FIveBillionDataset'
+    'NYUDataset', 'FiveBillionPixelsDataset', 'GID25Dataset',
+    'ATLS2FIveBillionDataset','ATL2024Bisai'
 ]
