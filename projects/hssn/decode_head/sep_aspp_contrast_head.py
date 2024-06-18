@@ -30,9 +30,9 @@ class ProjectionHead(nn.Module):
                  proj: str = 'convmlp'):
         super().__init__()
         assert proj in ['convmlp', 'linear']
-        if proj == 'linear':
+        if proj == 'linear':  # 投影，线性的话，就用1x1的卷积，将输入通道数变为输出通道数
             self.proj = nn.Conv2d(dim_in, proj_dim, kernel_size=1)
-        elif proj == 'convmlp':
+        elif proj == 'convmlp': # 如果是convmlp，就用两个1x1的卷积，中间加上BN和ReLU
             self.proj = nn.Sequential(
                 nn.Conv2d(dim_in, dim_in, kernel_size=1),
                 build_norm_layer(norm_cfg, dim_in)[1], nn.ReLU(inplace=True),

@@ -7,6 +7,7 @@ import pdb
 import warnings
 from functools import partial
 
+import mmcv
 # =====================================================================================
 # ========================== vit-adapter MSDeformAttn.py ==========================
 import MultiScaleDeformableAttention as MSDA
@@ -33,7 +34,6 @@ from torch.nn.modules.batchnorm import _BatchNorm
 
 from mmseg.registry import MODELS
 
-import mmcv 
 
 # 在做多尺度的时候，需要对输入的特征图进行插值，这里是插值的函数
 class SETR_Resize(object):

@@ -13,7 +13,7 @@ from mmseg.evaluation import IoUMetric
 
 # dataset settings
 dataset_type = ATLS2FIveBillionDataset
-data_root = 'data/atl_s2_5B_2024-4-11'
+data_root = 'data/2-sentinel2-24类地物-512训练用图'
 
 crop_size = (512, 512)
 train_pipeline = [
@@ -66,15 +66,14 @@ tta_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=2,
+    batch_size=4,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type=InfiniteSampler, shuffle=True),
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        data_prefix=dict(
-            img_path='img_dir/', seg_map_path='ann_dir/'),
+        data_prefix=dict(img_path='img_dir/', seg_map_path='ann_dir/'),
         pipeline=train_pipeline))
 
 val_dataloader = dict(
@@ -90,15 +89,15 @@ val_dataloader = dict(
 # 想用大图去推理
 test_dataloader = dict(
     batch_size=1,
-    num_workers=16,
+    num_workers=4,
     persistent_workers=True,
     sampler=dict(type=DefaultSampler, shuffle=False),
     dataset=dict(
         type=dataset_type,
-        data_root=None,
+        data_root=None, 
         data_prefix=dict(
             img_path=
-            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/ATL推理大图/双鸭山/要推理的images-矢量裁切-补全的',
+            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/3-ATL黑龙江省推理过程文件/牡丹江/要推理的images-矢量裁切-小图',
             # seg_map_path=''
         ),
         # ann_file='',

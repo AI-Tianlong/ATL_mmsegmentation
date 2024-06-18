@@ -133,3 +133,5 @@ param_scheduler = [
 
 load_from = '/opt/AI-Tianlong/openmmlab/mmsegmentation/work_dirs/2024-4-11-s2_5billion_10bands_crop_10m_miou81.92_pr-44.0接着训用所有数据22222-4xb2-reduce-new-new/iter_36000.pth'
 # load_from = None
+default_hooks.update(
+    dict(logger=dict(type=LoggerHook, interval=1, log_metric_by_epoch=False)))

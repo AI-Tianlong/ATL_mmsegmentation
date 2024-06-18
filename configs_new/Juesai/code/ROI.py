@@ -7,11 +7,12 @@ def multi_ROI():
 
     for index in trange(len(label_list)):
         label_255 = np.array(Image.open(label_list[index]))
-        
+
         ROI = np.array(Image.open(ROI_list[index]))
 
         final_label = label_255 * ROI
-        final_label = Image.fromarray(final_label).save(os.path.join(label_2_path, os.path.basename(label_list[index])))
+        final_label = Image.fromarray(final_label).save(
+            os.path.join(label_2_path, os.path.basename(label_list[index])))
 
-    
+
 multi_ROI()

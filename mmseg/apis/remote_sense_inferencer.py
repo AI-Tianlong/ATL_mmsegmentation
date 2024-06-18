@@ -18,6 +18,7 @@ except ImportError:
 from mmseg.registry import MODELS
 from .utils import _preprare_data
 
+from tqdm import tqdm
 
 class RSImage:
     """Remote sensing image class.
@@ -218,7 +219,7 @@ class RSInferencer:
                 window. Defaults to (0, 0).
         """
         image.create_grids(window_size, strides)
-        for grid in image.grids:
+        for grid in tqdm(image.grids):
             self.read_buffer.put([grid, image.read(grid=grid)])
         self.read_buffer.put(self.END_FLAG)
 

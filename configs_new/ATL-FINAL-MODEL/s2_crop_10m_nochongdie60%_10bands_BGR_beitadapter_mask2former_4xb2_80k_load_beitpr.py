@@ -131,7 +131,7 @@ param_scheduler = [
     )
 ]
 default_hooks.update(
-    dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))
+    dict(logger=dict(type=LoggerHook, interval=1, log_metric_by_epoch=False)))
 
 load_from = None
 # load_from = None

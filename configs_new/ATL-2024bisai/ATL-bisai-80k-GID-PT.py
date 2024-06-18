@@ -1,7 +1,7 @@
 # Copyright (c) Shanghai AI Lab. All rights reserved.
 from mmcv.transforms import (LoadImageFromFile, RandomChoice,
                              RandomChoiceResize, RandomFlip)
-from mmcv.transforms.processing import (Resize, TestTimeAug)
+from mmcv.transforms.processing import MultiScaleFlipAug, Resize, TestTimeAug
 from mmengine.config import read_base
 from mmengine.optim.optimizer import OptimWrapper
 from mmengine.optim.scheduler.lr_scheduler import LinearLR, PolyLR
@@ -13,9 +13,9 @@ from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
 from mmseg.models.backbones import BEiTAdapter
-from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 from mmseg.models.backbones.beit_adapter import SETR_Resize
-from mmcv.transforms.processing import MultiScaleFlipAug
+from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
+
 with read_base():
     from .._base_.datasets.atl_2024_bisai import *
     from .._base_.default_runtime import *

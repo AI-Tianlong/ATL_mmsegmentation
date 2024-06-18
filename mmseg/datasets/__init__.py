@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 # yapf: disable
 from .ade import ADE20KDataset
+from .atl_2024_bisai import ATL2024Bisai
 from .atl_s2_five_billion import ATLS2FIveBillionDataset
 from .basesegdataset import BaseCDDataset, BaseSegDataset
 from .bdd100k import BDD100KDataset
@@ -28,7 +29,6 @@ from .potsdam import PotsdamDataset
 from .refuge import REFUGEDataset
 from .stare import STAREDataset
 from .synapse import SynapseDataset
-from .atl_2024_bisai import  ATL2024Bisai
 # yapf: disable
 from .transforms import (CLAHE, AdjustGamma, Albu, BioMedical3DPad,
                          BioMedical3DRandomCrop, BioMedical3DRandomFlip,
@@ -65,5 +65,5 @@ __all__ = [
     'LoadMultipleRSImageFromFile', 'LoadSingleRSImageFromFile',
     'ConcatCDInput', 'BaseCDDataset', 'DSDLSegDataset', 'BDD100KDataset',
     'NYUDataset', 'FiveBillionPixelsDataset', 'GID25Dataset',
-    'ATLS2FIveBillionDataset','ATL2024Bisai'
+    'ATLS2FIveBillionDataset', 'ATL2024Bisai'
 ]

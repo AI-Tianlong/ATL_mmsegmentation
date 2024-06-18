@@ -37,4 +37,3 @@ default_hooks = dict(
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='SegVisualizationHook'))
 train_cfg = dict(type='IterBasedTrainLoop', max_iters=80000, val_interval=500)
-

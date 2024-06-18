@@ -127,10 +127,11 @@ param_scheduler = [
     )
 ]
 
-train_cfg.update(dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=1000))
+train_cfg.update(
+    dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=1000))
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)),
-         checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=1000))
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=1000))
 
 load_from = '/opt/AI-Tianlong/checkpoints/atl_beit_adapter_checkpoints/mmseg1.x_beit_adapter_GIDimg_FiveBillionlabel-80000iter_miou_69_beitv2pr.pth'
 # load_from = None

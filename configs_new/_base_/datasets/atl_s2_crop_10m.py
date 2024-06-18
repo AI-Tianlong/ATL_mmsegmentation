@@ -90,7 +90,7 @@ val_dataloader = dict(
 # 想用大图去推理
 test_dataloader = dict(
     batch_size=1,
-    num_workers=16,
+    num_workers=4,
     persistent_workers=True,
     sampler=dict(type=DefaultSampler, shuffle=False),
     dataset=dict(
@@ -98,7 +98,7 @@ test_dataloader = dict(
         data_root=None,
         data_prefix=dict(
             img_path=
-            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/ATL推理大图/双鸭山/要推理的images-矢量裁切-补全的',
+            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/ATL推理大图/大兴安岭地区/要推理的images-矢量裁切-小图',
             seg_map_path=' '),
         # ann_file = ' ',
         pipeline=test_pipeline))
