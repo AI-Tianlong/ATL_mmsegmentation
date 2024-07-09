@@ -20,7 +20,7 @@ def main():
         help='maximum number of windows inferred simultaneously')
     parser.add_argument(
         '--window-size',
-        help='window xsize,ysize', 
+        help='window xsize,ysize',
         default=(512, 512),
         type=int,
         nargs=2)

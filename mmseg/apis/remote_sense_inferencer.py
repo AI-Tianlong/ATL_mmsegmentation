@@ -15,10 +15,11 @@ try:
 except ImportError:
     gdal = None
 
+from tqdm import tqdm
+
 from mmseg.registry import MODELS
 from .utils import _preprare_data
 
-from tqdm import tqdm
 
 class RSImage:
     """Remote sensing image class.

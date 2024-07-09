@@ -3,7 +3,7 @@ from mmcv.transforms.processing import (RandomFlip, RandomResize, Resize,
                                         TestTimeAug)
 from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
 
-from mmseg.datasets.atl_s2_five_billion import ATLS2FIveBillionDataset
+from mmseg.datasets.atl_s2_five_billion import ATLS2FIveBillionDataset24
 from mmseg.datasets.transforms.formatting import PackSegInputs
 from mmseg.datasets.transforms.loading import (LoadAnnotations,
                                                LoadSingleRSImageFromFile)
@@ -12,8 +12,8 @@ from mmseg.datasets.transforms.transforms import (PhotoMetricDistortion,
 from mmseg.evaluation import IoUMetric
 
 # dataset settings
-dataset_type = ATLS2FIveBillionDataset
-data_root = 'data/2-sentinel2-24类地物-512训练用图'
+dataset_type = ATLS2FIveBillionDataset24
+data_root = 'data/2-1-第一次全省推理-sentinel2-24类地物-512训练用图'
 
 crop_size = (512, 512)
 train_pipeline = [
@@ -94,10 +94,10 @@ test_dataloader = dict(
     sampler=dict(type=DefaultSampler, shuffle=False),
     dataset=dict(
         type=dataset_type,
-        data_root=None, 
+        data_root=None,
         data_prefix=dict(
             img_path=
-            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/3-ATL黑龙江省推理过程文件/牡丹江/要推理的images-矢量裁切-小图',
+            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/3-ATL黑龙江省推理过程文件/伊春/要推理的images-矢量裁切',
             # seg_map_path=''
         ),
         # ann_file='',

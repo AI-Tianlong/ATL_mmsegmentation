@@ -2,7 +2,8 @@
 # yapf: disable
 from .ade import ADE20KDataset
 from .atl_2024_bisai import ATL2024Bisai
-from .atl_s2_five_billion import ATLS2FIveBillionDataset
+from .atl_s2_five_billion import (ATLS2FIveBillionDataset24,
+                                    ATLS2FIveBillionDataset5)
 from .basesegdataset import BaseCDDataset, BaseSegDataset
 from .bdd100k import BDD100KDataset
 from .chase_db1 import ChaseDB1Dataset
@@ -16,6 +17,7 @@ from .dsdl import DSDLSegDataset
 from .five_billion_pixels import FiveBillionPixelsDataset
 from .GID_25classes import GID25Dataset
 from .hrf import HRFDataset
+from .hsi_drive import HSIDrive20Dataset
 from .isaid import iSAIDDataset
 from .isprs import ISPRSDataset
 from .levir import LEVIRCDDataset
@@ -65,5 +67,5 @@ __all__ = [
     'LoadMultipleRSImageFromFile', 'LoadSingleRSImageFromFile',
     'ConcatCDInput', 'BaseCDDataset', 'DSDLSegDataset', 'BDD100KDataset',
     'NYUDataset', 'FiveBillionPixelsDataset', 'GID25Dataset',
-    'ATLS2FIveBillionDataset', 'ATL2024Bisai'
-]
+    'ATLS2FIveBillionDataset24','ATLS2FIveBillionDataset5' 'ATL2024Bisai',
+    'NYUDataset', 'HSIDrive20Dataset'] # type: ignore

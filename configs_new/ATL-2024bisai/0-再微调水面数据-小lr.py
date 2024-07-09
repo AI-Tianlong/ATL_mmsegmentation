@@ -103,24 +103,25 @@ train_pipeline = [
 ]
 train_dataloader.update(dataset=dict(pipeline=train_pipeline))  # potsdam的变量
 
-img_ratios = [0.5,0.75,1.0]
+img_ratios = [0.5, 0.75, 1.0]
 tta_pipeline = [
     dict(type=LoadSingleRSImageFromFile),
     dict(
         type=TestTimeAug,
         transforms=[
             [
-                dict(type=Resize, scale_factor=r, keep_ratio=True) 
+                dict(type=Resize, scale_factor=r, keep_ratio=True)
                 for r in img_ratios
             ],
-             # 看看尺寸多少
+            # 看看尺寸多少
             [dict(dict(type=Resize, scale=crop_size, keep_ratio=True))],
             [
                 dict(type=RandomFlip, prob=0., direction='horizontal'),
                 dict(type=RandomFlip, prob=1., direction='horizontal')
-            ], 
+            ],
             # [dict(type=LoadAnnotations)],
-            [dict(type=PackSegInputs)]])
+            [dict(type=PackSegInputs)]
+        ])
 ]
 
 # optimizer
@@ -150,10 +151,11 @@ param_scheduler = [
     )
 ]
 
-train_cfg.update(dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=400))
+train_cfg.update(
+    dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=400))
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)),
-         checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=400))
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=400))
 
 load_from = '/opt/AI-Tianlong/openmmlab/mmsegmentation/work_dirs/0-再微调水面数据2/iter_800_99.58.pth'
 # load_from = None

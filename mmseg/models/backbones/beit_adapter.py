@@ -36,7 +36,7 @@ from mmseg.registry import MODELS
 
 
 # 在做多尺度的时候，需要对输入的特征图进行插值，这里是插值的函数
-class SETR_Resize(object):
+class SETR_Resize:
     """Resize images & seg.
 
     This transform resizes the input image to some scale. If the input dict
@@ -62,6 +62,7 @@ class SETR_Resize(object):
         keep_ratio (bool): Whether to keep the aspect ratio when resizing the
             image.
     """
+
     def __init__(self,
                  img_scale=None,
                  multiscale_mode='range',
@@ -69,7 +70,7 @@ class SETR_Resize(object):
                  keep_ratio=True,
                  crop_size=None,
                  setr_multi_scale=False):
-        print(f"【ATL-LOG】===> 进入SETR_RESIZE")
+        print(f'【ATL-LOG】===> 进入SETR_RESIZE')
         if img_scale is None:
             self.img_scale = None
         else:
@@ -124,7 +125,7 @@ class SETR_Resize(object):
                 ``img_scale`` is sampled scale and None is just a placeholder
                 to be consistent with :func:`random_select`.
         """
-        
+
         assert mmcv.is_list_of(img_scales, tuple) and len(img_scales) == 2
         img_scale_long = [max(s) for s in img_scales]
         img_scale_short = [min(s) for s in img_scales]
@@ -136,7 +137,7 @@ class SETR_Resize(object):
             max(img_scale_short) + 1)
         img_scale = (long_edge, short_edge)
         return img_scale, None
-    
+
     @staticmethod
     def random_sample_ratio(img_scale, ratio_range):
         """Randomly sample an img_scale when ``ratio_range`` is specified.
@@ -214,9 +215,8 @@ class SETR_Resize(object):
                     new_h, new_w = new_short, new_short * w / h
                 results['scale'] = (new_h, new_w)
 
-            img, scale_factor = mmcv.imrescale(results['img'],
-                                               results['scale'],
-                                               return_scale=True)
+            img, scale_factor = mmcv.imrescale(
+                results['img'], results['scale'], return_scale=True)
             # the w_scale and h_scale has minor difference
             # a real fix should be done in the mmcv.imrescale in the future
             new_h, new_w = img.shape[:2]
@@ -224,9 +224,8 @@ class SETR_Resize(object):
             w_scale = new_w / w
             h_scale = new_h / h
         else:
-            img, w_scale, h_scale = mmcv.imresize(results['img'],
-                                                  results['scale'],
-                                                  return_scale=True)
+            img, w_scale, h_scale = mmcv.imresize(
+                results['img'], results['scale'], return_scale=True)
         scale_factor = np.array([w_scale, h_scale, w_scale, h_scale],
                                 dtype=np.float32)
         results['img'] = img
@@ -239,13 +238,11 @@ class SETR_Resize(object):
         """Resize semantic segmentation map with ``results['scale']``."""
         for key in results.get('seg_fields', []):
             if self.keep_ratio:
-                gt_seg = mmcv.imrescale(results[key],
-                                        results['scale'],
-                                        interpolation='nearest')
+                gt_seg = mmcv.imrescale(
+                    results[key], results['scale'], interpolation='nearest')
             else:
-                gt_seg = mmcv.imresize(results[key],
-                                       results['scale'],
-                                       interpolation='nearest')
+                gt_seg = mmcv.imresize(
+                    results[key], results['scale'], interpolation='nearest')
             results['gt_semantic_seg'] = gt_seg
 
     def __call__(self, results):
@@ -273,6 +270,7 @@ class SETR_Resize(object):
                      f'ratio_range={self.ratio_range}, '
                      f'keep_ratio={self.keep_ratio})')
         return repr_str
+
 
 class MSDeformAttnFunction(Function):
 
@@ -819,7 +817,7 @@ class BEiT_ATL(BaseModule):
 
     def __init__(
             self,
-            img_size=512,  # ✔  img_size     
+            img_size=512,  # ✔  img_size
             patch_size=16,  # ✔  patch_size
             in_channels=10,  # ✔ in_channels
             num_classes=80,  # x
@@ -1019,6 +1017,7 @@ class BEiT_ATL(BaseModule):
                     state_dict[key] = new_rel_pos_bias
 
         if 'pos_embed' in state_dict:
+            print_log(f'【ATL-log】权重中包含 `pos_embed`, resize `pos_embed`')
             pos_embed_checkpoint = state_dict['pos_embed']
             embedding_size = pos_embed_checkpoint.shape[-1]
             num_patches = self.patch_embed.num_patches

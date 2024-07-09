@@ -186,7 +186,7 @@ class VisionTransformer(BaseModule):
                  img_size=224,
                  patch_size=16,
                  patch_pad='corner',
-                 in_channels=3,
+                 in_channels=10,
                  embed_dims=768,
                  num_layers=12,
                  num_heads=12,
@@ -213,6 +213,9 @@ class VisionTransformer(BaseModule):
                  pretrained=None,
                  init_cfg=None):
         super().__init__(init_cfg=init_cfg)
+        print(f'【ATL-LOG】进入到 VisionTransformer 初始化')
+
+        print(f'【ATL-LOG】初始化 VisionTransformer img_size {img_size}')
 
         if isinstance(img_size, int):
             img_size = to_2tuple(img_size)
@@ -265,6 +268,8 @@ class VisionTransformer(BaseModule):
         self.cls_token = nn.Parameter(torch.zeros(1, 1, embed_dims))
         self.pos_embed = nn.Parameter(
             torch.zeros(1, num_patches + 1, embed_dims))
+        
+        print(f'【ATL-LOG】VIT pos_embed shape {self.pos_embed.shape}')
         self.drop_after_pos = nn.Dropout(p=drop_rate)
         self.pre_norm = pre_norm
 
@@ -320,6 +325,7 @@ class VisionTransformer(BaseModule):
         return getattr(self, self.norm1_name)
 
     def init_weights(self):
+        print(f'【ATL-LOG】进入到 VisionTransformer init_weights 初始化')
         if isinstance(self.init_cfg, dict) and \
                 self.init_cfg.get('type') in ['Pretrained', 'Pretrained_Part']:
             checkpoint = CheckpointLoader.load_checkpoint(
@@ -328,6 +334,10 @@ class VisionTransformer(BaseModule):
             if self.init_cfg.get('type') == 'Pretrained':
                 if 'state_dict' in checkpoint:
                     state_dict = checkpoint['state_dict']
+                    print_log(f'【ATL-log】checkpoint 中的keys: {checkpoint.keys()}')
+                    print_log(f'【ATL-log】state_dict 中的keys: {state_dict.keys()}')
+                    print_log(f"【ATL-log】已正常从 checkpoint['state_dict'] 导入权重")
+                    
                 else:
                     state_dict = checkpoint
 
@@ -340,8 +350,11 @@ class VisionTransformer(BaseModule):
                     if para_prefix in k:
                         state_dict[k[prefix_len:]] = v
 
+            # if 'pos_embed' in state_dict.keys(): backbone.pos_embed
             if 'pos_embed' in state_dict.keys():
+                print(f'【ATL-LOG】VisionTransformer 权重中包含 `pos_embed')
                 if self.pos_embed.shape != state_dict['pos_embed'].shape:
+                    print(f'【ATL-LOG】self.pos_embed.shape != state_dict[`pos_embed`]` ')
                     print_log(msg=f'Resize the pos_embed shape from '
                               f'{state_dict["pos_embed"].shape} to '
                               f'{self.pos_embed.shape}')

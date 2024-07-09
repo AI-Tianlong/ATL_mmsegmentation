@@ -147,6 +147,11 @@ class LearningRateDecayOptimizerConstructor(DefaultOptimWrapperConstructor):
                      'MAE' in module.backbone.__class__.__name__:
                     layer_id = get_layer_id_for_vit(name, num_layers)
                     print_log(f'set param {name} as id {layer_id}')
+
+                elif 'ViT' in module.backbone.__class__.__name__:
+                    layer_id = get_layer_id_for_vit(name, num_layers)
+                    print_log(f'set param {name} as id {layer_id}')
+
                 else:
                     raise NotImplementedError()
             elif decay_type == 'stage_wise':
