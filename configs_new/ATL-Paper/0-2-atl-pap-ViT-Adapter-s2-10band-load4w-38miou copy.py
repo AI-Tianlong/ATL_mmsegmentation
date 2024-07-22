@@ -110,7 +110,7 @@ train_dataloader.update(dataset=dict(pipeline=train_pipeline))  # potsdam的变�
 # optimizer
 optimizer = dict(
     type=AdamW,
-    lr=6e-5,
+    lr=3e-6, # 这个看着效果好
     betas=(0.9, 0.999),
     weight_decay=0.01,
 )
@@ -126,19 +126,19 @@ optim_wrapper = dict(
 # learning policy
 
 param_scheduler = [
-    dict(type=LinearLR, start_factor=1e-6, by_epoch=False, begin=0, end=1500),
+    # dict(type=LinearLR, start_factor=1e-6, by_epoch=False, begin=0, end=1500),
     dict(
         type=PolyLR,
         power=1.0,
-        begin=1500,
-        # begin=0,
+        # begin=1500,
+        begin=0,
         end=80000,
         eta_min=0.0,
         by_epoch=False,
     )
 ]
 
-load_from = '/opt/AI-Tianlong/openmmlab/mmsegmentation/work_dirs/ViT-Adapter-s2-10band/iter_40000.pth'
+load_from = '/opt/AI-Tianlong/openmmlab/mmsegmentation/work_dirs/0-1-atl-pap-ViT-Adapter-s2-10band-load4w-38miou/iter_80000.pth'
 # load_from = None
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))

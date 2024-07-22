@@ -124,6 +124,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
             x = self.neck(x)
         return x
 
+    # 这里也不用动，调用的 decode_head 的  predict 方法
     def encode_decode(self, inputs: Tensor,
                       batch_img_metas: List[dict]) -> Tensor:
         """Encode images with backbone and decode into a semantic segmentation
@@ -134,6 +135,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
 
         return seg_logits
 
+    # 这里也不用动, 调用的是 decode_head 的 loss 方法，并且前缀加上 decode.d8.loss_cls decode.d4.loss_mask decode.d4.loss_dice
     def _decode_head_forward_train(self, inputs: List[Tensor],
                                    data_samples: SampleList) -> dict:
         """Run forward function and calculate loss for decode head in
