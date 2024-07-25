@@ -107,7 +107,7 @@ train_dataloader.update(dataset=dict(pipeline=train_pipeline))  # potsdam的变�
 # optimizer
 optimizer = dict(
     type=AdamW,
-    lr=4e-6,
+    lr=2e-5,
     betas=(0.9, 0.999),
     weight_decay=0.05,
 )

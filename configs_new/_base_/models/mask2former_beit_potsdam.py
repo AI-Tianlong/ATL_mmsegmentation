@@ -53,10 +53,8 @@ model = dict(
         num_transformer_feat_level=3,
         align_corners=False,
         pixel_decoder=dict(
-            type=
-            MSDeformAttnPixelDecoder,  # MSDeformAttnPixelDecoder #用的自己实现的，vit-adapter
-            num_outs=
-            3,  # mmdet的在mmdet-->models-->layers-->msdeformattn_pixel_decoder.py
+            type=MSDeformAttnPixelDecoder,  # MSDeformAttnPixelDecoder #用的自己实现的，vit-adapter
+            num_outs=3,  # mmdet的在mmdet-->models-->layers-->msdeformattn_pixel_decoder.py
             norm_cfg=dict(type=GN, num_groups=32),
             act_cfg=dict(type=ReLU),
             encoder=dict(
