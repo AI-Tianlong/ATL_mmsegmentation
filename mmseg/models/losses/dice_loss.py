@@ -184,7 +184,6 @@ class DiceLoss(nn.Module):
             naive_dice=self.naive_dice,
             avg_factor=avg_factor,
             ignore_index=self.ignore_index)
-
         return loss
 
     @property

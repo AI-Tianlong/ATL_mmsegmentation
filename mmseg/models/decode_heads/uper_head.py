@@ -1,4 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from venv import logger
+from mmseg.utils import SampleList
 import torch
 import torch.nn as nn
 from mmcv.cnn import ConvModule
@@ -7,6 +9,7 @@ from mmseg.registry import MODELS
 from ..utils import resize
 from .decode_head import BaseDecodeHead
 from .psp_head import PPM
+from torch import Tensor
 
 
 @MODELS.register_module()
@@ -20,6 +23,8 @@ class UPerHead(BaseDecodeHead):
         pool_scales (tuple[int]): Pooling scales used in Pooling Pyramid
             Module applied on the last feature. Default: (1, 2, 3, 6).
     """
+
+    # in_index=[0, 1, 2, 3]
 
     def __init__(self, pool_scales=(1, 2, 3, 6), **kwargs):
         super().__init__(input_transform='multiple_select', **kwargs)
@@ -96,12 +101,16 @@ class UPerHead(BaseDecodeHead):
         """
         inputs = self._transform_inputs(inputs)
 
-        # build laterals
+        # build laterals, 
+        # 3xConvModule{Conv2d(1024, 1024, (1,1), (1,1), bias=False) + bn + ReLU}
+        # 
+        # laterals = [[2, 1024, 128, 128], [2, 1024, 64, 64], [2, 1024, 32, 32]]
         laterals = [
             lateral_conv(inputs[i])
             for i, lateral_conv in enumerate(self.lateral_convs)
         ]
 
+        # laterals = [[2, 1024, 128, 128], [2, 1024, 64, 64], [2, 1024, 32, 32], [2, 1024, 16, 16]]
         laterals.append(self.psp_forward(inputs))
 
         # build top-down path
@@ -113,14 +122,15 @@ class UPerHead(BaseDecodeHead):
                 size=prev_shape,
                 mode='bilinear',
                 align_corners=self.align_corners)
-
         # build outputs
         fpn_outs = [
             self.fpn_convs[i](laterals[i])
             for i in range(used_backbone_levels - 1)
         ]
+
         # append psp feature
         fpn_outs.append(laterals[-1])
+        # fpn_outs: [[2,1024,128,128],[2,1024,64,64],[2,1024,32,32],[2,1024,16,16]]
 
         for i in range(used_backbone_levels - 1, 0, -1):
             fpn_outs[i] = resize(
@@ -128,12 +138,21 @@ class UPerHead(BaseDecodeHead):
                 size=fpn_outs[0].shape[2:],
                 mode='bilinear',
                 align_corners=self.align_corners)
+        # fpn_outs: [[2,1024,128,128],[2,1024,128,128],[2,1024,128,128],[2,1024,128,128]]
         fpn_outs = torch.cat(fpn_outs, dim=1)
+        # fpn_outs: [2,4096,128,128]
+        
         feats = self.fpn_bottleneck(fpn_outs)
+        # ConvModule(
+        # (conv): Conv2d(4096, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
+        # (bn): _BatchNormXd(1024, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+        # (activate): ReLU(inplace=True)
+        # )
+        # feats.shape: torch.Size([2, 1024, 128, 128])
         return feats
 
     def forward(self, inputs):
         """Forward function."""
-        output = self._forward_feature(inputs)
-        output = self.cls_seg(output)
+        output = self._forward_feature(inputs)  # [2,1024,128,128]
+        output = self.cls_seg(output)   # [2,65,128,128]
         return output

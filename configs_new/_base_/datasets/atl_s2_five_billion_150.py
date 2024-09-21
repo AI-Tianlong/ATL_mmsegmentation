@@ -13,7 +13,7 @@ from mmseg.evaluation import IoUMetric
 
 # dataset settings
 dataset_type = ATLS2FIveBillionDataset24
-data_root = 'data/5B-150-S2/data-23类'
+data_root = 'data/atl_s2_five_billion'
 
 crop_size = (512, 512)
 train_pipeline = [
@@ -94,10 +94,11 @@ test_dataloader = dict(
     sampler=dict(type=DefaultSampler, shuffle=False),
     dataset=dict(
         type=dataset_type,
-        data_root=None,
+        # data_root=None,
+        data_root=data_root,
         data_prefix=dict(
-            img_path=
-            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/3-ATL黑龙江省推理过程文件/伊春/要推理的images-矢量裁切',
+            # img_path='/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/3-ATL黑龙江省推理过程文件/伊春/要推理的images-矢量裁切',
+            img_path='img_dir/val',
             # seg_map_path=''
         ),
         # ann_file='',

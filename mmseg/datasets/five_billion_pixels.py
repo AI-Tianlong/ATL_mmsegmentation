@@ -19,18 +19,27 @@ class FiveBillionPixelsDataset(BaseSegDataset):
                  'pond', 'fish pond', 'snow', 'bareland', 'rural residential',
                  'stadium', 'square', 'road', 'overpass', 'railway station',
                  'airport'),
-        palette=[[0, 0, 0], [200, 0, 0], [0, 200, 0], [150, 250, 0],
-                 [150, 200, 150], [200, 0, 200], [150, 0,
-                                                  250], [150, 150, 250],
-                 [200, 150, 200], [250, 200, 0], [200, 200, 0], [0, 0, 200],
-                 [250, 0, 150], [0, 150, 200], [0, 200, 250], [150, 200, 250],
-                 [250, 250, 250], [200, 200, 200], [200, 150, 150],
-                 [250, 200, 150], [150, 150, 0], [250, 150, 150],
-                 [250, 150, 0], [250, 200, 250], [200, 150, 0]])
-
+        palette=[[191, 191, 191],[161, 243, 161],[198, 224, 180],
+                 [169, 208, 142],[142, 169, 219],[0, 176, 80],
+                 [240, 238, 146],[217, 206, 63],[0, 51, 204],
+                 [0, 102, 255],[87, 171, 255],[212, 30, 26],
+                 [250, 0, 150],[209, 75, 187],[138, 151, 63],
+                 [0, 255, 0],[250, 150, 155],[250, 150, 0],
+                 [250, 200, 250],[200, 150, 0],[198, 89, 17],
+                 [255, 255, 255]])
+ 
     def __init__(self,
                  img_suffix='.tif',
-                 seg_map_suffix='.png',
+                 seg_map_suffix='.tif',
+                 reduce_zero_label=False,
                  **kwargs) -> None:
         super().__init__(
-            img_suffix=img_suffix, seg_map_suffix=seg_map_suffix, **kwargs)
+            img_suffix=img_suffix, 
+            seg_map_suffix=seg_map_suffix, 
+            reduce_zero_label=reduce_zero_label,
+            **kwargs)
+        
+
+
+
+

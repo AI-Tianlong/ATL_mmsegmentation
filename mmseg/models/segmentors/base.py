@@ -185,7 +185,7 @@ class BaseSegmentor(BaseModel, metaclass=ABCMeta):
                 i_seg_logits = seg_logits[i]
 
             if C > 1:
-                i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)
+                i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)  # keepdim=True，保留第0维度，大小为1
             else:
                 i_seg_logits = i_seg_logits.sigmoid()
                 i_seg_pred = (i_seg_logits >

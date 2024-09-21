@@ -28,7 +28,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
     is called based on the feature maps to calculate the loss.
 
     .. code:: text
-
+ 
     loss(): forward() -> loss_by_feat()
 
     3. The ``predict`` method is used to predict segmentation results,
@@ -227,6 +227,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
             inputs = torch.cat(upsampled_inputs, dim=1)
         elif self.input_transform == 'multiple_select':
             inputs = [inputs[i] for i in self.in_index]
+
         else:
             inputs = inputs[self.in_index]
 
@@ -286,6 +287,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         gt_semantic_segs = [
             data_sample.gt_sem_seg.data for data_sample in batch_data_samples
         ]
+               # [2,1,512,512]
         return torch.stack(gt_semantic_segs, dim=0)
 
     def loss_by_feat(self, seg_logits: Tensor,
@@ -301,9 +303,10 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-
-        seg_label = self._stack_batch_gt(batch_data_samples)
+        # seg_logits: [2,65,128,128]
+        seg_label = self._stack_batch_gt(batch_data_samples) # [2,1,512,512]
         loss = dict()
+        # 原来是直接把，[2,65,128,128]---双线性插值--->[2,65,512,512]
         seg_logits = resize(
             input=seg_logits,
             size=seg_label.shape[2:],
@@ -313,28 +316,39 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
             seg_weight = self.sampler.sample(seg_logits, seg_label)
         else:
             seg_weight = None
-        seg_label = seg_label.squeeze(1)
+            # print('走的这里')
+
+        seg_label = seg_label.squeeze(1) # [2,1,512,512]-->[2,512,512]
+
+        # import pdb
+        # pdb.set_trace()
 
         if not isinstance(self.loss_decode, nn.ModuleList):
             losses_decode = [self.loss_decode]
+
         else:
             losses_decode = self.loss_decode
         for loss_decode in losses_decode:
-            if loss_decode.loss_name not in loss:
+            if loss_decode.loss_name not in loss:  # loss['atl_loss_ce'],log就打印decode.atl_loss_ce
+                # pdb.set_trace()
                 loss[loss_decode.loss_name] = loss_decode(
                     seg_logits,
                     seg_label,
                     weight=seg_weight,
                     ignore_index=self.ignore_index)
+                # pdb.set_trace()
             else:
+                # pdb.set_trace()
                 loss[loss_decode.loss_name] += loss_decode(
                     seg_logits,
                     seg_label,
                     weight=seg_weight,
                     ignore_index=self.ignore_index)
-
+                # pdb.set_trace()
+        # pdb.set_trace()
         loss['acc_seg'] = accuracy(
             seg_logits, seg_label, ignore_index=self.ignore_index)
+        # pdb.set_trace()
         return loss
 
     def predict_by_feat(self, seg_logits: Tensor,

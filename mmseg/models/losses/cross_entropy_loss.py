@@ -42,13 +42,14 @@ def cross_entropy(pred,
 
     # class_weight is a manual rescaling weight given to each class.
     # If given, has to be a Tensor of size C element-wise losses
+
     loss = F.cross_entropy(
         pred,
         label,
         weight=class_weight,
         reduction='none',
         ignore_index=ignore_index)
-
+    
     # apply weights and do the reduction
     # average loss over non-ignored elements
     # pytorch's official cross_entropy average loss over non-ignored elements

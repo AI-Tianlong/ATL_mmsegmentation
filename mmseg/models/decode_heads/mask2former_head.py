@@ -115,11 +115,13 @@ class Mask2FormerHead(MMDET_Mask2FormerHead):
         Returns:
             dict[str, Tensor]: a dictionary of loss components.
         """
-        # batch SegDataSample to InstanceDataSample
+        # batch SegDataSample to InstanceDataSample, mmseg-->mmdet
         batch_gt_instances, batch_img_metas = self._seg_data_to_instance_data(
             batch_data_samples)
 
-        # forward
+        # forward，调用MMDET_Mask2FormerHead的Forward
+        # 返回cls_pred_list，Classification logits，(batch_size, num_queries, cls_out_channels)
+        # mask_pred_list，Mask logits for each (batch_size, num_queries, h, w)
         all_cls_scores, all_mask_preds = self(x, batch_data_samples)
 
         # loss

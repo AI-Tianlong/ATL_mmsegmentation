@@ -14,7 +14,7 @@ class ATLS2Crop10mDataset(BaseSegDataset):
     METAINFO = dict(
         classes=('Rice', 'Corn', 'soybean', 'Not-Farmland'),
         palette=[[0, 200, 0], [250, 200, 0], [250, 0, 150],
-                 [255, 255, 255]]  # 绿色 黄色 粉色 白色
+                 [255, 255, 255]]  
     )
 
     def __init__(self,

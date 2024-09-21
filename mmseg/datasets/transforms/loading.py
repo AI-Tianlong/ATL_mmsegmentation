@@ -539,9 +539,11 @@ class LoadSingleRSImageFromFile(BaseTransform):
 
         filename = results['img_path']
         ds = gdal.Open(filename)
+        # img_array = ds.ReadAsArray()
+        # print(f'【ATL-LOG-LoadSingleRSImageFromFile】filename:{filename} img_array.shape {img_array.shape}')
         if ds is None:
             raise Exception(f'Unable to open file: {filename}')
-        img = np.einsum('ijk->jki', ds.ReadAsArray())
+        img = np.einsum('ijk->jki', ds.ReadAsArray())  # 这句报错，说
 
         # 把图像中的nan值替换为0
         # print("[atl-log-img]",img)
