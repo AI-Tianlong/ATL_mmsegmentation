@@ -12,8 +12,8 @@ from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
 from mmseg.models.backbones import BEiTAdapter
-from mmseg.models.decode_heads.uper_head import UPerHead
 from mmseg.models.decode_heads.fcn_head import FCNHead
+from mmseg.models.decode_heads.uper_head import UPerHead
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
 with read_base():

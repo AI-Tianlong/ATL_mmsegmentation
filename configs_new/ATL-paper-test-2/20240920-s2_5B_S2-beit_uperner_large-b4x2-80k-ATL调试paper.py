@@ -5,24 +5,22 @@ from mmcv.transforms import (LoadImageFromFile, RandomChoice,
 from mmengine.config import read_base
 from mmengine.optim.optimizer import OptimWrapper
 from mmengine.optim.scheduler.lr_scheduler import LinearLR, PolyLR
-from torch.optim import AdamW
 from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
+from torch.optim import AdamW
 
 from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
                                        PhotoMetricDistortion, RandomCrop,
                                        ResizeShortestEdge)
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
-
-from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
-from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
 from mmseg.models.backbones import BEiTAdapter
-from mmseg.models.decode_heads.uper_head import UPerHead
 from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead
 from mmseg.models.decode_heads.fcn_head import FCNHead
+from mmseg.models.decode_heads.uper_head import UPerHead
+from mmseg.models.losses.atl_loss import ATL_Loss, S2_5B_Dataset_22Classes_Map
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
-from mmseg.models.losses.atl_loss import ATL_Loss
-from mmseg.models.losses.atl_loss import S2_5B_Dataset_22Classes_Map
+from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
+from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
 with read_base():
     from .._base_.datasets.atl_0_paper_5b_s2_22class import *
@@ -33,13 +31,13 @@ with read_base():
 # 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
 norm_cfg = dict(type=SyncBN, requires_grad=True)
 
-L1_num_classes = 6 # number of L1 Level label
-L2_num_classes = 12 # number of L1 Level label
-L3_num_classes = 22 # number of L1 Level label
+L1_num_classes = 6  # number of L1 Level label
+L2_num_classes = 12  # number of L1 Level label
+L3_num_classes = 22  # number of L1 Level label
 
-# 总的类别数，包括背景，L1+L2+L3级标签数 
+# 总的类别数，包括背景，L1+L2+L3级标签数
 # num_classes = 22
-num_classes = L1_num_classes + L2_num_classes + L3_num_classes  
+num_classes = L1_num_classes + L2_num_classes + L3_num_classes
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
@@ -65,7 +63,7 @@ data_preprocessor.update(
 model.update(
     dict(
         type=ATL_EncoderDecoder,
-        level_classes_map  = S2_5B_Dataset_22Classes_Map,  # 注意传参！！
+        level_classes_map=S2_5B_Dataset_22Classes_Map,  # 注意传参！！
         pretrained=pretrained,
         data_preprocessor=data_preprocessor,
         backbone=dict(
@@ -90,7 +88,6 @@ model.update(
             with_cp=False,  # set with_cp=True to save memory
             interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]],
         ),  #backbone 完全一样
-        
         decode_head=dict(
             type=ATL_UPerHead,
             in_channels=[1024, 1024, 1024, 1024],
@@ -99,13 +96,14 @@ model.update(
             channels=1024,
             dropout_ratio=0.1,
             num_classes=num_classes,
-            num_level_classes=[L1_num_classes, L2_num_classes, L3_num_classes],  # 这里需要和loss的map对应上
+            num_level_classes=[L1_num_classes, L2_num_classes,
+                               L3_num_classes],  # 这里需要和loss的map对应上
             norm_cfg=norm_cfg,
             align_corners=False,
             loss_decode=dict(
                 type=ATL_Loss,
-                reduction = 'sum', #
-                use_sigmoid=False, 
+                reduction='sum',  #
+                use_sigmoid=False,
                 loss_weight=1.0,
                 classes_map=S2_5B_Dataset_22Classes_Map)),
         auxiliary_head=dict(
@@ -120,9 +118,7 @@ model.update(
             norm_cfg=norm_cfg,
             align_corners=False,
             loss_decode=dict(
-                type=CrossEntropyLoss, 
-                use_sigmoid=False, 
-                loss_weight=0.4)),
+                type=CrossEntropyLoss, use_sigmoid=False, loss_weight=0.4)),
         test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341))))
 
 # dataset config

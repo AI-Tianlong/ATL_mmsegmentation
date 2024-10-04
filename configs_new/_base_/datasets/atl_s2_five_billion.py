@@ -97,7 +97,7 @@ test_dataloader = dict(
         data_root=None,
         data_prefix=dict(
             img_path=
-            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/3-ATL黑龙江省推理过程文件/伊春/要推理的images-矢量裁切',
+            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/0-河南/商丘-小麦提取/images',
             # seg_map_path=''
         ),
         # ann_file='',

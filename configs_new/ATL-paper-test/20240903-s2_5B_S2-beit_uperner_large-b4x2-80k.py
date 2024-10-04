@@ -5,23 +5,21 @@ from mmcv.transforms import (LoadImageFromFile, RandomChoice,
 from mmengine.config import read_base
 from mmengine.optim.optimizer import OptimWrapper
 from mmengine.optim.scheduler.lr_scheduler import LinearLR, PolyLR
-from torch.optim import AdamW
 from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
+from torch.optim import AdamW
 
 from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
                                        PhotoMetricDistortion, RandomCrop,
                                        ResizeShortestEdge)
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
-
-from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
-from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
 from mmseg.models.backbones import BEiTAdapter
-from mmseg.models.decode_heads.uper_head import UPerHead
 from mmseg.models.decode_heads.fcn_head import FCNHead
+from mmseg.models.decode_heads.uper_head import UPerHead
+from mmseg.models.losses.atl_loss import ATL_Loss, S2_5B_Dataset_22Classes_Map
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
-from mmseg.models.losses.atl_loss import ATL_Loss
-from mmseg.models.losses.atl_loss import S2_5B_Dataset_22Classes_Map
+from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
+from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
 with read_base():
     from .._base_.datasets.atl_0_paper_5b_s2_22class import *
@@ -32,13 +30,13 @@ with read_base():
 # 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
 norm_cfg = dict(type=SyncBN, requires_grad=True)
 
-L1_num_classes = 6 # number of L1 Level label
-L2_num_classes = 12 # number of L1 Level label
-L3_num_classes = 22 # number of L1 Level label
+L1_num_classes = 6  # number of L1 Level label
+L2_num_classes = 12  # number of L1 Level label
+L3_num_classes = 22  # number of L1 Level label
 
-# 总的类别数，包括背景，L1+L2+L3级标签数 
+# 总的类别数，包括背景，L1+L2+L3级标签数
 # num_classes = 22
-num_classes = L1_num_classes + L2_num_classes + L3_num_classes  
+num_classes = L1_num_classes + L2_num_classes + L3_num_classes
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
@@ -99,8 +97,8 @@ model.update(
             norm_cfg=norm_cfg,
             align_corners=False,
             loss_decode=dict(
-                type=ATL_Loss, 
-                use_sigmoid=False, 
+                type=ATL_Loss,
+                use_sigmoid=False,
                 loss_weight=1.0,
                 classes_map=S2_5B_Dataset_22Classes_Map)),
         auxiliary_head=dict(
@@ -115,9 +113,7 @@ model.update(
             norm_cfg=norm_cfg,
             align_corners=False,
             loss_decode=dict(
-                type=CrossEntropyLoss, 
-                use_sigmoid=False, 
-                loss_weight=0.4)),
+                type=CrossEntropyLoss, use_sigmoid=False, loss_weight=0.4)),
         test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341))))
 
 # dataset config
@@ -163,7 +159,7 @@ param_scheduler = [
     )
 ]
 
-# load_from = 
+# load_from =
 load_from = '/opt/AI-Tianlong/checkpoints/atl_s2_农作物分类可用的权重/24类地物-BEIT-Adapter-24类地物覆盖-GID150张s2训练/1-s2_5billion_10bands_crop10mPR_miou82.2_iter80000.pth'
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))

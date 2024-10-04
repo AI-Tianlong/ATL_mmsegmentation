@@ -13,8 +13,8 @@ from mmseg.evaluation import IoUMetric
 
 # dataset settings
 dataset_type = ATL_S2_5B_Dataset_22class
+# data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-加入雪-nvme' 
 data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-包含雪21'
-
 crop_size = (512, 512)
 train_pipeline = [
     dict(type=LoadSingleRSImageFromFile),
@@ -45,7 +45,7 @@ test_pipeline = [  #
     # dict(type=Resize, scale=(6800, 7200), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
     # does not need to do resize data transform
-    dict(type=LoadAnnotations), # 不需要验证，不用添加 Annotations
+    dict(type=LoadAnnotations),  # 不需要验证，不用添加 Annotations
     dict(type=PackSegInputs)
 ]
 
@@ -66,7 +66,7 @@ tta_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=2,
+    batch_size=8,
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type=InfiniteSampler, shuffle=True),

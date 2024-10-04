@@ -2,6 +2,7 @@
 from .ann_head import ANNHead
 from .apc_head import APCHead
 from .aspp_head import ASPPHead
+
 from .cc_head import CCHead
 from .da_head import DAHead
 from .ddr_head import DDRHead
@@ -35,7 +36,9 @@ from .setr_up_head import SETRUPHead
 from .stdc_head import STDCHead
 from .uper_head import UPerHead
 from .vpd_depth_head import VPDDepthHead
-from .atl_uper_head import ATL_UPerHead
+
+from .atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
+from .atl_fcn_head import ATL_FCNHead
 
 __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
@@ -45,6 +48,6 @@ __all__ = [
     'SETRMLAHead', 'DPTHead', 'SETRMLAHead', 'SegmenterMaskTransformerHead',
     'SegformerHead', 'ISAHead', 'STDCHead', 'IterativeDecodeHead',
     'KernelUpdateHead', 'KernelUpdator', 'MaskFormerHead', 'Mask2FormerHead',
-    'LightHamHead', 'PIDHead', 'DDRHead', 'VPDDepthHead', 'SideAdapterCLIPHead',
-    'ATL_UPerHead'
+    'LightHamHead', 'PIDHead', 'DDRHead', 'VPDDepthHead',
+    'SideAdapterCLIPHead', 'ATL_UPerHead','ATL_FCNHead','ATL_UPerHead_fenkai'
 ]

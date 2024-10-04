@@ -1,5 +1,7 @@
 # Copyright (c) Shanghai AI Lab. All rights reserved.
+from functools import partial
 from imp import init_builtin
+
 from mmcv.transforms import (LoadImageFromFile, RandomChoice,
                              RandomChoiceResize, RandomFlip)
 from mmengine.config import read_base
@@ -11,11 +13,10 @@ from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
                                        PhotoMetricDistortion, RandomCrop,
                                        ResizeShortestEdge)
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
-from mmseg.engine.optimizers import LayerDecayOptimizerConstructor, LearningRateDecayOptimizerConstructor
+from mmseg.engine.optimizers import (LayerDecayOptimizerConstructor,
+                                     LearningRateDecayOptimizerConstructor)
 from mmseg.models.backbones import ViTAdapter
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
-
-from functools import partial
 
 with read_base():
     from .._base_.datasets.atl_s2_five_billion import *
@@ -62,7 +63,7 @@ model.update(
             in_channels=10,  # 4个波段
             depth=12,
             num_heads=12,
-            mlp_ratio=4,   # mpl的通道数，是4倍的enbed_dim
+            mlp_ratio=4,  # mpl的通道数，是4倍的enbed_dim
             qkv_bias=True,
             init_values=1e-6,
             drop_path_rate=0.3,
@@ -110,7 +111,7 @@ train_dataloader.update(dataset=dict(pipeline=train_pipeline))  # potsdam的变�
 # optimizer
 optimizer = dict(
     type=AdamW,
-    lr=3e-6, # 这个看着效果好
+    lr=3e-6,  # 这个看着效果好
     betas=(0.9, 0.999),
     weight_decay=0.01,
 )
@@ -119,7 +120,7 @@ optim_wrapper = dict(
     optimizer=optimizer,
     constructor=LearningRateDecayOptimizerConstructor,
     paramwise_cfg=dict(
-        num_layers=12,    # 和 depth一样
+        num_layers=12,  # 和 depth一样
         decay_rate=0.9,
         decay_type='layer_wise'))
 

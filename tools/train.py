@@ -84,11 +84,12 @@ def main():
             cfg.optim_wrapper.type = 'AmpOptimWrapper'
             cfg.optim_wrapper.loss_scale = 'dynamic'
 
+
     # resume training
     cfg.resume = args.resume
-
+    cfg.find_unused_parameters = True  # 找到在算loss未使用的参数,忽略
     # build the runner from config
-    if 'runner_type' not in cfg:
+    if 'runner_type' not in cfg: 
         # build the default runner
         runner = Runner.from_cfg(cfg)
     else:

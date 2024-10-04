@@ -1,15 +1,16 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from venv import logger
-from mmseg.utils import SampleList
+
 import torch
 import torch.nn as nn
 from mmcv.cnn import ConvModule
+from torch import Tensor
 
 from mmseg.registry import MODELS
+from mmseg.utils import SampleList
 from ..utils import resize
 from .decode_head import BaseDecodeHead
 from .psp_head import PPM
-from torch import Tensor
 
 
 @MODELS.register_module()
@@ -101,9 +102,9 @@ class UPerHead(BaseDecodeHead):
         """
         inputs = self._transform_inputs(inputs)
 
-        # build laterals, 
+        # build laterals,
         # 3xConvModule{Conv2d(1024, 1024, (1,1), (1,1), bias=False) + bn + ReLU}
-        # 
+        #
         # laterals = [[2, 1024, 128, 128], [2, 1024, 64, 64], [2, 1024, 32, 32]]
         laterals = [
             lateral_conv(inputs[i])
@@ -141,7 +142,7 @@ class UPerHead(BaseDecodeHead):
         # fpn_outs: [[2,1024,128,128],[2,1024,128,128],[2,1024,128,128],[2,1024,128,128]]
         fpn_outs = torch.cat(fpn_outs, dim=1)
         # fpn_outs: [2,4096,128,128]
-        
+
         feats = self.fpn_bottleneck(fpn_outs)
         # ConvModule(
         # (conv): Conv2d(4096, 1024, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1), bias=False)
@@ -154,5 +155,5 @@ class UPerHead(BaseDecodeHead):
     def forward(self, inputs):
         """Forward function."""
         output = self._forward_feature(inputs)  # [2,1024,128,128]
-        output = self.cls_seg(output)   # [2,65,128,128]
+        output = self.cls_seg(output)  # [2,65,128,128]
         return output

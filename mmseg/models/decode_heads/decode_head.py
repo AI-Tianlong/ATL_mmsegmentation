@@ -28,7 +28,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
     is called based on the feature maps to calculate the loss.
 
     .. code:: text
- 
+
     loss(): forward() -> loss_by_feat()
 
     3. The ``predict`` method is used to predict segmentation results,
@@ -154,7 +154,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         else:
             self.sampler = None
 
-        self.conv_seg = nn.Conv2d(channels, self.out_channels, kernel_size=1)
+        self.conv_seg = nn.Conv2d(channels, self.out_channels, kernel_size=1) # [2,1024,128,128]-->[2,22,128,128]
         if dropout_ratio > 0:
             self.dropout = nn.Dropout2d(dropout_ratio)
         else:
@@ -259,7 +259,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-        seg_logits = self.forward(inputs)
+        seg_logits = self.forward(inputs)  # [2,40,128,128]
         losses = self.loss_by_feat(seg_logits, batch_data_samples)
         return losses
 
@@ -279,15 +279,15 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
         Returns:
             Tensor: Outputs segmentation logits map.
         """
-        seg_logits = self.forward(inputs)
+        seg_logits = self.forward(inputs)  # 过decode_head的forward--->[2,40,128,128]
 
-        return self.predict_by_feat(seg_logits, batch_img_metas)
+        return self.predict_by_feat(seg_logits, batch_img_metas)   # [2,40,512,512]
 
     def _stack_batch_gt(self, batch_data_samples: SampleList) -> Tensor:
         gt_semantic_segs = [
             data_sample.gt_sem_seg.data for data_sample in batch_data_samples
         ]
-               # [2,1,512,512]
+        # [2,1,512,512]
         return torch.stack(gt_semantic_segs, dim=0)
 
     def loss_by_feat(self, seg_logits: Tensor,
@@ -304,7 +304,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
             dict[str, Tensor]: a dictionary of loss components
         """
         # seg_logits: [2,65,128,128]
-        seg_label = self._stack_batch_gt(batch_data_samples) # [2,1,512,512]
+        seg_label = self._stack_batch_gt(batch_data_samples)  # [2,1,512,512]
         loss = dict()
         # 原来是直接把，[2,65,128,128]---双线性插值--->[2,65,512,512]
         seg_logits = resize(
@@ -318,7 +318,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
             seg_weight = None
             # print('走的这里')
 
-        seg_label = seg_label.squeeze(1) # [2,1,512,512]-->[2,512,512]
+        seg_label = seg_label.squeeze(1)  # [2,1,512,512]-->[2,512,512]
 
         # import pdb
         # pdb.set_trace()
@@ -353,7 +353,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
 
     def predict_by_feat(self, seg_logits: Tensor,
                         batch_img_metas: List[dict]) -> Tensor:
-        """Transform a batch of output seg_logits to the input shape.
+        """Transform a batch of output seg_logits to the input shape.  # 缩放！
 
         Args:
             seg_logits (Tensor): The output from decode head forward function.

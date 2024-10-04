@@ -13,8 +13,8 @@ from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
 from mmseg.models.backbones import BEiTAdapter
-from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
+from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
 with read_base():
     from .._base_.datasets.atl_0_paper_eurocrops_s2_65class import *
@@ -78,8 +78,7 @@ model.update(
         decode_head=dict(
             in_channels=[1024, 1024, 1024, 1024],
             channels=1024,
-            num_classes=num_classes
-            ),
+            num_classes=num_classes),
         auxiliary_head=dict(
             in_channels=1024,
             num_classes=num_classes,
@@ -129,7 +128,7 @@ param_scheduler = [
     )
 ]
 
-# load_from = 
+# load_from =
 load_from = None
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))

@@ -5,22 +5,21 @@ from mmcv.transforms import (LoadImageFromFile, RandomChoice,
 from mmengine.config import read_base
 from mmengine.optim.optimizer import OptimWrapper
 from mmengine.optim.scheduler.lr_scheduler import LinearLR, PolyLR
-from torch.optim import AdamW
 from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
+from torch.optim import AdamW
 
 from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
                                        PhotoMetricDistortion, RandomCrop,
                                        ResizeShortestEdge)
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
-
-from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
-from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
 from mmseg.models.backbones import BEiTAdapter
-from mmseg.models.decode_heads.uper_head import UPerHead
 from mmseg.models.decode_heads.fcn_head import FCNHead
-from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
+from mmseg.models.decode_heads.uper_head import UPerHead
 from mmseg.models.losses.atl_loss import ATL_CrossEntropyLoss
+from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
+from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
+from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
 with read_base():
     from .._base_.datasets.atl_0_paper_5b_s2_22class import *
@@ -31,12 +30,12 @@ with read_base():
 # 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
 norm_cfg = dict(type=SyncBN, requires_grad=True)
 
-L1_num_classes = 6 # number of L1 Level label
-L2_num_classes = 12 # number of L1 Level label
-L3_num_classes = 22 # number of L1 Level label
+L1_num_classes = 6  # number of L1 Level label
+L2_num_classes = 12  # number of L1 Level label
+L3_num_classes = 22  # number of L1 Level label
 
-# 总的类别数，包括背景，L1+L2+L3级标签数 
-num_classes = 22  
+# 总的类别数，包括背景，L1+L2+L3级标签数
+num_classes = 22
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
@@ -156,7 +155,7 @@ param_scheduler = [
     )
 ]
 
-# load_from = 
+# load_from =
 load_from = None
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))

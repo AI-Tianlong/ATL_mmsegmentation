@@ -1736,7 +1736,6 @@ class BEiTAdapter(BEiT_ATL):
         # H: 32
         # W: 32
 
-
         bs, n, dim = x.shape
         cls = self.cls_token.expand(
             bs, -1, -1)  # stole cls_tokens impl from Phil Wang, thanks
@@ -1763,14 +1762,19 @@ class BEiTAdapter(BEiT_ATL):
             # outs[3].shape: torch.Size([2, 1024, 32, 32])
 
         # Split & Reshape                                # c.shape: torch.Size([2, 5376, 1024])
-        c2 = c[:, 0:c2.size(1), :]                       # c2=c[:, 0:4096, :]    [2, 4096, 1024]
-        c3 = c[:, c2.size(1):c2.size(1) + c3.size(1), :] # c3=c[:, 4096:4532, :] [2, 1024, 1024]
-        c4 = c[:, c2.size(1) + c3.size(1):, :]           # c2=c[:, 4532:, :]     [2, 256, 1024]
+        c2 = c[:, 0:c2.size(1), :]  # c2=c[:, 0:4096, :]    [2, 4096, 1024]
+        c3 = c[:, c2.size(1):c2.size(1) +
+               c3.size(1), :]  # c3=c[:, 4096:4532, :] [2, 1024, 1024]
+        c4 = c[:, c2.size(1) +
+               c3.size(1):, :]  # c2=c[:, 4532:, :]     [2, 256, 1024]
 
-        c2 = c2.transpose(1, 2).view(bs, dim, H * 2, W * 2).contiguous()    # [2, 1024, 64, 64]
-        c3 = c3.transpose(1, 2).view(bs, dim, H, W).contiguous()            # [2, 1024, 32, 32]
-        c4 = c4.transpose(1, 2).view(bs, dim, H // 2, W // 2).contiguous()  # [2, 1024, 16, 16]
-        c1 = self.up(c2) + c1 #[2, 1024, 128, 128]+spm的([2, 1024, 128, 128])
+        c2 = c2.transpose(1, 2).view(bs, dim, H * 2,
+                                     W * 2).contiguous()  # [2, 1024, 64, 64]
+        c3 = c3.transpose(1, 2).view(bs, dim, H,
+                                     W).contiguous()  # [2, 1024, 32, 32]
+        c4 = c4.transpose(1, 2).view(bs, dim, H // 2,
+                                     W // 2).contiguous()  # [2, 1024, 16, 16]
+        c1 = self.up(c2) + c1  #[2, 1024, 128, 128]+spm的([2, 1024, 128, 128])
         if self.add_vit_feature:
             x1, x2, x3, x4 = outs
             x1 = F.interpolate(

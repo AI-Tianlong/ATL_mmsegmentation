@@ -1,23 +1,20 @@
-from venv import logger
+# Copyright (c) OpenMMLab. All rights reserved.
+import pdb
 import warnings
+from ATL_Tools import setup_logger
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from mmseg.registry import MODELS
-from .utils import get_class_weight, weight_reduce_loss
-
 from .cross_entropy_loss import CrossEntropyLoss, cross_entropy
-
-import pdb  
-
+from .utils import get_class_weight, weight_reduce_loss
 
 # S2_5B 数据集，分为L1、L2、L3三级标签，共21类
 # L1: 包含6类, 0-5
 # L2: 包含12类, 0-11
 # L3: 包含22类, 0-21
-
 
 S2_5B_Dataset_22Classes_Map = dict(
     # class_L1_{L1中的标签号}_{L1中的标签名称}=[L3级标签的值]
@@ -40,7 +37,7 @@ S2_5B_Dataset_22Classes_Map = dict(
         class_L2_3_6_Factory_Shopping_malls=[11],
         class_L2_3_7_Residence=[12, 13],
         class_L2_3_8_Public_area=[14, 15],
-        class_L2_3_9_Transportation_infrastructure=[16,17,18,19],
+        class_L2_3_9_Transportation_infrastructure=[16, 17, 18, 19],
         class_L2_4_10_Bare_land=[20],
         class_L2_5_11_Ice_snow=[21],
     ),
@@ -67,40 +64,38 @@ S2_5B_Dataset_22Classes_Map = dict(
         class_L3_1_9_18_Railway_station=[18],
         class_L3_1_9_19_Airport=[19],
         class_L3_1_10_20_Bare_land=[20],
-        class_L3_1_11_21_ice_snow=[21]
-    )
-)        
+        class_L3_1_11_21_ice_snow=[21]))
+
 
 def convert_low_level_label_to_High_level(label, classes_map):
     """Convert low level label to High level label.
         e.g.:
-          convert L3 label (num_classes=22)  to 
+          convert L3 label (num_classes=22)  to
           L2 label (num_classes=12) or L1 label (num_classes=6)
 
     Args:
         label (Tensor): L3 label.  label.shape:[2, 512, 512]
-        classes_map (dict): Classes map. 
+        classes_map (dict): Classes map.
 
     Returns:
         Tensor: Lx label.
-    """                        
-    # import pdb 
-    # pdb.set_trace()         # label 在cuda:0上             
-    label_list = list()                                       # 转换 L3 (low level) --> L1 L2 (hgih level)
+    """
+    # import pdb
+    # pdb.set_trace()         # label 在cuda:0上
+    label_list = list()  # 转换 L3 (low level) --> L1 L2 (hgih level)
     for _, high_level_dict in list(classes_map.items())[:-1]:
         high_level_label = torch.zeros_like(label).fill_(255)  # [2,512,512] 255 is the ignore index #因为用了like，所以也在GPU上
         for high_level_label_value, high_level_key in enumerate(high_level_dict):
             low_level_label_list = high_level_dict[high_level_key]
             for low_level_label in low_level_label_list:
                 high_level_label[label == low_level_label] = high_level_label_value
-                # pdb.set_trace()         # label 在cuda:0上 
-        # pdb.set_trace() 
-        label_list.append(high_level_label) 
-    # pdb.set_trace()         # label 在cuda:0上 
-    label_list.append(label) # L3 label
-    # pdb.set_trace()         # label 在cuda:0上 
-    return label_list # [L1级label, L2级label, L3级label] #tensor [2,512,512][2,512,512][2,512,512]
-
+                # pdb.set_trace()         # label 在cuda:0上
+        # pdb.set_trace()
+        label_list.append(high_level_label)
+    # pdb.set_trace()         # label 在cuda:0上
+    label_list.append(label)  # L3 label
+    # pdb.set_trace()         # label 在cuda:0上
+    return label_list  # [L1级label, L2级label, L3级label] #tensor [2,512,512][2,512,512][2,512,512]
 
 
 @MODELS.register_module()
@@ -148,7 +143,7 @@ class ATL_Loss(nn.Module):
         self.class_weight = get_class_weight(class_weight)
         self.avg_non_ignore = avg_non_ignore
         self.classes_map = classes_map
-        
+
         if not self.avg_non_ignore and self.reduction == 'mean':
             warnings.warn(
                 'Default ``avg_non_ignore`` is False, if you would like to '
@@ -161,14 +156,15 @@ class ATL_Loss(nn.Module):
         # 构造层级Loss函数
         self.loss_ce_dict = dict()
         if self.classes_map == None:
-            # 不分级，默认为 1 级
-            self.loss_ce_dict[f'{self._loss_name}_ce'] = CrossEntropyLoss(loss_name=f'{self._loss_name}_ce')
-            # loss_ce = CrossEntropyLoss(loss_name='atl_loss_ce') 
+            # 不分级，默认为 1 级，只要一个交叉熵损失
+            self.loss_ce_dict[f'{self._loss_name}_ce'] = CrossEntropyLoss(
+                loss_name=f'{self._loss_name}_ce')
+            # loss_ce = CrossEntropyLoss(loss_name='atl_loss_ce')
         else:
             self.loss_ce_num = len(self.classes_map)  # 识别分为几级标签, 3 --> L1, L2, L3
             for loss_ce_index in range(self.loss_ce_num):
                 self.loss_ce_dict[f'{self._loss_name}_ce_L{loss_ce_index+1}'] = CrossEntropyLoss(
-                    loss_name=f'{self._loss_name}_ce_L{loss_ce_index+1}')
+                        loss_name=f'{self._loss_name}_ce_L{loss_ce_index+1}')
         # ✔
 
     def extra_repr(self):
@@ -176,41 +172,55 @@ class ATL_Loss(nn.Module):
         s = f'avg_non_ignore={self.avg_non_ignore}'
         return s
 
-    def forward(self,
-                pred,
-                label,
-                weight=None,
-                reduction='mean',
-                ignore_index=-100,  #BaseDecodeHead,loss_by_feat()会复写掉这个值=255
-                **kwargs):  # kwargs, 用于接收额外的参数 --> 用于接收loss_by_feat()传递过来的参数
+    def forward(   # 由uperhead的loss_by_feat()调用
+        self,
+        pred,  # [2,40,512,512] (由decode_head的三个输出拼成的)
+        label, # [2,512,512]
+        weight=None,
+        reduction='mean',  # sum or mean，还没测试这里有什么区别，
+        ignore_index=-100,  #BaseDecodeHead,loss_by_feat()会复写掉这个值=255
+        **kwargs):  # kwargs, 用于接收额外的参数 --> 用于接收loss_by_feat()传递过来的参数
         """Forward function."""
         # logger.warning('进入到 ATL_Loss 的forward()函数')
 
-        # len(label_level_list)=3 [L1级label, L2级label, L3级label] label_level_list[0]=[2,512,512]
+        # len(label_level_list)=3 [L1级label, L2级label, L3级label] 3个[2,512,512]
         # 产生层级标签 和 层级seg_logits 去算loss
-        label_level_list = convert_low_level_label_to_High_level(label, classes_map=self.classes_map)
+        # L1级标签：0~5 6类
+        # L2级标签：0~11 12类
+        # L3级标签：0~21 22类
+
+        label_level_list = convert_low_level_label_to_High_level(
+            label, classes_map=self.classes_map)
+
         
-        # [0, 6, 12, 22]
+        # [0, 6, 12, 22] 
         num_levels_classes = list()
         num_levels_classes.append(0)
         for level_name, high_level_dict in list(self.classes_map.items()):
             num_levels_classes.append(len(high_level_dict))
-        
+
         # 巧妙地构造出了 [0,6,12,22]-->[[0,6],[6,18],[18,40]]
         classes_range = list()
-        for i in range(len(num_levels_classes)-1):
-            classes_range.append([num_levels_classes[i], num_levels_classes[i]+num_levels_classes[i+1]])
-            num_levels_classes[i+1] = num_levels_classes[i]+num_levels_classes[i+1]
+        for i in range(len(num_levels_classes) - 1):
+            classes_range.append([
+                num_levels_classes[i],
+                num_levels_classes[i] + num_levels_classes[i + 1]
+            ])
+            num_levels_classes[i + 1] = num_levels_classes[i] + num_levels_classes[i + 1]
         # 最终的classes_range=[[0,6],[6,18],[18,40]]
         # num_levels_classes=[0, 6, 18, 40]
 
         pred_level_list = list()
         for i in range(len(self.classes_map)):
-            pred_level_list.append(pred[:, classes_range[i][0]:classes_range[i][1], ...])
+            pred_level_list.append(
+                pred[:, classes_range[i][0]:classes_range[i][1], ...])
         # pred_level_list [[2,6,512,512],[2,12,512,512],[2,22,512,512]]
 
         loss_cls_list = list()
-        for pred_ , label_, loss_ce_name in zip(pred_level_list, label_level_list, self.loss_ce_dict):
+        for pred_, label_, loss_ce_name in zip(pred_level_list,
+                                               label_level_list,
+                                               self.loss_ce_dict):
+            # import pdb; pdb.set_trace()
             loss_cls = self.loss_ce_dict[loss_ce_name](
                 cls_score=pred_,
                 label=label_,
@@ -219,14 +229,16 @@ class ATL_Loss(nn.Module):
                 ignore_index=ignore_index,
                 **kwargs)
             loss_cls_list.append(loss_cls)  # 3个tensor,这里的数是在cuda的tensor
-
+        # import pdb; pdb.set_trace()
         # 这里的loss最后必须是给一个数值，因为不能动loss_by_feat,所以这里的loss必须是一个数值
         # 但是这里的loss是一个list，所以需要把这个list合并成一个数值
-
-        level_weight = [1.0, 1.0, 1.0]
-        level_weight = torch.tensor(level_weight, device=loss_cls_list[0].device)
-        loss_cls_tensor = torch.stack(loss_cls_list) # 将列表堆叠为一个张量
-        weighted_loss_tensor = loss_cls_tensor * level_weight
+        # import pdb; pdb.set_trace()
+        level_weight = [1.0, 1.0, 1.0] # 3个层级的权重
+        level_weight = torch.tensor(
+            level_weight, device=loss_cls_list[0].device)
+        loss_cls_tensor = torch.stack(loss_cls_list)  # 将列表堆叠为一个张量
+        weighted_loss_tensor = loss_cls_tensor * level_weight # 给不同层级一个权重
+        # import pdb; pdb.set_trace()
         # loss return的是一个值，所以这里需要把loss_cls_list合并成一个值
         if self.reduction == 'sum':
             # Change view to calculate instance-wise sum
@@ -235,7 +247,9 @@ class ATL_Loss(nn.Module):
         elif self.reduction == 'mean':
             # Change view to calculate instance-wise mean
             loss = torch.mean(weighted_loss_tensor)
-        return loss
+        
+        # import pdb; pdb.set_trace()
+        return loss* self.loss_weight  #当前loss的权重，主分割头1.0 辅助头0.4 
 
     @property
     def loss_name(self):

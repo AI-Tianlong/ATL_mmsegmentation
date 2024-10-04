@@ -2,6 +2,7 @@
 import os.path as osp
 from collections import OrderedDict
 from typing import Dict, List, Optional, Sequence
+from venv import logger
 
 import numpy as np
 import torch
@@ -11,16 +12,17 @@ from mmengine.logging import MMLogger, print_log
 from mmengine.utils import mkdir_or_exist
 from PIL import Image
 from prettytable import PrettyTable
+from mmseg.utils import add_prefix
 
+from mmseg.models.losses.atl_loss import (S2_5B_Dataset_22Classes_Map,
+                                          convert_low_level_label_to_High_level
+                                          )
 from mmseg.registry import METRICS
-from mmseg.models.losses.atl_loss import S2_5B_Dataset_22Classes_Map, convert_low_level_label_to_High_level
-
-
 
 
 @METRICS.register_module()
 class ATL_IoUMetric(BaseMetric):
-    """ATL_IoUMetric evaluation metric. 同时计算 父类和子类的IoU
+    """ATL_IoUMetric evaluation metric. 同时计算 父类和子类的IoU.
 
     Args:
         ignore_index (int): Index that will be ignored in evaluation.
@@ -44,7 +46,10 @@ class ATL_IoUMetric(BaseMetric):
             names to disambiguate homonymous metrics of different evaluators.
             If prefix is not provided in the argument, self.default_prefix
             will be used instead. Defaults to None.
+        print_level (int): The print level of the metric. Default: False.
     """
+    # default_prefix = 'ATL_IoUMetric-L3的metric'  # 设置 default_prefix
+
 
     def __init__(self,
                  ignore_index: int = 255,
@@ -55,8 +60,10 @@ class ATL_IoUMetric(BaseMetric):
                  output_dir: Optional[str] = None,
                  format_only: bool = False,
                  prefix: Optional[str] = None,
+                 print_level = False,
                  **kwargs) -> None:
         super().__init__(collect_device=collect_device, prefix=prefix)
+
 
         self.L1results = []
         self.L2results = []
@@ -76,67 +83,64 @@ class ATL_IoUMetric(BaseMetric):
         The processed results should be stored in ``self.results``, which will
         be used to compute the metrics when all batches have been processed.
 
-        Args:  
+        Args:
             data_batch (dict): A batch of data from the dataloader.  #原始图像数据和标签 [10,512,512][512,512]
             data_samples (Sequence[dict]): A batch of outputs from the model. #模型输出的pred_seg 和 seg_logits
         """
         import pdb
-        
-        # 22 
+
+        # 22
         num_classes = len(self.dataset_meta['classes'])  # 这里就是22吧。因为是从数据集中获取的
- 
+
         # pdb.set_trace()
         for data_sample in data_samples:
-            
+
             # 构造pred_label
-            i_seg_logits = data_sample['seg_logits']['data'] # [40,512,512] # 都在cuda:0上device='cuda:0'
-            L1_seg_logits = i_seg_logits[0:6,:,:]  # [6,512,512] 
-            L2_seg_logits = i_seg_logits[6:18,:,:]  # [12,512,512]
-            L3_seg_logits = i_seg_logits[18:40,:,:]  # [22,512,512]
+            i_seg_logits = data_sample['seg_logits']['data']  # [40,512,512] # 都在cuda:0上device='cuda:0'
+            L1_seg_logits = i_seg_logits[0:6, :, :]  # [6,512,512]
+            L2_seg_logits = i_seg_logits[6:18, :, :]  # [12,512,512]
+            L3_seg_logits = i_seg_logits[18:40, :, :]  # [22,512,512]
 
             L1_pred_seg = torch.argmax(L1_seg_logits, dim=0)  # [512,512] [0-5]
             L2_pred_seg = torch.argmax(L2_seg_logits, dim=0)  # [512,512] [0-11]
             L3_pred_seg = torch.argmax(L3_seg_logits, dim=0)  # [512,512] [0-21]
-            
-            set_L1_pred_seg = set(L1_pred_seg.flatten().cpu().numpy().tolist()) #{0, 1, 2, 3}
-            set_L2_pred_seg = set(L2_pred_seg.flatten().cpu().numpy().tolist()) #{0, 1, 3, 5, 6, 7}
-            set_L3_pred_seg = set(L3_pred_seg.flatten().cpu().numpy().tolist()) #{0, 2, 5, 11, 13}
-            
+
+            set_L1_pred_seg = set(L1_pred_seg.flatten().cpu().numpy().tolist())  #{0, 1, 2, 3}
+            set_L2_pred_seg = set(L2_pred_seg.flatten().cpu().numpy().tolist())  #{0, 1, 3, 5, 6, 7}
+            set_L3_pred_seg = set(L3_pred_seg.flatten().cpu().numpy().tolist())  #{0, 2, 5, 11, 13}
+
             # data_sample['pred_sem_seg']['data'] [1,512,512]-->[512,512]
-            pred_label = data_sample['pred_sem_seg']['data'].squeeze() # 叠加处理过后的pred_sem_seg[] [512,512]
+            pred_label = data_sample['pred_sem_seg']['data'].squeeze(
+            )  # 叠加处理过后的pred_sem_seg[] [512,512]
 
             # pdb.set_trace()
 
             # format_only always for test dataset without ground truth
             # 等价于，如果要验证：
-            if not self.format_only:  
+            if not self.format_only:
                 # label [512,512]
                 label = data_sample['gt_sem_seg']['data'].squeeze().to(
                     i_seg_logits)  # 把label放到了gpu上，和pred_label一样的device
-                
+
                 label_list = convert_low_level_label_to_High_level(label, S2_5B_Dataset_22Classes_Map)
 
                 L1_label = label_list[0]  # [512,512] [0-5]
                 L2_label = label_list[1]  # [512,512] [0-11]
                 L3_label = label_list[2]  # [512,512] [0-21]
 
-                set_label = set(label.flatten().cpu().numpy().tolist()) #{0.0, 2.0, 4.0, 10.0, 11.0, 12.0, 13.0, 16.0, 255.0}
-                set_L1_label = set(L1_label.flatten().cpu().numpy().tolist()) #{0.0, 1.0, 2.0, 3.0, 255.0}
-                set_L2_label = set(L2_label.flatten().cpu().numpy().tolist()) #{0.0, 1.0, 2.0, 5.0, 6.0, 7.0, 9.0, 255.0}
-                set_L3_label = set(L3_label.flatten().cpu().numpy().tolist()) #{0.0, 2.0, 4.0, 10.0, 11.0, 12.0, 13.0, 16.0, 255.0}
+                set_label = set(label.flatten().cpu().numpy().tolist())  #{0.0, 2.0, 4.0, 10.0, 11.0, 12.0, 13.0, 16.0, 255.0}
+                set_L1_label = set(L1_label.flatten().cpu().numpy().tolist())  #{0.0, 1.0, 2.0, 3.0, 255.0}
+                set_L2_label = set(L2_label.flatten().cpu().numpy().tolist())  #{0.0, 1.0, 2.0, 5.0, 6.0, 7.0, 9.0, 255.0}
+                set_L3_label = set(L3_label.flatten().cpu().numpy().tolist())  #{0.0, 2.0, 4.0, 10.0, 11.0, 12.0, 13.0, 16.0, 255.0}
                 # pdb.set_trace()
-                
-                self.L1results.append(
-                    self.intersect_and_union(L1_pred_seg, L1_label, 6,
-                                             self.ignore_index))
-                self.L2results.append(
-                    self.intersect_and_union(L2_pred_seg, L2_label, 12,
-                                             self.ignore_index))
-                self.L3results.append(
-                    self.intersect_and_union(L3_pred_seg, L3_label, 22,
-                                             self.ignore_index))
 
-                self.results=self.L1results
+                self.L1results.append(self.intersect_and_union(L1_pred_seg, L1_label, 6, self.ignore_index))
+                self.L2results.append(self.intersect_and_union(L2_pred_seg, L2_label, 12, self.ignore_index))
+                self.L3results.append(self.intersect_and_union(L3_pred_seg, L3_label, 22, self.ignore_index))
+
+
+                self.results = [self.L1results, self.L2results, self.L3results]  # 会传入到mmengine-metric-evaluate
+
                 # self.results.append(    #  len(self.results[0])
                 #     self.intersect_and_union(pred_label, label, num_classes,
                 #                              self.ignore_index))
@@ -157,7 +161,7 @@ class ATL_IoUMetric(BaseMetric):
                 output.save(png_filename)
 
     def compute_metrics(self, results: list) -> Dict[str, float]:
-        """Compute the metrics from processed results.
+        """Compute the metrics from processed results.  # 多进程的时候，有点问题啊。
 
         Args:
             results (list): The processed results of each batch.
@@ -175,53 +179,155 @@ class ATL_IoUMetric(BaseMetric):
         # convert list of tuples to tuple of lists, e.g.
         # [(A_1, B_1, C_1, D_1), ...,  (A_n, B_n, C_n, D_n)] to
         # ([A_1, ..., A_n], ..., [D_1, ..., D_n])
+
+        # import pdb;pdb.set_trace()
+
+        results_L1 = tuple(zip(*results[0]))
+        results_L2 = tuple(zip(*results[1]))
+        results_L3 = tuple(zip(*results[2]))
+
+        # import pdb;pdb.set_trace()
+
+        assert len(results_L1) == 4 and len(results_L2) == 4 and len(
+            results_L3) == 4
+
+        total_area_intersect_L1 = sum(results_L1[0])  # I
+        total_area_union_L1 = sum(results_L1[1])  # U
+        total_area_pred_label_L1 = sum(results_L1[2])
+        total_area_label_L1 = sum(results_L1[3])
+        ret_metrics_L1 = self.total_area_to_metrics(
+            total_area_intersect_L1, total_area_union_L1, total_area_pred_label_L1,
+            total_area_label_L1, self.metrics, self.nan_to_num, self.beta)
         
-        import pdb 
-        # pdb.set_trace()
-        results = tuple(zip(*results))
-        assert len(results) == 4
+        total_area_intersect_L2 = sum(results_L2[0])  # I
+        total_area_union_L2 = sum(results_L2[1])  # U
+        total_area_pred_label_L2 = sum(results_L2[2])
+        total_area_label_L2 = sum(results_L2[3])
+        ret_metrics_L2 = self.total_area_to_metrics(
+            total_area_intersect_L2, total_area_union_L2, total_area_pred_label_L2,
+            total_area_label_L2, self.metrics, self.nan_to_num, self.beta)
+        
+        total_area_intersect_L3 = sum(results_L3[0])  # I
+        total_area_union_L3 = sum(results_L3[1])  # U
+        total_area_pred_label_L3 = sum(results_L3[2])
+        total_area_label_L3 = sum(results_L3[3])
+        ret_metrics_L3 = self.total_area_to_metrics(
+            total_area_intersect_L3, total_area_union_L3, total_area_pred_label_L3,
+            total_area_label_L3, self.metrics, self.nan_to_num, self.beta)
 
 
-        total_area_intersect = sum(results[0])     # I
-        total_area_union = sum(results[1])         # U
-        total_area_pred_label = sum(results[2])
-        total_area_label = sum(results[3])
-        ret_metrics = self.total_area_to_metrics(  
-            total_area_intersect, total_area_union, total_area_pred_label,
-            total_area_label, self.metrics, self.nan_to_num, self.beta)
-        
         # 这里给他换掉！！！
         # class_names = self.dataset_meta['classes']
-        class_names=list(S2_5B_Dataset_22Classes_Map['Classes_Map_L1'].keys())
+        class_names_L1 = list(
+            S2_5B_Dataset_22Classes_Map['Classes_Map_L1'].keys())
+        class_names_L2 = list(
+            S2_5B_Dataset_22Classes_Map['Classes_Map_L2'].keys())
+        class_names_L3 = list(
+            S2_5B_Dataset_22Classes_Map['Classes_Map_L3'].keys())
+
+        # processed_class_names_L1 = [name.split('_')[-1] for name in class_names_L1]
+        # processed_class_names_L2 = [name.split('_')[-1] for name in class_names_L2]
+        # processed_class_names_L3 = [name.split('_')[-1] for name in class_names_L3]
+
 
         # pdb.set_trace()
         # summary table
-        ret_metrics_summary = OrderedDict({
+        # OrderedDict([('aAcc', 75.64), ('IoU', 50.74), ('Acc', 63.67), ('Fscore', 64.4), ('Precision', 66.95), ('Recall', 63.67)])
+        ret_metrics_summary_L1 = OrderedDict({
             ret_metric: np.round(np.nanmean(ret_metric_value) * 100, 2)
-            for ret_metric, ret_metric_value in ret_metrics.items()
+            for ret_metric, ret_metric_value in ret_metrics_L1.items()
+        })  
+        ret_metrics_summary_L2 = OrderedDict({
+            ret_metric: np.round(np.nanmean(ret_metric_value) * 100, 2)
+            for ret_metric, ret_metric_value in ret_metrics_L2.items()
         })
-        metrics = dict()
-        for key, val in ret_metrics_summary.items():
+        ret_metrics_summary_L3 = OrderedDict({
+            ret_metric: np.round(np.nanmean(ret_metric_value) * 100, 2)  # 变成百分比的形式
+            for ret_metric, ret_metric_value in ret_metrics_L3.items()  #不对 怎么全是6
+        })
+
+        metrics_L1 = dict()
+        for key, val in ret_metrics_summary_L1.items():
             if key == 'aAcc':
-                metrics[key] = val
+                metrics_L1[key] = val
             else:
-                metrics['m' + key] = val
+                metrics_L1['m' + key] = val
+
+        metrics_L2 = dict()
+        for key, val in ret_metrics_summary_L2.items():
+            if key == 'aAcc':
+                metrics_L2[key] = val
+            else:
+                metrics_L2['m' + key] = val
+
+        metrics_L3 = dict()
+        for key, val in ret_metrics_summary_L3.items():
+            if key == 'aAcc':
+                metrics_L3[key] = val
+            else:
+                metrics_L3['m' + key] = val
+
+        # metrics_L1=add_prefix(metrics_L1, 'L1_level')  # decode.atl_loss
+        # metrics_L2=add_prefix(metrics_L2, 'L2_level')  # decode.atl_loss
+        # metrics_L3=add_prefix(metrics_L3, 'L3_level')  # decode.atl_loss
 
         # each class table
-        ret_metrics.pop('aAcc', None)
-        ret_metrics_class = OrderedDict({
+        ret_metrics_L1.pop('aAcc', None)
+        ret_metrics_L2.pop('aAcc', None)
+        ret_metrics_L3.pop('aAcc', None)
+
+        ret_metrics_class_L1 = OrderedDict({
             ret_metric: np.round(ret_metric_value * 100, 2)
-            for ret_metric, ret_metric_value in ret_metrics.items()
+            for ret_metric, ret_metric_value in ret_metrics_L1.items()
         })
-        ret_metrics_class.update({'Class': class_names})
-        ret_metrics_class.move_to_end('Class', last=False)
-        class_table_data = PrettyTable()
-        for key, val in ret_metrics_class.items():
-            class_table_data.add_column(key, val)
 
+        ret_metrics_class_L2 = OrderedDict({
+            ret_metric: np.round(ret_metric_value * 100, 2)
+            for ret_metric, ret_metric_value in ret_metrics_L2.items()
+        })
+
+        ret_metrics_class_L3 = OrderedDict({
+            ret_metric: np.round(ret_metric_value * 100, 2)
+            for ret_metric, ret_metric_value in ret_metrics_L3.items()
+        })
+
+        ret_metrics_class_L1.update({'Class': class_names_L1})
+        ret_metrics_class_L2.update({'Class': class_names_L2})
+        ret_metrics_class_L3.update({'Class': class_names_L3})
+
+
+        ret_metrics_class_L1.move_to_end('Class', last=False)  # 把class放在最前面
+        ret_metrics_class_L2.move_to_end('Class', last=False)
+        ret_metrics_class_L3.move_to_end('Class', last=False)
+
+        class_table_data_L1 = PrettyTable()
+        for key, val in ret_metrics_class_L1.items():
+            class_table_data_L1.add_column(key, val)
+
+        # import pdb
+        # # pdb.set_trace()
+        class_table_data_L2 = PrettyTable()
+        for key, val in ret_metrics_class_L2.items():
+            class_table_data_L2.add_column(key, val)
+
+        class_table_data_L3 = PrettyTable()
+        for key, val in ret_metrics_class_L3.items():
+            class_table_data_L3.add_column(key, val)
+
+
+        # 这里就已经可以打印层级的输出了！！！！
         print_log('per class results:', logger)
-        print_log('\n' + class_table_data.get_string(), logger=logger)
+        print_log('\n' + class_table_data_L1.get_string(), logger=logger)
+        print_log(metrics_L1, logger=logger)
 
+        print_log('\n' + class_table_data_L2.get_string(), logger=logger)
+        print_log(metrics_L2, logger=logger)
+
+        print_log('\n' + class_table_data_L3.get_string(), logger=logger)
+        print_log(metrics_L3, logger=logger)
+
+        metrics = metrics_L3  # 最后这个metric，是去计算平均值的。
+        # 然后进到 mmengine-evluator的evaluate()方法, line 77
         return metrics  #  一个process 一个 compute_metrics，两个需要覆盖的函数
 
     @staticmethod

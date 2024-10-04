@@ -45,6 +45,7 @@ from .transforms import (CLAHE, AdjustGamma, Albu, BioMedical3DPad,
                          ResizeShortestEdge, ResizeToMultiple, RGB2Gray,
                          SegRescale)
 from .voc import PascalVOCDataset
+from .atl_0_paper_TUM_13classes import ATL_S2_TUM_13class
 
 # yapf: enable
 __all__ = [
@@ -68,4 +69,4 @@ __all__ = [
     'ConcatCDInput', 'BaseCDDataset', 'DSDLSegDataset', 'BDD100KDataset',
     'NYUDataset', 'FiveBillionPixelsDataset', 'GID25Dataset',
     'ATLS2FIveBillionDataset24','ATLS2FIveBillionDataset5' 'ATL2024Bisai',
-    'NYUDataset', 'HSIDrive20Dataset'] # type: ignore
+    'NYUDataset', 'HSIDrive20Dataset','ATL_S2_TUM_13class'] # type: ignore

@@ -3,7 +3,8 @@ from mmcv.transforms.processing import (RandomFlip, RandomResize, Resize,
                                         TestTimeAug)
 from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
 
-from mmseg.datasets.atl_0_paper_crop_10m_s2_4class import ATL_S2_Crop10m_Dataset_4class
+from mmseg.datasets.atl_0_paper_crop_10m_s2_4class import \
+    ATL_S2_Crop10m_Dataset_4class
 from mmseg.datasets.transforms.formatting import PackSegInputs
 from mmseg.datasets.transforms.loading import (LoadAnnotations,
                                                LoadSingleRSImageFromFile)
@@ -97,8 +98,7 @@ test_dataloader = dict(
         type=dataset_type,
         data_root=None,
         data_prefix=dict(
-            img_path=
-            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/0-河南/images',
+            img_path='/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/0-河南/images',
             seg_map_path=' '),
         # ann_file = ' ',
         pipeline=test_pipeline))

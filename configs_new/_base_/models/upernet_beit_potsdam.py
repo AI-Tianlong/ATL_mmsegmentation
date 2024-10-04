@@ -19,16 +19,16 @@ from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
 from torch.nn.modules.normalization import GroupNorm as GN
 from torch.nn.modules.normalization import LayerNorm as LN
 
-from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
-
 from mmseg.models.backbones import BEiT
 from mmseg.models.data_preprocessor import SegDataPreProcessor
-from mmseg.models.necks.multilevel_neck import MultiLevelNeck # A neck structure connect vit backbone and decoder_heads.
-from mmseg.models.necks.featurepyramid import Feature2Pyramid #  A neck structure connect ViT backbone and decoder_heads.
-from mmseg.models.decode_heads.uper_head import UPerHead
 from mmseg.models.decode_heads.fcn_head import FCNHead
-
 from mmseg.models.decode_heads.mask2former_head import Mask2FormerHead
+from mmseg.models.decode_heads.uper_head import UPerHead
+from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
+from mmseg.models.necks.featurepyramid import \
+    Feature2Pyramid  # A neck structure connect ViT backbone and decoder_heads.
+from mmseg.models.necks.multilevel_neck import \
+    MultiLevelNeck  # A neck structure connect vit backbone and decoder_heads.
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
 num_classes = 6  # loss 要用，也要加
@@ -42,7 +42,7 @@ data_preprocessor = dict(
     # bgr_to_rgb=True,
     # pad_val=0,
     # seg_pad_val=255
-    )
+)
 
 model = dict(
     type=EncoderDecoder,
@@ -77,4 +77,3 @@ model = dict(
     # model training and testing settings
     train_cfg=dict(),
     test_cfg=dict(mode='whole'))  # yapf: disable
-    

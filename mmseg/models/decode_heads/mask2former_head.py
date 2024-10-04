@@ -125,8 +125,10 @@ class Mask2FormerHead(MMDET_Mask2FormerHead):
         all_cls_scores, all_mask_preds = self(x, batch_data_samples)
 
         # loss
-        losses = self.loss_by_feat(all_cls_scores, all_mask_preds,
-                                   batch_gt_instances, batch_img_metas)
+        losses = self.loss_by_feat(all_cls_scores, 
+                                   all_mask_preds,
+                                   batch_gt_instances,
+                                   batch_img_metas)
 
         return losses
 

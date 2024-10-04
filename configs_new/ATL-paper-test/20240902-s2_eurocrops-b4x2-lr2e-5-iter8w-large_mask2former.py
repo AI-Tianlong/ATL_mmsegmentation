@@ -12,8 +12,8 @@ from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
 from mmseg.models.backbones import BEiTAdapter
-from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
+from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
 with read_base():
     from .._base_.datasets.atl_0_paper_eurocrops_s2_65class import *
@@ -76,14 +76,16 @@ model.update(
         ),  #backbone 完全一样
         decode_head=dict(
             feat_channels=1024,  # 256 类别多的话：1024
-            out_channels=1024,   # 256 类别多的话：1024
+            out_channels=1024,  # 256 类别多的话：1024
             num_classes=num_classes,
-            num_queries=200,     # 100 200 
+            num_queries=200,  # 100 200
             num_transformer_feat_level=3,
             align_corners=False,
             pixel_decoder=dict(
-                type=MSDeformAttnPixelDecoder,  # MSDeformAttnPixelDecoder #用的自己实现的，vit-adapter
-                num_outs=3,  # mmdet的在mmdet-->models-->layers-->msdeformattn_pixel_decoder.py
+                type=
+                MSDeformAttnPixelDecoder,  # MSDeformAttnPixelDecoder #用的自己实现的，vit-adapter
+                num_outs=
+                3,  # mmdet的在mmdet-->models-->layers-->msdeformattn_pixel_decoder.py
                 norm_cfg=dict(type=GN, num_groups=32),
                 act_cfg=dict(type=ReLU),
                 encoder=dict(
@@ -93,9 +95,9 @@ model.update(
                         # type=DetrTransformerEncoderLayer,# DetrTransformerEncoder绑定了
                         self_attn_cfg=dict(
                             # type=MultiScaleDeformableAttention,  # DetrTransformerEncoderLayer绑定了
-                            embed_dims=1024, # 512 1024
-                            num_heads=32,    # 8 32
-                            num_levels=3,  
+                            embed_dims=1024,  # 512 1024
+                            num_heads=32,  # 8 32
+                            num_levels=3,
                             num_points=4,
                             im2col_step=64,
                             dropout=0.0,
@@ -104,8 +106,8 @@ model.update(
                             init_cfg=None),
                         ffn_cfg=dict(
                             # type=FFN, #DetrTransformerEncoderLayer绑定了
-                            embed_dims=1024,            #256 1024
-                            feedforward_channels=4096, #2048 4096
+                            embed_dims=1024,  #256 1024
+                            feedforward_channels=4096,  #2048 4096
                             num_fcs=2,
                             ffn_drop=0.0,
                             # with_cp=True,
@@ -113,7 +115,7 @@ model.update(
                     init_cfg=None),
                 positional_encoding=dict(
                     # type=SinePositionalEncoding, # ATL 的 MSDeformAttnPixelDecoder 默认是这个
-                    num_feats=512, # 128 512
+                    num_feats=512,  # 128 512
                     normalize=True),
                 init_cfg=None),
             enforce_decoder_input_project=False,
@@ -129,21 +131,21 @@ model.update(
                     # type=DetrTransformerDecoderLayer,  # DetrTransformerDecoder 写死了
                     self_attn_cfg=dict(
                         # type=MultiheadAttention,  # DetrTransformerDecoderLayer 写死了
-                        embed_dims=1024, # 256 1024
-                        num_heads=32,    # 8 32
+                        embed_dims=1024,  # 256 1024
+                        num_heads=32,  # 8 32
                         attn_drop=0.0,
                         proj_drop=0.0,
                         dropout_layer=None,
                         batch_first=True),
                     cross_attn_cfg=dict(  # MultiheadAttention
                         embed_dims=1024,  #256 1024
-                        num_heads=32,     #8 32
+                        num_heads=32,  #8 32
                         attn_drop=0.0,
                         proj_drop=0.0,
                         dropout_layer=None,
                         batch_first=True),
                     ffn_cfg=dict(
-                        embed_dims=1024,     # 256 1024
+                        embed_dims=1024,  # 256 1024
                         feedforward_channels=4096,  #2048 4096
                         num_fcs=2,
                         act_cfg=dict(type=ReLU, inplace=True),
@@ -182,7 +184,8 @@ model.update(
                             type=CrossEntropyLossCost,
                             weight=5.0,
                             use_sigmoid=True),
-                        dict(type=DiceCost, weight=5.0, pred_act=True, eps=1.0)
+                        dict(
+                            type=DiceCost, weight=5.0, pred_act=True, eps=1.0)
                     ]),
                 sampler=dict(type=MaskPseudoSampler))),
         test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341))))
@@ -231,7 +234,7 @@ param_scheduler = [
     )
 ]
 
-# load_from = 
+# load_from =
 load_from = None
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))

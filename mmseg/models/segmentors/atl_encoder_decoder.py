@@ -1,27 +1,26 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import logging
+from copy import deepcopy
 from re import T
 from typing import List, Optional
 
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from ATL_Tools import setup_logger
 from mmengine.logging import print_log
 from mmengine.structures import PixelData
 from torch import Tensor
-import torch
 
-from copy import deepcopy
-
-from mmseg.structures import SegDataSample
+from mmseg.models.utils import resize
 from mmseg.registry import MODELS
+from mmseg.structures import SegDataSample
 from mmseg.utils import (ConfigType, OptConfigType, OptMultiConfig,
                          OptSampleList, SampleList, add_prefix)
-from mmseg.models.utils import resize
-
 from .base import BaseSegmentor
 
-from ATL_Tools import setup_logger
 atl_logger = setup_logger(show_file_path=True)
+
 
 @MODELS.register_module()
 class ATL_EncoderDecoder(BaseSegmentor):
@@ -80,18 +79,19 @@ class ATL_EncoderDecoder(BaseSegmentor):
             :class:`BaseModule`.
     """  # noqa: E501
 
-    def __init__(self,
-                 backbone: ConfigType,
-                 decode_head: ConfigType,
-                 neck: OptConfigType = None,
-                 auxiliary_head: OptConfigType = None,
-                 train_cfg: OptConfigType = None,
-                 test_cfg: OptConfigType = None,
-                 data_preprocessor: OptConfigType = None,
-                 pretrained: Optional[str] = None,
-                 init_cfg: OptMultiConfig = None,
-                 level_classes_map: Optional[dict] = None,  # 层级分类的映射map
-                 ):
+    def __init__(
+            self,
+            backbone: ConfigType,
+            decode_head: ConfigType,
+            neck: OptConfigType = None,
+            auxiliary_head: OptConfigType = None,
+            train_cfg: OptConfigType = None,
+            test_cfg: OptConfigType = None,
+            data_preprocessor: OptConfigType = None,
+            pretrained: Optional[str] = None,
+            init_cfg: OptMultiConfig = None,
+            level_classes_map: Optional[dict] = None,  # 层级分类的映射map
+    ):
         super().__init__(
             data_preprocessor=data_preprocessor, init_cfg=init_cfg)
         if pretrained is not None:
@@ -133,7 +133,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
     # 过 backbone 和 neck 抽特征不用动
     def extract_feat(self, inputs: Tensor) -> List[Tensor]:
         """Extract features from images."""
-        x = self.backbone(inputs)
+        x = self.backbone(inputs)  #iniputs:[2,10,512,512]
         if self.with_neck:
             x = self.neck(x)
         return x
@@ -143,26 +143,25 @@ class ATL_EncoderDecoder(BaseSegmentor):
                       batch_img_metas: List[dict]) -> Tensor:
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
-        x = self.extract_feat(inputs)  # 过backbone+neck抽特征，然后输入到decode_head
-        seg_logits = self.decode_head.predict(x, batch_img_metas,
-                                              self.test_cfg)
-        
+        x = self.extract_feat(inputs)  # 过backbone+neck抽特征，然后输入到decode_head--> [1024,1024,1024,1024]层级
+        seg_logits = self.decode_head.predict(x, batch_img_metas, self.test_cfg) # [2, 40, 512, 512]
+
         # 所以在seg_logits里面存的是预测的结果,这里去做后处理的文章
-        return seg_logits 
+        return seg_logits
 
     # 这里也不用动, 调用的是 decode_head 的 loss 方法，并且前缀加上 decode.d8.loss_cls decode.d4.loss_mask decode.d4.loss_dice
     def _decode_head_forward_train(self, inputs: List[Tensor],
-                                   data_samples: SampleList) -> dict: 
+                                   data_samples: SampleList) -> dict:
         """Run forward function and calculate loss for decode head in
         training."""
-        losses = dict()                # 这里调用的是 BaseDecodeHead 里的 loss 方法
-        loss_decode = self.decode_head.loss(inputs, data_samples,  # atl_loss:
-                                            self.train_cfg)
+        losses = dict()  # 这里调用的是 BaseDecodeHead 里的 loss 方法
+        loss_decode = self.decode_head.loss(
+            inputs,
+            data_samples,  # atl_loss:
+            self.train_cfg)
         # 这里，有一个 acc_seg 的指标，是在 loss_by_feat 里面计算的
-        
-        # import pdb
-        # pdb.set_trace()
-        losses.update(add_prefix(loss_decode, 'decode')) # decode.atl_loss
+
+        losses.update(add_prefix(loss_decode, 'decode'))  # decode.atl_loss
         # pdb.set_trace()
         return losses
 
@@ -194,7 +193,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-        x = self.extract_feat(inputs)  
+        x = self.extract_feat(inputs)
         # x: List[Tensor]  BEiT-Adapter 的输出
         # torch.Size([2, 1024, 128, 128]) [2, 1024, 64, 64] [2, 1024, 32, 32] [2, 1024, 16, 16]
         losses = dict()
@@ -202,13 +201,13 @@ class ATL_EncoderDecoder(BaseSegmentor):
         loss_decode = self._decode_head_forward_train(x, data_samples)
         losses.update(loss_decode)
 
-        import pdb 
+    
         # pdb.set_trace()
         if self.with_auxiliary_head:
-            loss_aux = self._auxiliary_head_forward_train(x, data_samples) # 辅助头的参数正确导入了，所以这里是对的，数值比较高
+            loss_aux = self._auxiliary_head_forward_train(
+                x, data_samples)  # 辅助头的参数正确导入了，所以这里是对的，数值比较高
             losses.update(loss_aux)
 
-        import pdb 
         # pdb.set_trace()
         return losses
 
@@ -245,9 +244,16 @@ class ATL_EncoderDecoder(BaseSegmentor):
                     padding_size=[0, 0, 0, 0])
             ] * inputs.shape[0]
 
-        seg_logits = self.inference(inputs, batch_img_metas) # [2, 40, 128, 128] UperHead 的输出
+        seg_logits = self.inference(inputs, batch_img_metas)  # [2,10,512,512]-->[2, 40, 512, 512] UperHead 的输出
+        # whole inference或者slide inference，都是调用的这个函数，这个函数里面调用的是 encode_decode
 
-        return self.postprocess_result(seg_logits, data_samples)
+        # 就是这里，输出看一下特征图。
+        # import pdb; pdb.set_trace() 
+        
+        # 没有softmax的logits
+        # 后处理的时候，应该对每个层级的特征图，单独做一个softmax，然后再叠加
+
+        return self.postprocess_result(seg_logits, data_samples) #然后是最后的后处理，保存单个通道的那种
 
     def _forward(self,
                  inputs: Tensor,
@@ -308,7 +314,11 @@ class ATL_EncoderDecoder(BaseSegmentor):
                 batch_img_metas[0]['img_shape'] = crop_img.shape[2:]
                 # the output of encode_decode is seg logits tensor map
                 # with shape [N, C, H, W]
-                crop_seg_logit = self.encode_decode(crop_img, batch_img_metas)
+                crop_seg_logit = self.encode_decode(crop_img, batch_img_metas) #[1,40,512,512]
+                # import pdb;pdb.set_trace()
+                # preds [1,22,512,512]
+
+                # import pdb;pdb.set_trace()
                 preds += F.pad(crop_seg_logit,
                                (int(x1), int(preds.shape[3] - x2), int(y1),
                                 int(preds.shape[2] - y2)))
@@ -337,7 +347,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
                 input image.
         """
 
-        seg_logits = self.encode_decode(inputs, batch_img_metas)
+        seg_logits = self.encode_decode(inputs, batch_img_metas) # [2,40,512,512]
 
         return seg_logits
 
@@ -368,7 +378,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
         if self.test_cfg.mode == 'slide':
             seg_logit = self.slide_inference(inputs, batch_img_metas)
         else:
-            seg_logit = self.whole_inference(inputs, batch_img_metas) # [2, 40, 512, 512]
+            seg_logit = self.whole_inference(inputs, batch_img_metas)  # [2, 40, 512, 512]
 
         return seg_logit
 
@@ -382,16 +392,98 @@ class ATL_EncoderDecoder(BaseSegmentor):
         # to save memory, we get augmented seg logit inplace
         seg_logit = self.inference(inputs[0], batch_img_metas[0], rescale)
         for i in range(1, len(inputs)):
-            cur_seg_logit = self.inference(inputs[i], batch_img_metas[i],
-                                           rescale)
+            cur_seg_logit = self.inference(inputs[i], batch_img_metas[i], rescale)
             seg_logit += cur_seg_logit
         seg_logit /= len(inputs)
         seg_pred = seg_logit.argmax(dim=1)
         # unravel batch dim
         seg_pred = list(seg_pred)
         return seg_pred
-
     
+
+    # # 第二次覆写，最终的结果，只要子类的特征图来预测。
+    # def postprocess_result(self,
+    #                         seg_logits: Tensor,
+    #                         data_samples: OptSampleList = None) -> SampleList:
+    #         """ Convert results list to `SegDataSample`.
+    #         Args:
+    #             seg_logits (Tensor): The segmentation results, seg_logits from
+    #                 model of each input image.
+    #             data_samples (list[:obj:`SegDataSample`]): The seg data samples.
+    #                 It usually includes information such as `metainfo` and
+    #                 `gt_sem_seg`. Default to None.
+    #         Returns:
+    #             list[:obj:`SegDataSample`]: Segmentation results of the
+    #             input images. Each SegDataSample usually contain:
+
+    #             - ``pred_sem_seg``(PixelData): Prediction of semantic segmentation.
+    #             - ``seg_logits``(PixelData): Predicted logits of semantic
+    #                 segmentation before normalization.
+    #         """
+    #         batch_size, C, H, W = seg_logits.shape  # val的时候，batch是1 [1,40,512,512]
+    #         # 只要后22的通道, 消融实验，层级只在训练的时候有用！！！！！。
+    #         seg_logits = seg_logits[:, -22:, :, :]  # [1,22,512,512] 是那个L3的吧？要么不cat呢?
+
+    #         # import pdb;pdb.set_trace()
+
+    #         if data_samples is None:
+    #             data_samples = [SegDataSample() for _ in range(batch_size)]
+    #             only_prediction = True
+    #         else:
+    #             only_prediction = False
+
+    #         for i in range(batch_size):
+    #             if not only_prediction:
+    #                 img_meta = data_samples[i].metainfo
+    #                 # remove padding area
+    #                 if 'img_padding_size' not in img_meta:
+    #                     padding_size = img_meta.get('padding_size', [0] * 4)
+    #                 else:
+    #                     padding_size = img_meta['img_padding_size']
+    #                 padding_left, padding_right, padding_top, padding_bottom =\
+    #                     padding_size
+    #                 # i_seg_logits shape is 1, C, H, W after remove padding
+    #                 i_seg_logits = seg_logits[i:i + 1, :,
+    #                                         padding_top:H - padding_bottom,
+    #                                         padding_left:W - padding_right]
+
+    #                 flip = img_meta.get('flip', None)
+    #                 if flip:
+    #                     flip_direction = img_meta.get('flip_direction', None)
+    #                     assert flip_direction in ['horizontal', 'vertical']
+    #                     if flip_direction == 'horizontal':
+    #                         i_seg_logits = i_seg_logits.flip(dims=(3, ))
+    #                     else:
+    #                         i_seg_logits = i_seg_logits.flip(dims=(2, ))
+
+    #                 # resize as original shape
+    #                 i_seg_logits = resize(
+    #                     i_seg_logits,
+    #                     size=img_meta['ori_shape'],
+    #                     mode='bilinear',
+    #                     align_corners=self.align_corners,
+    #                     warning=False).squeeze(0)
+    #             else:
+    #                 i_seg_logits = seg_logits[i]
+
+    #             if C > 1:
+    #                 i_seg_pred = i_seg_logits.argmax(
+    #                     dim=0, keepdim=True)  # keepdim=True，保留第0维度，大小为1
+    #             else:
+    #                 i_seg_logits = i_seg_logits.sigmoid()
+    #                 i_seg_pred = (i_seg_logits >
+    #                             self.decode_head.threshold).to(i_seg_logits)
+    #             data_samples[i].set_data({
+    #                 'seg_logits':
+    #                 PixelData(**{'data': i_seg_logits}),
+    #                 'pred_sem_seg':
+    #                 PixelData(**{'data': i_seg_pred})
+    #             })
+
+    #         return data_samples
+    
+
+
     # ATL-覆写的 BaseSegmentor 里的 `postprocess_result` 方法
     def postprocess_result(self,
                            seg_logits: Tensor,
@@ -411,7 +503,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
             - ``seg_logits``(PixelData): Predicted logits of semantic
                 segmentation before normalization.
         """
-        batch_size, C, H, W = seg_logits.shape # [2, 40, 512, 512]
+        batch_size, C, H, W = seg_logits.shape  # [2, 40, 512, 512]
 
         if data_samples is None:
             data_samples = [SegDataSample() for _ in range(batch_size)]
@@ -419,7 +511,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
         else:
             only_prediction = False
 
-        for i in range(batch_size):   # 对每一个batch单独处理！！！
+        for i in range(batch_size):  # 对每一个batch单独处理！！！
             if not only_prediction:
                 img_meta = data_samples[i].metainfo
                 # remove padding area
@@ -430,11 +522,13 @@ class ATL_EncoderDecoder(BaseSegmentor):
                 padding_left, padding_right, padding_top, padding_bottom =\
                     padding_size
                 # i_seg_logits shape is 1, C, H, W after remove padding
-                i_seg_logits = seg_logits[i:i + 1, :,                       # 分离batch 为 1
-                                          padding_top:H - padding_bottom,   # [1,40,512,512] [1,40,512,512]
-                                          padding_left:W - padding_right]
+                i_seg_logits = seg_logits[
+                    i:i + 1, :,  # 分离batch 为 1
+                    padding_top:H -
+                    padding_bottom,  # [1,40,512,512] [1,40,512,512]
+                    padding_left:W - padding_right]
 
-                flip = img_meta.get('flip', None)     # 如果翻转了，需要 flip 回来
+                flip = img_meta.get('flip', None)  # 如果翻转了，需要 flip 回来
                 if flip:
                     flip_direction = img_meta.get('flip_direction', None)
                     assert flip_direction in ['horizontal', 'vertical']
@@ -449,70 +543,93 @@ class ATL_EncoderDecoder(BaseSegmentor):
                     size=img_meta['ori_shape'],
                     mode='bilinear',
                     align_corners=self.align_corners,
-                    warning=False).squeeze(0)   # [1,40,512,512] --> [40,512,512]
+                    warning=False).squeeze(0)  # [1,40,512,512] --> [40,512,512]
                 # 跑s2-five-billion-执行的是这个。 i_seg_logits: torch.Size([40, 512, 512])
             else:
                 i_seg_logits = seg_logits[i]
                 # atl_logger.info(f"i_seg_logits: {i_seg_logits.shape}")
 
-            if C > 1:   # [40,512,512] --> 在第0维上做 argmax，替换成，先求父类和子类的和。
+            # import pdb; pdb.set_trace()
+            if C > 1:  # [40,512,512] --> 在第0维上做 argmax，替换成，先求父类和子类的和。
                 # 在这里改后处理就行！！！！
 
                 if self.level_classes_map is not None:
                     # import pdb
                     # pdb.set_trace()
-                    
+
                     # 大思想：叠加父类和子类的特征图，作为共同的特征图值，再进行argmax。
 
                     # step1: 根据map,找到对应的L1级别的特征图索引，L2级别的特征图索引，L3级别的特征图索引。
-                    num_levels = len(self.level_classes_map) # L1 L3 L3,那就是3
-                    
+                    num_levels = len(self.level_classes_map)  # L1 L3 L3,那就是3
+
                     # [0, 6, 12, 22]
                     num_levels_classes = list()
                     num_levels_classes.append(0)
-                    for level_name, high_level_dict in list(self.level_classes_map.items()):
+                    for level_name, high_level_dict in list(
+                            self.level_classes_map.items()):
                         num_levels_classes.append(len(high_level_dict))
-                    
+
                     num_levels_classes_original = deepcopy(num_levels_classes)
                     # 巧妙地构造出了 [0,6,12,22]-->[[0,6],[6,18],[18,40]]
                     classes_range = list()
-                    for j in range(len(num_levels_classes)-1):
-                        classes_range.append([num_levels_classes[j], num_levels_classes[j]+num_levels_classes[j+1]])
-                        num_levels_classes[j+1] = num_levels_classes[j]+num_levels_classes[j+1]
+                    for j in range(len(num_levels_classes) - 1):
+                        classes_range.append([num_levels_classes[j], num_levels_classes[j] + num_levels_classes[j + 1]
+                        ])
+                        num_levels_classes[j+1] = num_levels_classes[j] + num_levels_classes[j+1]
                     # 最终的classes_range=[[0,6],[6,18],[18,40]]
                     # num_levels_classes=[0, 6, 18, 40]
-                    
+
                     # step2: 根据找的索引,创立一个新的[22,512,512]的特征图。注意这里的设备，要和i_seg_logits一样。
                     # 我去！！！这里的num_levels_classes 变了！！！ 注意，特征图变成了[40,512,512] !!!! 完蛋
                     # from ATL_Tools import setup_logger
                     # atl_logger = setup_logger(show_file_path=True)
                     # atl_logger.info(f'num_levels_classes: {num_levels_classes}')
                     # atl_logger.info(f'num_levels_classes_original: {num_levels_classes_original}')
-                    new_seg_logits = torch.zeros((num_levels_classes_original[-1], H, W), device=i_seg_logits.device)
-                    
-                    # import pdb
+                    # [2,22,512,512]
+                    # import pdb; pdb.set_trace()
+
+                    # num_levels_classes=[0, 6, 18, 40]
+                    new_seg_logits = torch.zeros((num_levels_classes_original[-1], H, W), device=i_seg_logits.device)# [22,512,512]
+                    L1_i_seg_logits = i_seg_logits[num_levels_classes[0]:num_levels_classes[1], :, :] # [6, 512, 512]
+                    L2_i_seg_logits = i_seg_logits[num_levels_classes[1]:num_levels_classes[2], :, :] # [12, 512, 512]
+                    L3_i_seg_logits = i_seg_logits[num_levels_classes[2]:num_levels_classes[3], :, :] # [22, 512, 512]
+
+                    # 在argmax之前, 加一个softmax, 然后再做特征图的叠加
+
+                    softmax_L1_i_seg_logits = F.softmax(L1_i_seg_logits, dim=0) # [6, 512, 512]
+                    softmax_L2_i_seg_logits = F.softmax(L2_i_seg_logits, dim=0) # [12, 512, 512]
+                    softmax_L3_i_seg_logits = F.softmax(L3_i_seg_logits, dim=0) # [22, 512, 512]
+
+                    softmax_i_seg_logits = torch.cat([softmax_L1_i_seg_logits, 
+                                                      softmax_L2_i_seg_logits, 
+                                                      softmax_L3_i_seg_logits], dim=0) # [40, 512, 512]
+
+                    # import pdb; pdb.set_trace()
+                    # import pdb    
                     # pdb.set_trace()
                     # Step3：计算叠加的特征图
                     # 对于每一个L3级别的特征图，都要叠加他自己和L1和L2的特征图。
                     # 所以，需要知道映射关系，哪三个图往一起加。
                     for index_range, high_level_dict_key in enumerate(self.level_classes_map):
-                        index_add_num = num_levels_classes[index_range] #[0, 6, 18, 40] # 加索引的数
+                        index_add_num = num_levels_classes[index_range]  #[0, 6, 18, 40] # 加索引的数
                         # print(f'index_add_num {index_add_num}')
                         for high_level_index_, high_level_name in enumerate(self.level_classes_map[high_level_dict_key]):
-                            for low_index_ in self.level_classes_map[high_level_dict_key][high_level_name]: #遍历[1,2,3,4,5,6,7]
-                                
+                            for low_index_ in self.level_classes_map[high_level_dict_key][high_level_name]:  #遍历[1,2,3,4,5,6,7]
+
                                 high_label_index = index_add_num + high_level_index_
                                 # print(f'特征图：{high_label_index} 加到新的 {low_index_} 类别上')
 
-                                new_seg_logits[low_index_] += i_seg_logits[high_label_index]
+                                # print(f'原特征图 {high_label_index} --> 新特征图 {low_index_}')
+                                # import pdb; pdb.set_trace()
+                                #新特征图中的索引，               原先特征图的索引
+                                new_seg_logits[low_index_] += softmax_i_seg_logits[high_label_index]
 
                     # 然后再对new_seg_logits进行argmax操作，得到最终的预测结果。
-                    
 
                     # 消融2,不加L1 L2 的特征图，只在算loss的时候用。
                     # new_new_seg_logits = i_seg_logits[-num_levels_classes_original[-1]:,:,:]
                     # print(f'new_new_seg_logits: {new_new_seg_logits.shape}')
-                    i_seg_pred = new_seg_logits.argmax(dim=0, keepdim=True)  # [1,512,512] # keepdim=True，保留第0维度，大小为1       
+                    i_seg_pred = new_seg_logits.argmax(dim=0, keepdim=True)  # [1,512,512] # keepdim=True，保留第0维度，大小为1
 
                 else:
                     i_seg_pred = i_seg_logits.argmax(dim=0, keepdim=True)  # [1,512,512]
@@ -520,10 +637,15 @@ class ATL_EncoderDecoder(BaseSegmentor):
                 i_seg_logits = i_seg_logits.sigmoid()
                 i_seg_pred = (i_seg_logits >
                               self.decode_head.threshold).to(i_seg_logits)
-            data_samples[i].set_data({
-                'seg_logits':
-                PixelData(**{'data': i_seg_logits}), #[40,512,512]
-                'pred_sem_seg':                      #[1,512,512]
-                PixelData(**{'data': i_seg_pred})
-            })
+            data_samples[i].set_data(
+                {
+                    'seg_logits':
+                    PixelData(**{'data': i_seg_logits}),  #[40,512,512]
+                    'pred_sem_seg':  #[1,512,512]
+                    PixelData(**{'data': i_seg_pred})
+                })
         return data_samples
+
+
+
+    
