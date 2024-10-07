@@ -49,7 +49,7 @@ num_classes = L1_num_classes + L2_num_classes + L3_num_classes
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
 crop_size = (512, 512)
-pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/1-mmpretrain-50epoch_39_loss0.0012-onlybackbone.pth'
+pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/vit-adapter/mmpretrainformat-10chan-ViT-Adapter-Aug-L-BGR.pth'
 # pretrained = None
 data_preprocessor.update(
     dict(
@@ -70,17 +70,15 @@ model.update(
     dict(
         type=ATL_EncoderDecoder,
         level_classes_map=S2_5B_Dataset_22Classes_Map,  # 注意传参！！
-        pretrained=pretrained,
+        # pretrained=pretrained,
         data_preprocessor=data_preprocessor,
         backbone=dict(
             type=ViTAdapter,
             img_size=512,
             patch_size=16,
-            embed_dim=1024,   # ViT base 的参数
+            arch='large', # embed_dims=1024, num_layers=24, num_heads=16
             in_channels=10,  # 4个波段
-            depth=24,
-            num_heads=16,
-            mlp_ratio=4,  # mpl的通道数，是4倍的enbed_dim
+            # mlp_ratio=4,  # mpl的通道数，是4倍的enbed_dim
             qkv_bias=True,
             init_values=1e-6,
             drop_path_rate=0.3,
@@ -89,20 +87,18 @@ model.update(
             deform_num_heads=16,
             cffn_ratio=0.25,
             deform_ratio=0.5,
-            with_cp=False,  # set with_cp=True to save memory
             interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]],
-            # init_cfg=dict(type='Pretrained', checkpoint=pretrained)
-            # init_cfg=dict(type='Pretrained', checkpoint=pretrained),
+            init_cfg=dict(type='Pretrained', checkpoint=pretrained) # 不加预训练权重
             # frozen_exclude=None,
         ),  #backbone 完全一样
         decode_head=dict(
             type=ATL_UPerHead_fenkai,
-            in_channels=[1024, 1024, 1024, 1024],
+            in_channels=[1024, 1024, 1024, 1024],  # 和vit的结构保持一致，large的话1024
             in_index=[0, 1, 2, 3],
             pool_scales=(1, 2, 3, 6),
             channels=1024,   # 这是个 啥参数来着？
             dropout_ratio=0.1,
-            num_classes=num_classes, #40
+            num_classes=L3_num_classes, #40
             num_level_classes=[L1_num_classes, L2_num_classes, L3_num_classes],  # 这里需要和loss的map对应上
             norm_cfg=norm_cfg,
             align_corners=False,
@@ -112,6 +108,8 @@ model.update(
                 use_sigmoid=False,
                 loss_weight=1.0,
                 classes_map=S2_5B_Dataset_22Classes_Map)),
+            # loss_decode=dict(
+            #     type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
         auxiliary_head=dict(
             type=FCNHead,
             in_channels=1024, # 和上面的768 保持统一

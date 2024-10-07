@@ -34,8 +34,9 @@ from torch.nn.modules.batchnorm import _BatchNorm
 
 from mmseg.registry import MODELS
 
-from mmseg.models.backbones.vit import VisionTransformer
-
+# 为了和预训练保持一致，还是选择从mmpretrain中加载 VisionTransformer，可以权重对应上
+# from mmseg.models.backbones.vit import VisionTransformer
+from mmpretrain.models.backbones.vision_transformer import VisionTransformer
 
 # 在做多尺度的时候，需要对输入的特征图进行插值，这里是插值的函数
 
@@ -781,31 +782,18 @@ class PatchEmbed(nn.Module):
         return x, H, W
 
 # ===================================== vit-adapter BEiTAdapter.py =====================================
-class VIT_ATL(VisionTransformer):
+class ATL_VisionTransformer(VisionTransformer):
     
     def _init__(self,
-                img_size=512,
                 *args,
                  **kwargs):
-        super().__init__(img_size=img_size, 
-                         *args,
+        
+        print(f'【ATL-LOG】 进入到 ATL_VisionTransformer（继承自VisionTransformer） 初始化')
+        super().__init__(*args,
                          **kwargs)
-        print(f'【ATL-LOG】 进入到VIT-ATL初始化')
-    
-    def fix_init_weight(self):
-        """Rescale the initialization according to layer id.
+        print(f'【ATL-LOG】 VisionTransformer 初始化完成')
 
-        This function is copied from  https://github.com/microsoft/unilm/blob/master/beit/modeling_pretrain.py. # noqa: E501
-        Copyright (c) Microsoft Corporation
-        Licensed under the MIT License
-        """
 
-        def rescale(param, layer_id):
-            param.div_(math.sqrt(2.0 * layer_id))
-
-        for layer_id, layer in enumerate(self.layers):
-            rescale(layer.attn.proj.weight.data, layer_id + 1)
-            rescale(layer.ffn.layers[1].weight.data, layer_id + 1)
 
     def init_weights(self):
         print(f'【ATL-LOG】 进入到VIT-ATL init_weights初始化')
@@ -880,14 +868,14 @@ class VIT_ATL(VisionTransformer):
 
 
 @MODELS.register_module()
-class ViTAdapter(VisionTransformer):
-
+class ViTAdapter(VisionTransformer): 
+    # 从mmpretrain中继承，权重什么的可以和预训练的对应上
     def __init__(self,
                  img_size=512,
-                 pretrain_size=224,
+                 pretrain_size=224, #重新reshape pos_embedding.
+                 in_channels=10,
+                 arch='l',
                  conv_inplane=64,
-                 num_heads=12,
-                 depth=12,
                  n_points=4,
                  deform_num_heads=6,
                  init_values=0.,
@@ -897,36 +885,38 @@ class ViTAdapter(VisionTransformer):
                  interaction_indexes=None,
                  add_vit_feature=True,
                  with_cp=False,
-                 in_channels=10,
-                 embed_dim=784,
                  init_cfg=None,
                  drop_path_rate=0.3,
                  use_extra_extractor=True,
+                 norm_cfg=None,
                  norm_layer=partial(nn.LayerNorm, eps=1e-6),
                  *args,
                  **kwargs):
+        print(f'【ATL-LOG】 进入到 ViTAdapter 初始化')
+
 
         super().__init__(
-            num_heads=num_heads,
-            with_cp=with_cp,
+            arch=arch,
             in_channels=in_channels,
             init_cfg=init_cfg,
-            embed_dims=embed_dim,
-            num_layers=depth,
             img_size=img_size,
             *args,
             **kwargs)
+        print(f'【ATL-LOG】初始化父类 VisionTransformer 完成')
         
+        
+        # import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
     
         # self.num_classes = 80
         self.cls_token = None
-        self.num_block = len(self.layers)
         self.pretrain_size = (pretrain_size, pretrain_size)
         self.interaction_indexes = interaction_indexes
         self.add_vit_feature = add_vit_feature
-        embed_dim = embed_dim
+        embed_dim = self.embed_dims
 
-        self.level_embed = nn.Parameter(torch.zeros(3, embed_dim))
+        # 没懂这个 level_embed 是干嘛的
+        self.level_embed = nn.Parameter(torch.zeros(3, embed_dim)) # [3,1024] 3个level，每个level一个1024维的嵌入, 为什么是1024维度？
         self.spm = SpatialPriorModule(
             inplanes=conv_inplane,
             embed_dim=embed_dim,
@@ -944,22 +934,36 @@ class ViTAdapter(VisionTransformer):
                 with_cffn=with_cffn,
                 cffn_ratio=cffn_ratio,
                 deform_ratio=deform_ratio,
-                extra_extractor=True if i == len(interaction_indexes) -
-                1 else False,
-                with_cp=with_cp) for i in range(len(interaction_indexes))
+                extra_extractor=((True if i == len(interaction_indexes) - 1 
+                                  else False) and use_extra_extractor),
+                with_cp=with_cp) 
+            for i in range(len(interaction_indexes))
         ])
 
         self.up = nn.ConvTranspose2d(embed_dim, embed_dim, 2, 2)
-        self.norm1 = nn.SyncBatchNorm(embed_dim)
-        self.norm2 = nn.SyncBatchNorm(embed_dim)
-        self.norm3 = nn.SyncBatchNorm(embed_dim)
-        self.norm4 = nn.SyncBatchNorm(embed_dim)
+        self.sync_norm1 = nn.SyncBatchNorm(embed_dim) #这个syncBatchNorm会不会有问题，单卡没法用？
+        self.sync_norm2 = nn.SyncBatchNorm(embed_dim)  # 
+        self.sync_norm3 = nn.SyncBatchNorm(embed_dim)
+        self.sync_norm4 = nn.SyncBatchNorm(embed_dim)
+        # return torch.layer_norm(input, normalized_shape, weight, bias, eps, torch.backends.cudnn.enabled)
+        # RuntimeError: Given normalized_shape=[1024], expected input with shape [*, 1024], but got input of size[2, 1024, 128, 128]
+        
 
         self.up.apply(self._init_weights)
         self.spm.apply(self._init_weights)
         self.interactions.apply(self._init_weights)
         self.apply(self._init_deform_weights)
         normal_(self.level_embed)
+
+    # def init_weights(self):
+    #     pass
+    
+    def print_all_parameters(self):
+        for name, param in self.named_parameters():
+            print(f"Parameter name: {name}")
+            print(f"Parameter shape: {param.shape}")
+            print(f"Parameter value: {param.data}\n")
+
 
     def _init_weights(self, m):
         if isinstance(m, nn.Linear):
@@ -976,25 +980,30 @@ class ViTAdapter(VisionTransformer):
             if m.bias is not None:
                 m.bias.data.zero_()
 
-    def _get_pos_embed(self, pos_embed, H, W):
-        pos_embed = pos_embed.reshape(1, self.pretrain_size[0] // 16,
-                                      self.pretrain_size[1] // 16,
-                                      -1).permute(0, 3, 1, 2)
+                        #[1,32*32+1,1024]          
+    # 512的话，pos_embed为[1,1024+1,1024]
+    def _get_pos_embed(self, pos_embed, H, W):  # pos_embed原来是 [1, 196, 768]
+        pos_embed = pos_embed.reshape(  # [1,1024,1024]-->[1,14,14, ]
+            1,   
+            self.pretrain_size[0] // 16, #patch_size=16
+            self.pretrain_size[1] // 16, 
+            -1).permute(0, 3, 1, 2)
         pos_embed = F.interpolate(pos_embed, size=(H, W), mode='bicubic', align_corners=False).\
             reshape(1, -1, H * W).permute(0, 2, 1)
-        return pos_embed
+        return pos_embed #[1,768,32*2=1024个]
 
     def _init_deform_weights(self, m):
         if isinstance(m, MSDeformAttn):
             m._reset_parameters()
 
     def _add_level_embed(self, c2, c3, c4):
-        c2 = c2 + self.level_embed[0]
+        c2 = c2 + self.level_embed[0]  #层级的一个嵌入
         c3 = c3 + self.level_embed[1]
         c4 = c4 + self.level_embed[2]
         return c2, c3, c4
 
     def forward(self, x):
+        # import pdb;pdb.set_trace()
         # print(f'[ATL-LOG-BEiT-Adapter-forward] x.shape: {x.shape} x.dtype: {x.dtype} x.device: {x.device}')
 
         deform_inputs1, deform_inputs2 = deform_inputs(x.contiguous())
@@ -1004,21 +1013,18 @@ class ViTAdapter(VisionTransformer):
         c2, c3, c4 = self._add_level_embed(c2, c3, c4)
         c = torch.cat([c2, c3, c4], dim=1)
 
-        # Patch Embedding forward
-        # [1,1024,1024] 32 32
-        # print(f'[ATL-LOG-BEiT-Adapter-forward] x.shape: {x.shape} x.dtype: {x.dtype} x.device: {x.device}')
-        x, out_size = self.patch_embed(x)
-        # print(f'[ATL-LOG-BEiT-Adapter-forward] x.shape: {x.shape} out_size {out_size}')
+        # Patch Embedding forward #一个512*512的图，打成1024个1024维度的patch，一个patch有16*16*10=2560个像素
+        x, out_size = self.patch_embed(x) # [2,1024,1024] (32 32)
+
         H, W = out_size
         bs, n, dim = x.shape
-        # pos_embed = self._get_pos_embed(self.pos_embed[:, 1:], H, W)
-        
-        pos_embed = self.pos_embed[:, 1:]
-        # print(f'【ATL-LOG】pos_embed 的 形状 {pos_embed.shape}')
-        # print(pos_embed)
-        # print(f'【ATL-LOG】pos_embed 的 数值 {pos_embed}')
 
-        
+        # import pdb;pdb.set_trace()
+        # 会报错 RuntimeError: shape '[1, 14, 14, -1]' is invalid for input of size 1048576（32*32*1024）
+        # pos_embed = self._get_pos_embed(self.pos_embed[:, 1:], H, W) #有问题，自动去resize吧。
+                                          #[1,32*32,1024]
+        pos_embed = self.pos_embed[:, 1:] #[1,1024,1024]
+
         x = self.drop_after_pos(x + pos_embed)  # Dropout
 
         # Interaction
@@ -1054,8 +1060,9 @@ class ViTAdapter(VisionTransformer):
             c1, c2, c3, c4 = c1 + x1, c2 + x2, c3 + x3, c4 + x4
 
         # Final Norm
-        f1 = self.norm1(c1)
-        f2 = self.norm2(c2)
-        f3 = self.norm3(c3)
-        f4 = self.norm4(c4)
+        # import pdb;pdb.set_trace()
+        f1 = self.sync_norm1(c1) # c1:[2, 1024, 128, 128]
+        f2 = self.sync_norm2(c2) # c2:[2, 1024, 64, 64]
+        f3 = self.sync_norm3(c3) # c3:[2, 1024, 32, 32]
+        f4 = self.sync_norm4(c4) # c3:[2, 1024, 16, 16]
         return [f1, f2, f3, f4]

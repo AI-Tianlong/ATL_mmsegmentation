@@ -49,7 +49,7 @@ num_classes = L1_num_classes + L2_num_classes + L3_num_classes
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
 crop_size = (512, 512)
-pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/1-mmpretrain-50epoch_39_loss0.0012-onlybackbone.pth'
+pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/1-mmpretrain-vit_large_原版_epoch_50_loss0.0009-onlybackbone.pth'
 # pretrained = None
 data_preprocessor.update(
     dict(

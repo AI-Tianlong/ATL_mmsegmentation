@@ -19,7 +19,7 @@ from mmseg.registry import MODELS
 from ..utils import PatchEmbed, resize
 
 
-class TransformerEncoderLayer(BaseModule):
+class TransformerEncoderLayer(BaseModule): #和mmpretrain里的有点不一样
     """Implements one encoder layer in Vision Transformer.
 
     Args:
@@ -122,7 +122,7 @@ class TransformerEncoderLayer(BaseModule):
 
 
 @MODELS.register_module()
-class VisionTransformer(BaseModule):
+class VisionTransformer(BaseModule): #我直接继承mmpretrain的是不是也行啊？
     """Vision Transformer.
 
     This backbone is the implementation of `An Image is Worth 16x16 Words:
@@ -213,7 +213,7 @@ class VisionTransformer(BaseModule):
                  pretrained=None,
                  init_cfg=None):
         super().__init__(init_cfg=init_cfg)
-        print(f'【ATL-LOG】进入到 VisionTransformer 初始化')
+        print(f'【ATL-LOG】进入到 mmseg-VisionTransformer 初始化')
 
         print(f'【ATL-LOG】初始化 VisionTransformer img_size {img_size}')
 

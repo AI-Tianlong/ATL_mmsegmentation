@@ -79,7 +79,7 @@ class AdaptivePadding(nn.Module):
                 ])
         return x
 
-
+# 和mmcv里的一样
 class PatchEmbed(BaseModule):
     """Image to Patch Embedding.
 

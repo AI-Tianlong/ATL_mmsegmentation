@@ -49,7 +49,7 @@ num_classes = L1_num_classes + L2_num_classes + L3_num_classes
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
 crop_size = (512, 512)
-pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/1-mmpretrain-50epoch_39_loss0.0012-onlybackbone.pth'
+pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/vit-adapter/mmpretrainformat-10chan-ViT-Adapter-Aug-L-BGR.pth'
 # pretrained = None
 data_preprocessor.update(
     dict(
@@ -70,17 +70,15 @@ model.update(
     dict(
         type=ATL_EncoderDecoder,
         level_classes_map=S2_5B_Dataset_22Classes_Map,  # 注意传参！！
-        pretrained=pretrained,
+        # pretrained=pretrained,
         data_preprocessor=data_preprocessor,
         backbone=dict(
             type=ViTAdapter,
             img_size=512,
             patch_size=16,
-            embed_dim=1024,   # ViT base 的参数
+            arch='large', # embed_dims=1024, num_layers=24, num_heads=16
             in_channels=10,  # 4个波段
-            depth=24,
-            num_heads=16,
-            mlp_ratio=4,  # mpl的通道数，是4倍的enbed_dim
+            # mlp_ratio=4,  # mpl的通道数，是4倍的enbed_dim
             qkv_bias=True,
             init_values=1e-6,
             drop_path_rate=0.3,
@@ -89,9 +87,9 @@ model.update(
             deform_num_heads=16,
             cffn_ratio=0.25,
             deform_ratio=0.5,
-            with_cp=False,  # set with_cp=True to save memory
+            norm_cfg=norm_cfg, # 给ViT传个参数，才是BatchNorm
             interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]],
-            # init_cfg=dict(type='Pretrained', checkpoint=pretrained)
+            init_cfg=dict(type='Pretrained', checkpoint=pretrained)
             # init_cfg=dict(type='Pretrained', checkpoint=pretrained),
             # frozen_exclude=None,
         ),  #backbone 完全一样
