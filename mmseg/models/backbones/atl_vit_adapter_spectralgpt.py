@@ -283,25 +283,31 @@ def get_reference_points(spatial_shapes, device):
 
 def deform_inputs(x):
     bs, c, h, w = x.shape
-    spatial_shapes = torch.as_tensor([(h // 8, w // 8), (h // 16, w // 16),
-                                      (h // 32, w // 32)],
+    spatial_shapes = torch.as_tensor([(h // 8, w // 8),   # 512 --> 64  [64,64]
+                                      (h // 16, w // 16), # 512 --> 32  [32,32]
+                                      (h // 32, w // 32)],# 512 --> 16  [16,16]
                                      dtype=torch.long,
                                      device=x.device)
-    level_start_index = torch.cat((spatial_shapes.new_zeros(
-        (1, )), spatial_shapes.prod(1).cumsum(0)[:-1]))
-    reference_points = get_reference_points([(h // 16, w // 16)], x.device)
-    deform_inputs1 = [reference_points, spatial_shapes, level_start_index]
+    # import pdb;pdb.set_trace()    
+    # .new_zeros((1, )) 生成一个1维的0张量,与spatial_shapes的属性相同                    
+    # .prod(1)计算每一行的乘积 [64*64, 32*32, 16*16]=[4096 1024 256]
+    # .cumsum(0)计算元素的累加和[4096 1024 256] --> [4096 5120 5376]
+    # [:-1] 提取到倒数第二个元素 [4096 5120 5376] --> [4096 5120]
+    level_start_index = torch.cat((spatial_shapes.new_zeros((1, )), spatial_shapes.prod(1).cumsum(0)[:-1])) #[0, 4096, 5120] 层级开始的index？
+    reference_points = get_reference_points([(h // 16, w // 16)], x.device) # patch16 或 patch_8 [1,1024,1,2] 1个batch，1024个点，x,y 两个坐标
 
-    spatial_shapes = torch.as_tensor([(h // 16, w // 16)],
+    deform_inputs1 = [reference_points, spatial_shapes, level_start_index] 
+
+    spatial_shapes = torch.as_tensor([(h // 16, w // 16)], # [32,32]
                                      dtype=torch.long,
                                      device=x.device)
-    level_start_index = torch.cat((spatial_shapes.new_zeros(
-        (1, )), spatial_shapes.prod(1).cumsum(0)[:-1]))
+    level_start_index = torch.cat((spatial_shapes.new_zeros((1, )), spatial_shapes.prod(1).cumsum(0)[:-1])) # [0, 1024]
     reference_points = get_reference_points([(h // 8, w // 8),
                                              (h // 16, w // 16),
-                                             (h // 32, w // 32)], x.device)
+                                             (h // 32, w // 32)], x.device)  # [1,5376,1,2] 1个batch，1024个点，1个通道，2个坐标
     deform_inputs2 = [reference_points, spatial_shapes, level_start_index]
 
+    # [1,1024,1,2][[64,64],[32,32],[16,16]][0,4096,5120]  [1,5376,1,2][[32,32]][0,1024]
     return deform_inputs1, deform_inputs2
 
 
@@ -638,6 +644,7 @@ class SpatialPriorModule(nn.Module):
         super().__init__()
         self.with_cp = with_cp
 
+        # stem: [2,10,512,512]-->[2,64,128,128]
         self.stem = nn.Sequential(*[
             nn.Conv2d(
                 in_chans,
@@ -668,7 +675,7 @@ class SpatialPriorModule(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         ])
-        self.conv2 = nn.Sequential(*[
+        self.conv2 = nn.Sequential(*[  # [2,64,128,128]-->[2,128,64,64]
             nn.Conv2d(
                 inplanes,
                 2 * inplanes,
@@ -679,7 +686,7 @@ class SpatialPriorModule(nn.Module):
             nn.SyncBatchNorm(2 * inplanes),
             nn.ReLU(inplace=True)
         ])
-        self.conv3 = nn.Sequential(*[
+        self.conv3 = nn.Sequential(*[ # [2,128,64,64]-->[2,256,32,32] 
             nn.Conv2d(
                 2 * inplanes,
                 4 * inplanes,
@@ -690,7 +697,7 @@ class SpatialPriorModule(nn.Module):
             nn.SyncBatchNorm(4 * inplanes),
             nn.ReLU(inplace=True)
         ])
-        self.conv4 = nn.Sequential(*[
+        self.conv4 = nn.Sequential(*[ # [2,256,32,32] --> [2,256,16,16]
             nn.Conv2d(
                 4 * inplanes,
                 4 * inplanes,
@@ -701,9 +708,9 @@ class SpatialPriorModule(nn.Module):
             nn.SyncBatchNorm(4 * inplanes),
             nn.ReLU(inplace=True)
         ])
-        self.fc1 = nn.Conv2d(
+        self.fc1 = nn.Conv2d(  # [2,64,128,128]-->[2,1024,128,128]
             inplanes, embed_dim, kernel_size=1, stride=1, padding=0, bias=True)
-        self.fc2 = nn.Conv2d(
+        self.fc2 = nn.Conv2d(  # [2,128,64,64]-->[2,1024,64,64]
             2 * inplanes,
             embed_dim,
             kernel_size=1,
@@ -711,14 +718,14 @@ class SpatialPriorModule(nn.Module):
             padding=0,
             bias=True)
         self.fc3 = nn.Conv2d(
-            4 * inplanes,
+            4 * inplanes,   # [2,256,32,32] -->[2,1024,32,32]
             embed_dim,
             kernel_size=1,
             stride=1,
             padding=0,
             bias=True)
         self.fc4 = nn.Conv2d(
-            4 * inplanes,
+            4 * inplanes,  # [2,256,16,16]-->[2,1024,16,16]
             embed_dim,
             kernel_size=1,
             stride=1,
@@ -728,20 +735,21 @@ class SpatialPriorModule(nn.Module):
     def forward(self, x):
 
         def _inner_forward(x):
-            c1 = self.stem(x)
-            c2 = self.conv2(c1)
-            c3 = self.conv3(c2)
-            c4 = self.conv4(c3)
-            c1 = self.fc1(c1)
-            c2 = self.fc2(c2)
-            c3 = self.fc3(c3)
-            c4 = self.fc4(c4)
+            c1 = self.stem(x)   # [2,64,128,128]
+            c2 = self.conv2(c1) # [2, 128, 64, 64]
+            c3 = self.conv3(c2) # [2, 256, 32, 32]
+            c4 = self.conv4(c3) # [2, 256, 16, 16]
+            # import pdb;pdb.set_trace()
+            c1 = self.fc1(c1) # [2, 1024, 128,128]
+            c2 = self.fc2(c2) # [2, 1024, 64, 64]
+            c3 = self.fc3(c3) # [2, 1024, 32, 32]
+            c4 = self.fc4(c4) # [2, 1024, 16, 16]
 
-            bs, dim, _, _ = c1.shape
+            bs, dim, _, _ = c1.shape # [2, 1024, 128,128]
             # c1 = c1.view(bs, dim, -1).transpose(1, 2)  # 4s
-            c2 = c2.view(bs, dim, -1).transpose(1, 2)  # 8s
-            c3 = c3.view(bs, dim, -1).transpose(1, 2)  # 16s
-            c4 = c4.view(bs, dim, -1).transpose(1, 2)  # 32s
+            c2 = c2.view(bs, dim, -1).transpose(1, 2)  # 8s  # [2,4096,1024]
+            c3 = c3.view(bs, dim, -1).transpose(1, 2)  # 16s # [2,1024,1024]
+            c4 = c4.view(bs, dim, -1).transpose(1, 2)  # 32s # [2,256,1024]
 
             return c1, c2, c3, c4
 
@@ -751,128 +759,15 @@ class SpatialPriorModule(nn.Module):
             outs = _inner_forward(x)
         return outs
 
-
-class PatchEmbed(nn.Module):
-    """2D Image to Patch Embedding."""
-    def __init__(self, 
-                 img_size=224, 
-                 patch_size=16, 
-                 in_chans=3,
-                 embed_dim=768, 
-                 norm_layer=None, 
-                 flatten=True):
-        super().__init__()
-        img_size = to_2tuple(img_size)
-        patch_size = to_2tuple(patch_size)
-        self.img_size = img_size
-        self.patch_size = patch_size
-        self.grid_size = (img_size[0] // patch_size[0], img_size[1] // patch_size[1])
-        self.num_patches = self.grid_size[0] * self.grid_size[1]
-        self.flatten = flatten
-
-        self.proj = nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size)
-        self.norm = norm_layer(embed_dim) if norm_layer else nn.Identity()
-
-    def forward(self, x):
-        x = self.proj(x)
-        _, _, H, W = x.shape
-        if self.flatten:
-            x = x.flatten(2).transpose(1, 2)  # BCHW -> BNC
-        x = self.norm(x)
-        return x, H, W
-
 # ===================================== vit-adapter BEiTAdapter.py =====================================
-class ATL_VisionTransformer(VisionTransformer):
-    
-    def _init__(self,
-                *args,
-                 **kwargs):
-        
-        print(f'【ATL-LOG】 进入到 ATL_VisionTransformer（继承自VisionTransformer） 初始化')
-        super().__init__(*args,
-                         **kwargs)
-        print(f'【ATL-LOG】 VisionTransformer 初始化完成')
-
-
-
-    def init_weights(self):
-        print(f'【ATL-LOG】 进入到VIT-ATL init_weights初始化')
-        def _init_weights(m):
-            if isinstance(m, nn.Linear):
-                trunc_normal_(m.weight, std=.02)
-                if isinstance(m, nn.Linear) and m.bias is not None:
-                    nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.LayerNorm):
-                nn.init.constant_(m.bias, 0)
-                nn.init.constant_(m.weight, 1.0)
-
-        self.apply(_init_weights)
-        self.fix_init_weight()
-
-        if (isinstance(self.init_cfg, dict)
-                and self.init_cfg.get('type') == 'Pretrained'):
-            checkpoint = _load_checkpoint(
-                self.init_cfg['checkpoint'], logger=None, map_location='cpu')
-            state_dict = self.resize_rel_pos_embed(checkpoint)
-            state_dict = self.resize_abs_pos_embed(state_dict)
-            self.load_state_dict(state_dict, False)
-        elif self.init_cfg is not None:
-            super().init_weights()
-        else:
-            # We only implement the 'jax_impl' initialization implemented at
-            # https://github.com/rwightman/pytorch-image-models/blob/master/timm/models/vision_transformer.py#L353  # noqa: E501
-            # Copyright 2019 Ross Wightman
-            # Licensed under the Apache License, Version 2.0 (the "License")
-            trunc_normal_(self.cls_token, std=.02)
-            for n, m in self.named_modules():
-                if isinstance(m, nn.Linear):
-                    trunc_normal_(m.weight, std=.02)
-                    if m.bias is not None:
-                        if 'ffn' in n:
-                            nn.init.normal_(m.bias, mean=0., std=1e-6)
-                        else:
-                            nn.init.constant_(m.bias, 0)
-                elif isinstance(m, nn.Conv2d):
-                    kaiming_init(m, mode='fan_in', bias=0.)
-                elif isinstance(m, (_BatchNorm, nn.GroupNorm, nn.LayerNorm)):
-                    constant_init(m, val=1.0, bias=0.)
-        
-    def resize_abs_pos_embed(self, state_dict):
-        if 'pos_embed' in state_dict:
-            pos_embed_checkpoint = state_dict['pos_embed']
-            embedding_size = pos_embed_checkpoint.shape[-1]
-            num_extra_tokens = self.pos_embed.shape[-2] - self.num_patches
-            # height (== width) for the checkpoint position embedding
-            orig_size = int(
-                (pos_embed_checkpoint.shape[-2] - num_extra_tokens)**0.5)
-            # height (== width) for the new position embedding
-            new_size = int(self.num_patches**0.5)
-            # class_token and dist_token are kept unchanged
-            if orig_size != new_size:
-                extra_tokens = pos_embed_checkpoint[:, :num_extra_tokens]
-                # only the position tokens are interpolated
-                pos_tokens = pos_embed_checkpoint[:, num_extra_tokens:]
-                pos_tokens = pos_tokens.reshape(-1, orig_size, orig_size,
-                                                embedding_size).permute(
-                                                    0, 3, 1, 2)
-                pos_tokens = torch.nn.functional.interpolate(
-                    pos_tokens,
-                    size=(new_size, new_size),
-                    mode='bicubic',
-                    align_corners=False)
-                pos_tokens = pos_tokens.permute(0, 2, 3, 1).flatten(1, 2)
-                new_pos_embed = torch.cat((extra_tokens, pos_tokens), dim=1)
-                state_dict['pos_embed'] = new_pos_embed
-        return state_dict
-
-
 
 @MODELS.register_module()
-class ViTAdapter(VisionTransformer): 
+class ViTAdapter_SpectralGPT(VisionTransformer): 
     # 从mmpretrain中继承，权重什么的可以和预训练的对应上
     def __init__(self,
                  img_size=512,
                  pretrain_size=224, #重新reshape pos_embedding.
+                 patch_size = 16,
                  in_channels=10,
                  arch='l',
                  conv_inplane=64,
@@ -900,6 +795,7 @@ class ViTAdapter(VisionTransformer):
             in_channels=in_channels,
             init_cfg=init_cfg,
             img_size=img_size,
+            patch_size = patch_size,
             *args,
             **kwargs)
         print(f'【ATL-LOG】初始化父类 VisionTransformer 完成')
@@ -916,12 +812,12 @@ class ViTAdapter(VisionTransformer):
         embed_dim = self.embed_dims
 
         # 没懂这个 level_embed 是干嘛的
-        self.level_embed = nn.Parameter(torch.zeros(3, embed_dim)) # [3,1024] 3个level，每个level一个1024维的嵌入, 为什么是1024维度？
+        self.level_embed = nn.Parameter(torch.zeros(3, embed_dim)) # [3, 1024] 3个level，每个level一个1024维的嵌入, 为什么是1024维度？
         self.spm = SpatialPriorModule(
-            inplanes=conv_inplane,
-            embed_dim=embed_dim,
+            inplanes=conv_inplane, # 64
+            embed_dim=embed_dim,   # 1024
             with_cp=False,
-            in_chans=in_channels)
+            in_chans=in_channels)  # 10
         
         self.interactions = nn.Sequential(*[
             InteractionBlock(
@@ -981,16 +877,16 @@ class ViTAdapter(VisionTransformer):
                 m.bias.data.zero_()
 
                         #[1,32*32+1,1024]          
-    # 512的话，pos_embed为[1,1024+1,1024]
-    def _get_pos_embed(self, pos_embed, H, W):  # pos_embed原来是 [1, 196, 768]
-        pos_embed = pos_embed.reshape(  # [1,1024,1024]-->[1,14,14, ]
-            1,   
-            self.pretrain_size[0] // 16, #patch_size=16
-            self.pretrain_size[1] // 16, 
-            -1).permute(0, 3, 1, 2)
-        pos_embed = F.interpolate(pos_embed, size=(H, W), mode='bicubic', align_corners=False).\
-            reshape(1, -1, H * W).permute(0, 2, 1)
-        return pos_embed #[1,768,32*2=1024个]
+    # # 512的话，pos_embed为[1,1024+1,1024]
+    # def _get_pos_embed(self, pos_embed, H, W):  # pos_embed原来是 [1, 196, 768]
+    #     pos_embed = pos_embed.reshape(  # [1,1024,1024]-->[1,14,14, ]
+    #         1,   
+    #         self.pretrain_size[0] // patch_size, #patch_size=16
+    #         self.pretrain_size[1] // patch_size, 
+    #         -1).permute(0, 3, 1, 2)
+    #     pos_embed = F.interpolate(pos_embed, size=(H, W), mode='bicubic', align_corners=False).\
+    #         reshape(1, -1, H * W).permute(0, 2, 1)
+    #     return pos_embed #[1,768,32*2=1024个]
 
     def _init_deform_weights(self, m):
         if isinstance(m, MSDeformAttn):
@@ -1005,17 +901,21 @@ class ViTAdapter(VisionTransformer):
     def forward(self, x):
         # import pdb;pdb.set_trace()
         # print(f'[ATL-LOG-BEiT-Adapter-forward] x.shape: {x.shape} x.dtype: {x.dtype} x.device: {x.device}')
+        # [reference_points, spatial_shapes, level_start_index] 
+        deform_inputs1, deform_inputs2 = deform_inputs(x.contiguous()) # Spatial Prior Module 
+        # deform_inputs1 [[1,1024,1,2] [3,2] [3]]
+        # deform_inputs2 [[1,5376,1,2] [1,2] [1]]
 
-        deform_inputs1, deform_inputs2 = deform_inputs(x.contiguous())
-
+        # import pdb;pdb.set_trace()
         # SPM forward
-        c1, c2, c3, c4 = self.spm(x)
+        c1, c2, c3, c4 = self.spm(x) # [2,1024,128,128] # [2,4096,1024] [2,1024,1024] [2,256,1024]
         c2, c3, c4 = self._add_level_embed(c2, c3, c4)
-        c = torch.cat([c2, c3, c4], dim=1)
-
+        c = torch.cat([c2, c3, c4], dim=1) #  [2, 5376, 1024]
+        # import pdb;pdb.set_trace()
         # Patch Embedding forward #一个512*512的图，打成1024个1024维度的patch，一个patch有16*16*10=2560个像素
-        x, out_size = self.patch_embed(x) # [2,1024,1024] (32 32)
+        x, out_size = self.patch_embed(x) # [2,1024,1024] (32 32)  #如果是patch=8的话，[2,4096,1024] (64,64)
 
+        # import pdb;pdb.set_trace()
         H, W = out_size
         bs, n, dim = x.shape
 
@@ -1023,9 +923,10 @@ class ViTAdapter(VisionTransformer):
         # 会报错 RuntimeError: shape '[1, 14, 14, -1]' is invalid for input of size 1048576（32*32*1024）
         # pos_embed = self._get_pos_embed(self.pos_embed[:, 1:], H, W) #有问题，自动去resize吧。
                                           #[1,32*32,1024]
-        pos_embed = self.pos_embed[:, 1:] #[1,1024,1024]
 
-        x = self.drop_after_pos(x + pos_embed)  # Dropout
+        pos_embed = self.pos_embed[:, 1:] #[1,1024,1024]  | [1,4096,1024]
+
+        x = self.drop_after_pos(x + pos_embed)  # Dropout #[1,1024,1024]  | [1,4096,1024]
 
         # Interaction
         outs = list()

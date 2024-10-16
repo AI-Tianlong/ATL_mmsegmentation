@@ -244,7 +244,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
                     padding_size=[0, 0, 0, 0])
             ] * inputs.shape[0]
 
-        seg_logits = self.inference(inputs, batch_img_metas)  # [2,10,512,512]-->[2, 40, 512, 512] UperHead 的输出
+        seg_logits = self.inference(inputs, batch_img_metas)  # [2,10,512,512]-->[2, 37, 512, 512] UperHead 的输出
         # whole inference或者slide inference，都是调用的这个函数，这个函数里面调用的是 encode_decode
 
         # 就是这里，输出看一下特征图。
@@ -503,7 +503,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
             - ``seg_logits``(PixelData): Predicted logits of semantic
                 segmentation before normalization.
         """
-        batch_size, C, H, W = seg_logits.shape  # [2, 40, 512, 512]
+        batch_size, C, H, W = seg_logits.shape  # [2, 37, 512, 512]
 
         if data_samples is None:
             data_samples = [SegDataSample() for _ in range(batch_size)]
@@ -562,7 +562,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
                     # step1: 根据map,找到对应的L1级别的特征图索引，L2级别的特征图索引，L3级别的特征图索引。
                     num_levels = len(self.level_classes_map)  # L1 L3 L3,那就是3
 
-                    # [0, 6, 12, 22]
+                    # [0, 5, 11, 21]
                     num_levels_classes = list()
                     num_levels_classes.append(0)
                     for level_name, high_level_dict in list(
@@ -570,39 +570,38 @@ class ATL_EncoderDecoder(BaseSegmentor):
                         num_levels_classes.append(len(high_level_dict))
 
                     num_levels_classes_original = deepcopy(num_levels_classes)
-                    # 巧妙地构造出了 [0,6,12,22]-->[[0,6],[6,18],[18,40]]
+                    # 巧妙地构造出了 [0,5,11,21]-->[[0,5],[5,16],[16,37]]
                     classes_range = list()
                     for j in range(len(num_levels_classes) - 1):
-                        classes_range.append([num_levels_classes[j], num_levels_classes[j] + num_levels_classes[j + 1]
-                        ])
+                        classes_range.append([num_levels_classes[j], num_levels_classes[j] + num_levels_classes[j + 1]])
                         num_levels_classes[j+1] = num_levels_classes[j] + num_levels_classes[j+1]
-                    # 最终的classes_range=[[0,6],[6,18],[18,40]]
-                    # num_levels_classes=[0, 6, 18, 40]
+                    # 最终的classes_range=[[0,5],[5,16],[16,37]]
+                    # num_levels_classes=[0, 5, 16, 37]
 
-                    # step2: 根据找的索引,创立一个新的[22,512,512]的特征图。注意这里的设备，要和i_seg_logits一样。
-                    # 我去！！！这里的num_levels_classes 变了！！！ 注意，特征图变成了[40,512,512] !!!! 完蛋
+                    # step2: 根据找的索引,创立一个新的[21,512,512]的特征图。注意这里的设备，要和i_seg_logits一样。
+                    # 我去！！！这里的num_levels_classes 变了！！！ 注意，特征图变成了[37,512,512] !!!! 完蛋
                     # from ATL_Tools import setup_logger
                     # atl_logger = setup_logger(show_file_path=True)
                     # atl_logger.info(f'num_levels_classes: {num_levels_classes}')
                     # atl_logger.info(f'num_levels_classes_original: {num_levels_classes_original}')
-                    # [2,22,512,512]
+                    # [2,21,512,512]
                     # import pdb; pdb.set_trace()
 
-                    # num_levels_classes=[0, 6, 18, 40]
-                    new_seg_logits = torch.zeros((num_levels_classes_original[-1], H, W), device=i_seg_logits.device)# [22,512,512]
-                    L1_i_seg_logits = i_seg_logits[num_levels_classes[0]:num_levels_classes[1], :, :] # [6, 512, 512]
-                    L2_i_seg_logits = i_seg_logits[num_levels_classes[1]:num_levels_classes[2], :, :] # [12, 512, 512]
-                    L3_i_seg_logits = i_seg_logits[num_levels_classes[2]:num_levels_classes[3], :, :] # [22, 512, 512]
+                    # num_levels_classes=[0, 5, 16, 37]
+                    new_seg_logits = torch.zeros((num_levels_classes_original[-1], H, W), device=i_seg_logits.device)# [21,512,512]
+                    L1_i_seg_logits = i_seg_logits[num_levels_classes[0]:num_levels_classes[1], :, :] # [5, 512, 512]  [0-4]
+                    L2_i_seg_logits = i_seg_logits[num_levels_classes[1]:num_levels_classes[2], :, :] # [11, 512, 512] [5-15]
+                    L3_i_seg_logits = i_seg_logits[num_levels_classes[2]:num_levels_classes[3], :, :] # [21, 512, 512] [16,36]
 
                     # 在argmax之前, 加一个softmax, 然后再做特征图的叠加
 
-                    softmax_L1_i_seg_logits = F.softmax(L1_i_seg_logits, dim=0) # [6, 512, 512]
-                    softmax_L2_i_seg_logits = F.softmax(L2_i_seg_logits, dim=0) # [12, 512, 512]
-                    softmax_L3_i_seg_logits = F.softmax(L3_i_seg_logits, dim=0) # [22, 512, 512]
+                    softmax_L1_i_seg_logits = F.softmax(L1_i_seg_logits, dim=0) # [5, 512, 512]
+                    softmax_L2_i_seg_logits = F.softmax(L2_i_seg_logits, dim=0) # [11, 512, 512]
+                    softmax_L3_i_seg_logits = F.softmax(L3_i_seg_logits, dim=0) # [21, 512, 512]
 
                     softmax_i_seg_logits = torch.cat([softmax_L1_i_seg_logits, 
                                                       softmax_L2_i_seg_logits, 
-                                                      softmax_L3_i_seg_logits], dim=0) # [40, 512, 512]
+                                                      softmax_L3_i_seg_logits], dim=0) # [37, 512, 512]
 
                     # import pdb; pdb.set_trace()
                     # import pdb    

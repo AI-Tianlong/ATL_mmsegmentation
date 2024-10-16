@@ -7,14 +7,14 @@ from .basesegdataset import BaseSegDataset
 class ATL_S2_5B_Dataset_22class(BaseSegDataset):
     """"""
     METAINFO = dict(
-        classes=('Other land', 'Paddy field', 'Irrigated field',
+        classes=('Paddy field', 'Irrigated field',
                  'Dry cropland', 'Garden land', 'Forest', 'Natural meadow',
                  'Artificial meadow', 'River', 'Lake', 'Pond',
                  'Factory-Storage-Shopping malls', 'Urban residential',
                  'Rural residential', 'Stadium', 'Park Square', 'Road',
                  'Overpass', 'Railway station', 'Airport', 'Bare land',
                  'Glaciers Snow'),
-        palette=[[190, 190, 190], [161, 243, 161], [198, 224, 180],
+        palette=[[161, 243, 161], [198, 224, 180],
                  [169, 208, 142], [142, 169, 219], [0, 176,
                                                     80], [240, 238, 146],
                  [217, 206, 63], [0, 51, 204], [0, 102, 255], [87, 171, 255],
@@ -26,7 +26,7 @@ class ATL_S2_5B_Dataset_22class(BaseSegDataset):
         self,
         img_suffix='.tif',
         seg_map_suffix='.tif',
-        reduce_zero_label=False,  # 这里还是要设置为True，因为实际推理出来的结果是 0+24 类，是有reduce_zero_label的
+        reduce_zero_label=True,  # 这里还是要设置为True，因为实际推理出来的结果是 0+24 类，是有reduce_zero_label的
         **kwargs
     ) -> None:  # 所以推理的时候，会加上一个背景类。
         super().__init__(

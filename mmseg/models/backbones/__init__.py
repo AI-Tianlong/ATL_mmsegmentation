@@ -25,7 +25,7 @@ from .twins import PCPVT, SVT
 from .unet import UNet
 from .vit import VisionTransformer
 from .vpd import VPD
-from .vit_adapter import ViTAdapter
+from .atl_vit_adapter import ViTAdapter
 
 __all__ = [
     'ResNet', 'ResNetV1c', 'ResNetV1d', 'ResNeXt', 'HRNet', 'FastSCNN',

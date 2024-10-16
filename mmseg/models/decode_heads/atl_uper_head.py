@@ -338,12 +338,12 @@ class ATL_UPerHead_fenkai(BaseDecodeHead):
         
         # 分开输出的话
         if num_level_classes is not None:
-            self.conv_seg_L1 = nn.Conv2d(self.channels, num_level_classes[0], kernel_size=1) #(1024-->6)
-            self.conv_seg_L2 = nn.Conv2d(self.channels, num_level_classes[1], kernel_size=1) #(1024-->12)
-            self.conv_seg_L3 = nn.Conv2d(self.channels, num_level_classes[2], kernel_size=1) #(1024-->12)
+            self.conv_seg_L1 = nn.Conv2d(self.channels, num_level_classes[0], kernel_size=1) #(1024-->5)
+            self.conv_seg_L2 = nn.Conv2d(self.channels, num_level_classes[1], kernel_size=1) #(1024-->11)
+            self.conv_seg_L3 = nn.Conv2d(self.channels, num_level_classes[2], kernel_size=1) #(1024-->21)
             # self.conv_seg_L3 = self.conv_seg  # 不用conv_seg会报错，说没用他的梯度计算loss，但是可以在train.py使用 find un_used参数
 
-            self.num_level_classes = num_level_classes
+            self.num_level_classes = num_level_classes 
 
         # PSP Module
         self.psp_modules = PPM(
@@ -482,31 +482,14 @@ class ATL_UPerHead_fenkai(BaseDecodeHead):
         output = self._forward_feature(inputs)  # [2,1024,128,128]
         # output_L1 = self.cls_seg(output, self.conv_seg_L1)  # [2,6,128,128]
 
-        output_L1 = self.cls_seg(output, self.conv_seg_L1)  # [2,6,128,128]
-        output_L2 = self.cls_seg(output, self.conv_seg_L2)  # [2,12,128,128]
-        output_L3 = self.cls_seg(output, self.conv_seg_L3)    # [2,22,128,128]
-        output = torch.cat([output_L1, output_L2, output_L3], dim=1)  # [2,40,128,128]
+        output_L1 = self.cls_seg(output, self.conv_seg_L1)  # [2,1024,128,128] -> [2,5,128,128]
+        output_L2 = self.cls_seg(output, self.conv_seg_L2)  # [2,1024,128,128] -> [2,11,128,128]
+        output_L3 = self.cls_seg(output, self.conv_seg_L3)  # [2,1024,128,128] -> [2,21,128,128]
+        output = torch.cat([output_L1, output_L2, output_L3], dim=1)  # [2,37,128,128]
         # 消融实验1：只让模型输出最后output_L3的结果,然后用普通的Loss和普通的EncoderDecoder训练
 
-        # import pdb; pdb.set_trace() 
         return output
     
-    # # 合在一起输出一个40通道的特征图
-    # def forward(self, inputs):
-    #     """Forward function."""
-    #     output = self._forward_feature(inputs)  # [2,1024,128,128]
-    #     output = self.cls_seg(output)    # [2,40,128,128]
-
-    #     # 消融实验1：只让模型输出最后output_L3的结果,然后用普通的Loss和普通的EncoderDecoder训练
-
-    #     # import pdb; pdb.set_trace() 
-    #     return output
-
-# 这里要把三个输出都合并，然后在cat在一起。其实还是[2,40,128,128]
-# output_L1 = [2,6,128,128]  output_L2 = [2,12,128,128]  output_L3 = [2,22,128,128]
-# 然后cat一下，还是[2,40,128,128]
-
-
     def loss_by_feat(self, seg_logits: Tensor,
                      batch_data_samples: SampleList) -> dict:
         """Compute segmentation loss. Overwrite the
@@ -522,14 +505,12 @@ class ATL_UPerHead_fenkai(BaseDecodeHead):
             dict[str, Tensor]: a dictionary of loss components
         """
 
-        # import pdb;pdb.set_trace()
-        # seg_logits = seg_logits[2]  # output_L3
-        # seg_logits: [2,40,128,128]，三个output拼起来的
+        # seg_logits: [2,37,128,128]，三个output拼起来的
 
         seg_label = self._stack_batch_gt(
             batch_data_samples)  # 从batch_data_samples里提取 [2,1,512,512]
         loss = dict()
-        # 直接把，[2,40,128,128]---双线性插值--->[2,40,512,512]
+        # 直接把，[2,37,128,128]---双线性插值--->[2,37,512,512]
         seg_logits = resize(
             input=seg_logits,
             size=seg_label.shape[2:],
@@ -567,8 +548,8 @@ class ATL_UPerHead_fenkai(BaseDecodeHead):
                 # pdb.set_trace()
 
         if self.num_level_classes is not None:
-            num_low_level_classes = self.num_level_classes[-1]  # 22
-        seg_logits_low_level = seg_logits[:,-num_low_level_classes:]  # [2,22,512,512]  # 这里不准确。
+            num_low_level_classes = self.num_level_classes[-1]  # 21
+        seg_logits_low_level = seg_logits[:,-num_low_level_classes:]  # [2,21,512,512], 只取[22]去验证acc_seg # 这里不准确。
         loss['acc_seg'] = accuracy(
             seg_logits_low_level, seg_label,
             ignore_index=self.ignore_index)  # 这里为什么低，因为参数没全导入。
@@ -576,7 +557,7 @@ class ATL_UPerHead_fenkai(BaseDecodeHead):
         return loss  #这可以正常执行
     
 
-    # ATL_EncoderDecoder里的predict函数会调用UperHead的predict，又会调这里。
+    # ATL_EncoderDecoder里的predict函数会调用UperHead的predict，又会调这里, val的时候会调用
     def predict_by_feat(self, seg_logits: Tensor,
                         batch_img_metas: List[dict]) -> Tensor:
         """Transform a batch of output seg_logits to the input shape.  # 缩放！
@@ -589,8 +570,7 @@ class ATL_UPerHead_fenkai(BaseDecodeHead):
         Returns:
             Tensor: Outputs segmentation logits map.
         """
-        # [1,40,512,512]
-        # seg_logits # [1,40,128,128]
+        # seg_logits # [1,37,128,128]
         if isinstance(batch_img_metas[0]['img_shape'], torch.Size):
             # slide inference
             size = batch_img_metas[0]['img_shape']
@@ -604,5 +584,5 @@ class ATL_UPerHead_fenkai(BaseDecodeHead):
             size=size,
             mode='bilinear',
             align_corners=self.align_corners)
-        # [1,40,512,512]
+        # [1,37,512,512]
         return seg_logits
