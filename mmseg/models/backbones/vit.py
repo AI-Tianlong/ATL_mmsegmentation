@@ -297,7 +297,7 @@ class VisionTransformer(BaseModule): #我直接继承mmpretrain的是不是也�
                 TransformerEncoderLayer(
                     embed_dims=embed_dims,
                     num_heads=num_heads,
-                    feedforward_channels=mlp_ratio * embed_dims,
+                    feedforward_channels=mlp_ratio * embed_dims, #4*768 = 3072
                     attn_drop_rate=attn_drop_rate,
                     drop_rate=drop_rate,
                     drop_path_rate=dpr[i],
@@ -494,7 +494,7 @@ class VisionTransformer(BaseModule): #我直接继承mmpretrain的是不是也�
             if i in self.out_indices:
                 if self.with_cls_token:
                     # Remove class token and reshape token for decoder head
-                    out = x[:, 1:]
+                    out = x[:, 1:]  # 输出这个stage的特征图
                 else:
                     out = x
                 B, _, C = out.shape
