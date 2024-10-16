@@ -80,7 +80,8 @@ model.update(
             deform_num_heads=16,
             cffn_ratio=0.25,
             deform_ratio=0.5,
-            interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]],
+            # interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]], # base
+            interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]],
             init_cfg=dict(type='Pretrained', checkpoint=pretrained, prefix='backbone.') # 不加预训练权重
             # frozen_exclude=None,
         ),  #backbone 完全一样
@@ -139,7 +140,7 @@ train_dataloader.update(
 # optimizer
 optimizer = dict(
     type=AdamW,
-    lr=2e-5,
+    lr=2e-5,  # batch=16 是2e-5, batch=8是否需要调整
     betas=(0.9, 0.999),
     weight_decay=0.05,
 )

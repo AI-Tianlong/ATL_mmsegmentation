@@ -311,6 +311,8 @@ class ATL_Loss(nn.Module):
 
 
 
+
+
 @MODELS.register_module()
 class ATL_Loss2(nn.Module):
     """ATL_Loss2 . L1_CE + L2_CE + L3_CE + LTT loss
@@ -356,7 +358,7 @@ class ATL_Loss2(nn.Module):
         self.class_weight = get_class_weight(class_weight)
         self.avg_non_ignore = avg_non_ignore
         self.classes_map = classes_map
-        
+
         if not self.avg_non_ignore and self.reduction == 'mean':
             warnings.warn(
                 'Default ``avg_non_ignore`` is False, if you would like to '
