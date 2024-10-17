@@ -49,7 +49,7 @@ num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
 crop_size = (512, 512)
-pretrained = '/share/home/aitlong/AI-Tianlong/checkpoints/0-atl-自己预训练的/4-mmpretrain-mae-vit_large-norem_pixel-重建像素+指数-epoch_400.pth'
+pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/vit-adapter/mmpretrainformat-10chan-ViT-Adapter-Aug-L-BGR.pth'
 # pretrained = None
 data_preprocessor.update(
     dict(
@@ -82,7 +82,7 @@ model.update(
             deform_ratio=0.5,
             # interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]], # base
             interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]], # large
-            init_cfg=dict(type='Pretrained', checkpoint=pretrained, prefix='backbone.') # 不加预训练权重
+            init_cfg=dict(type='Pretrained', checkpoint=pretrained) # 不加预训练权重
             # frozen_exclude=None,
         ),  #backbone 完全一样
         decode_head=dict(
