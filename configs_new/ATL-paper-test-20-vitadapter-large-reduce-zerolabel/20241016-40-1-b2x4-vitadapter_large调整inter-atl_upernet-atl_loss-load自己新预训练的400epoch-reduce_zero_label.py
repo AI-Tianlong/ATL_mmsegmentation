@@ -81,7 +81,7 @@ model.update(
             cffn_ratio=0.25,
             deform_ratio=0.5,
             # interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]], # base
-            interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]],
+            interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]], # large
             init_cfg=dict(type='Pretrained', checkpoint=pretrained, prefix='backbone.') # 不加预训练权重
             # frozen_exclude=None,
         ),  #backbone 完全一样
@@ -97,7 +97,7 @@ model.update(
             norm_cfg=norm_cfg,
             align_corners=False,
             loss_decode=dict(
-                type=ATL_Loss2,
+                type=ATL_Loss,
                 use_sigmoid=False,
                 loss_weight=1.0,
                 classes_map=S2_5B_Dataset_21Classes_Map_nobackground)),
@@ -133,8 +133,6 @@ train_pipeline = [
     dict(type=PackSegInputs)
 ]
 train_dataloader.update(
-    # batch_size = 4,
-    # num_workers = 4,
     dataset=dict(pipeline=train_pipeline))  # potsdam的变量
 
 # optimizer
@@ -165,7 +163,6 @@ param_scheduler = [
 ]
 
 load_from = None
-# load_from = '/opt/AI-Tianlong/openmmlab/mmsegmentation/work_dirs/20240920-s2_5B_S2-beit_uperner_large-b4x2-80k-ATL调试paper/iter_24000.pth'
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))
 

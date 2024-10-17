@@ -807,7 +807,7 @@ class ViTAdapter(VisionTransformer):
         # self.num_classes = 80
         self.cls_token = None
         self.pretrain_size = (pretrain_size, pretrain_size)
-        self.interaction_indexes = interaction_indexes
+        self.interaction_indexes = interaction_indexes # [[0, 5], [6, 11], [12, 17], [18, 23]], # large
         self.add_vit_feature = add_vit_feature
         embed_dim = self.embed_dims
 
