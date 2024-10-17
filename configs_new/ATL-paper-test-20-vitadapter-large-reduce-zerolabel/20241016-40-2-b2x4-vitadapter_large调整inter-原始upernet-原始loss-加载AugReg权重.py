@@ -35,6 +35,8 @@ with read_base():
     from .._base_.models.upernet_beit_potsdam import *
     from .._base_.schedules.schedule_80k import *
 
+find_unuser_parameters = True
+
 # 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
 norm_cfg = dict(type=SyncBN, requires_grad=True)
 
@@ -47,10 +49,8 @@ L3_num_classes = 21  # number of L1 Level label  # 21
 num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
-
 crop_size = (512, 512)
-pretrained = '/share/home/aitlong/AI-Tianlong/checkpoints/0-atl-自己预训练的/4-mmpretrain-mae-vit_large-norem_pixel-重建像素+指数-epoch_400.pth'
-# pretrained = None
+pretrained = '/data/AI-Tianlong/Checkpoints/1-mmpretrain/mmpretrainformat-10chan-ViT-Adapter-Aug-L-BGR.pth'
 data_preprocessor.update(
     dict(
         type=SegDataPreProcessor,
@@ -62,8 +62,8 @@ data_preprocessor.update(
 
 model.update(
     dict(
-        type=ATL_EncoderDecoder,
-        level_classes_map=S2_5B_Dataset_21Classes_Map_nobackground,  # 注意传参！！
+        type=EncoderDecoder,
+        # level_classes_map=S2_5B_Dataset_21Classes_Map_nobackground,  # 注意传参！！
         data_preprocessor=data_preprocessor,
         backbone=dict(
             type=ViTAdapter,
@@ -82,27 +82,27 @@ model.update(
             deform_ratio=0.5,
             # interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]], # base
             interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]],
-            init_cfg=dict(type='Pretrained', checkpoint=pretrained, prefix='backbone.') # 不加预训练权重
+            init_cfg=dict(type='Pretrained', checkpoint=pretrained) # 不加预训练权重
             # frozen_exclude=None,
-        ),  #backbone 完全一样
+        ),  
         decode_head=dict(
-            type=ATL_UPerHead_fenkai,
+            type=UPerHead,
             in_channels=[1024, 1024, 1024, 1024],  # 和vit的结构保持一致，large的话1024
             in_index=[0, 1, 2, 3],
             pool_scales=(1, 2, 3, 6),
             channels=1024,   # 这是个 啥参数来着？
             dropout_ratio=0.1,
-            num_classes=num_classes, #37
-            num_level_classes=[L1_num_classes, L2_num_classes, L3_num_classes],  # 这里需要和loss的map对应上
+            num_classes=L3_num_classes, #37
+            # num_level_classes=[L1_num_classes, L2_num_classes, L3_num_classes],  # 这里需要和loss的map对应上
             norm_cfg=norm_cfg,
             align_corners=False,
-            loss_decode=dict(
-                type=ATL_Loss,
-                use_sigmoid=False,
-                loss_weight=1.0,
-                classes_map=S2_5B_Dataset_21Classes_Map_nobackground)),
             # loss_decode=dict(
-            #     type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
+            #     type=ATL_Loss,
+            #     use_sigmoid=False,
+            #     loss_weight=1.0,
+            #     classes_map=S2_5B_Dataset_21Classes_Map_nobackground)),
+            loss_decode=dict(
+                type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
         auxiliary_head=dict(
             type=FCNHead,
             in_channels=1024, # 和上面的768 保持统一
@@ -132,15 +132,12 @@ train_pipeline = [
     # dict(type=PhotoMetricDistortion),
     dict(type=PackSegInputs)
 ]
-train_dataloader.update(
-    # batch_size = 4,
-    # num_workers = 4,
-    dataset=dict(pipeline=train_pipeline))  # potsdam的变量
+train_dataloader.update(dataset=dict(pipeline=train_pipeline))  # potsdam的变量
 
 # optimizer
 optimizer = dict(
     type=AdamW,
-    lr=2e-5,  # batch=16 是2e-5, batch=8是否需要调整
+    lr=2e-5,
     betas=(0.9, 0.999),
     weight_decay=0.05,
 )
