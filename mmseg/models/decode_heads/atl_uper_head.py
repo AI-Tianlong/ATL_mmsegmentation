@@ -266,7 +266,7 @@ class ATL_UPerHead(BaseDecodeHead):
                     seg_logits,
                     seg_label,
                     weight=seg_weight,
-                    ignore_index=self.ignore_index)
+                    ignore_index=self.ignore_index)  # cross_entropy
                 # pdb.set_trace()
 
         if self.num_level_classes is not None:
@@ -487,7 +487,7 @@ class ATL_UPerHead_fenkai(BaseDecodeHead):
         output_L3 = self.cls_seg(output, self.conv_seg_L3)  # [2,1024,128,128] -> [2,21,128,128]
         output = torch.cat([output_L1, output_L2, output_L3], dim=1)  # [2,37,128,128]
         # 消融实验1：只让模型输出最后output_L3的结果,然后用普通的Loss和普通的EncoderDecoder训练
-
+        
         return output
     
     def loss_by_feat(self, seg_logits: Tensor,
@@ -584,5 +584,10 @@ class ATL_UPerHead_fenkai(BaseDecodeHead):
             size=size,
             mode='bilinear',
             align_corners=self.align_corners)
-        # [1,37,512,512]
+        
+        # import pdb;pdb.set_trace()
+        for i in range(seg_logits.shape[1]):
+            # print(f'seg_logits[0,{i},128,128]的 值：{seg_logits[0,i,256,256]}')
+            print(f'{seg_logits[0,i,256,256]}')
+        # import pdb;pdb.set_trace()
         return seg_logits

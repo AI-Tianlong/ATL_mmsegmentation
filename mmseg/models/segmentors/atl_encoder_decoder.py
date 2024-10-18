@@ -325,7 +325,7 @@ class ATL_EncoderDecoder(BaseSegmentor):
 
                 count_mat[:, :, y1:y2, x1:x2] += 1
         assert (count_mat == 0).sum() == 0
-        seg_logits = preds / count_mat
+        seg_logits = preds / count_mat  # 滑窗推理怎么算最后的结果的？  把特征图加起来，然后除以次数
 
         return seg_logits
 
@@ -593,11 +593,13 @@ class ATL_EncoderDecoder(BaseSegmentor):
                     L2_i_seg_logits = i_seg_logits[num_levels_classes[1]:num_levels_classes[2], :, :] # [11, 512, 512] [5-15]
                     L3_i_seg_logits = i_seg_logits[num_levels_classes[2]:num_levels_classes[3], :, :] # [21, 512, 512] [16,36]
 
+                    # import pdb; pdb.set_trace()
                     # 在argmax之前, 加一个softmax, 然后再做特征图的叠加
 
                     softmax_L1_i_seg_logits = F.softmax(L1_i_seg_logits, dim=0) # [5, 512, 512]
                     softmax_L2_i_seg_logits = F.softmax(L2_i_seg_logits, dim=0) # [11, 512, 512]
                     softmax_L3_i_seg_logits = F.softmax(L3_i_seg_logits, dim=0) # [21, 512, 512]
+                    # import pdb; pdb.set_trace()
 
                     softmax_i_seg_logits = torch.cat([softmax_L1_i_seg_logits, 
                                                       softmax_L2_i_seg_logits, 

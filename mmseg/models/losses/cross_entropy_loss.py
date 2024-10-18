@@ -273,7 +273,7 @@ class CrossEntropyLoss(nn.Module):
                 weight=None,
                 avg_factor=None,
                 reduction_override=None,
-                ignore_index=-100,
+                ignore_index=-100, # 这里默认255了
                 **kwargs):
         """Forward function."""
         assert reduction_override in (None, 'none', 'mean', 'sum')

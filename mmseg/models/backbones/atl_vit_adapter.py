@@ -521,6 +521,7 @@ class InteractionBlock(nn.Module):
             feat=c,
             spatial_shapes=deform_inputs1[1],
             level_start_index=deform_inputs1[2])
+        
         for idx, blk in enumerate(blocks):
             # print(f'【ATL-LOG-vit_adapter-518 行 】')
             # print(f'x.shape {x.shape}')
@@ -821,21 +822,22 @@ class ViTAdapter(VisionTransformer):
         
         self.interactions = nn.Sequential(*[
             InteractionBlock(
-                dim=embed_dim,
-                num_heads=deform_num_heads,
-                n_points=n_points,
-                init_values=init_values,
-                drop_path=drop_path_rate,
-                norm_layer=norm_layer,
-                with_cffn=with_cffn,
-                cffn_ratio=cffn_ratio,
-                deform_ratio=deform_ratio,
+                dim=embed_dim, # 1024
+                num_heads=deform_num_heads, # 16
+                n_points=n_points, # 4
+                init_values=init_values, # 1e-6
+                drop_path=drop_path_rate,# 0.3
+                norm_layer=norm_layer, # partial(nn.LayerNorm, eps=1e-6),
+                with_cffn=with_cffn, # True
+                cffn_ratio=cffn_ratio, # 0.25
+                deform_ratio=deform_ratio, # 1.0
                 extra_extractor=((True if i == len(interaction_indexes) - 1 
-                                  else False) and use_extra_extractor),
+                                  else False) and use_extra_extractor),   # i=0,1,2,3 如果i==3，就是True，否则是False 
                 with_cp=with_cp) 
             for i in range(len(interaction_indexes))
         ])
 
+        # import pdb;pdb.set_trace()
         self.up = nn.ConvTranspose2d(embed_dim, embed_dim, 2, 2)
         self.sync_norm1 = nn.SyncBatchNorm(embed_dim) #这个syncBatchNorm会不会有问题，单卡没法用？
         self.sync_norm2 = nn.SyncBatchNorm(embed_dim)  # 
@@ -853,6 +855,7 @@ class ViTAdapter(VisionTransformer):
 
     # def init_weights(self):
     #     pass
+        # import pdb;pdb.set_trace()
     
     def print_all_parameters(self):
         for name, param in self.named_parameters():
@@ -916,7 +919,7 @@ class ViTAdapter(VisionTransformer):
         x, out_size = self.patch_embed(x) # [2,1024,1024] (32 32)  #如果是patch=8的话，[2,4096,1024] (64,64)
 
         # import pdb;pdb.set_trace()
-        H, W = out_size
+        H, W = out_size # 32 32
         bs, n, dim = x.shape
 
         # import pdb;pdb.set_trace()
@@ -933,36 +936,38 @@ class ViTAdapter(VisionTransformer):
         for i, layer in enumerate(self.interactions):
             indexes = self.interaction_indexes[i]
 
+            # import pdb;pdb.set_trace()
+
             x, c = layer(x, c, 
-                         self.layers[indexes[0]:indexes[-1] + 1],
+                         self.layers[indexes[0]:indexes[-1] + 1], #Transformer的Block
                          deform_inputs1, deform_inputs2, H, W)
 
-            outs.append(x.transpose(1, 2).view(bs, dim, H, W).contiguous())
+            outs.append(x.transpose(1, 2).view(bs, dim, H, W).contiguous()) # 四个阶段前 6 6 6 6 各自过6个Transformer的,恢复成了特征图的样子
             # outs.append(x.transpose(1, 2).contiguous().view(bs, dim, H, W)) ATL瞎改的
-
+        # import pdb;pdb.set_trace()
         # Split & Reshape
-        c2 = c[:, 0:c2.size(1), :]
-        c3 = c[:, c2.size(1):c2.size(1) + c3.size(1), :]
-        c4 = c[:, c2.size(1) + c3.size(1):, :]
+        c2 = c[:, 0:c2.size(1), :]  # [2,4096,1024]
+        c3 = c[:, c2.size(1):c2.size(1) + c3.size(1), :] #[2,1024,1024]
+        c4 = c[:, c2.size(1) + c3.size(1):, :] # [2,256,1024]
 
-        c2 = c2.transpose(1, 2).view(bs, dim, H * 2, W * 2).contiguous()
-        c3 = c3.transpose(1, 2).view(bs, dim, H, W).contiguous()
-        c4 = c4.transpose(1, 2).view(bs, dim, H // 2, W // 2).contiguous()
-        c1 = self.up(c2) + c1
+        c2 = c2.transpose(1, 2).view(bs, dim, H * 2, W * 2).contiguous()   # [2,1024,64,64]    1/32
+        c3 = c3.transpose(1, 2).view(bs, dim, H, W).contiguous()           # [2,1024,32,32]    1/16
+        c4 = c4.transpose(1, 2).view(bs, dim, H // 2, W // 2).contiguous() # [2,1024,16,16]    1/8
+        c1 = self.up(c2) + c1                                              # [2,1024,128,128]  1/4
 
-        if self.add_vit_feature:
-            x1, x2, x3, x4 = outs
+        if self.add_vit_feature:    # True [0-5]        [6-11]          [12-17]        [18-23]
+            x1, x2, x3, x4 = outs   # [2,1024,32,32] [2,1024,32,32] [2,1024,32,32] [2,1024,32,32]
             x1 = F.interpolate(
-                x1, scale_factor=4, mode='bilinear', align_corners=False)
+                x1, scale_factor=4, mode='bilinear', align_corners=False)  # [2,1024,128,128]
             x2 = F.interpolate(
-                x2, scale_factor=2, mode='bilinear', align_corners=False)
+                x2, scale_factor=2, mode='bilinear', align_corners=False)  # [2,1024,64,64]
             x4 = F.interpolate(
-                x4, scale_factor=0.5, mode='bilinear', align_corners=False)
-            c1, c2, c3, c4 = c1 + x1, c2 + x2, c3 + x3, c4 + x4
+                x4, scale_factor=0.5, mode='bilinear', align_corners=False) # [2,1024,16,16]
+            c1, c2, c3, c4 = c1 + x1, c2 + x2, c3 + x3, c4 + x4     # 给特征c加上了ViT的X
 
         # Final Norm
         # import pdb;pdb.set_trace()
-        f1 = self.sync_norm1(c1) # c1:[2, 1024, 128, 128]
+        f1 = self.sync_norm1(c1) # c1:[2, 1024, 128, 128]  # 然后输入到uperhead里
         f2 = self.sync_norm2(c2) # c2:[2, 1024, 64, 64]
         f3 = self.sync_norm3(c3) # c3:[2, 1024, 32, 32]
         f4 = self.sync_norm4(c4) # c3:[2, 1024, 16, 16]

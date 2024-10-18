@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from .accuracy import Accuracy, accuracy
-from .atl_loss import ATL_Loss, ATL_Loss2
+from .atl_loss import ATL_Loss
 from .boundary_loss import BoundaryLoss
 from .cross_entropy_loss import (CrossEntropyLoss, binary_cross_entropy,
                                  cross_entropy, mask_cross_entropy)
@@ -18,5 +18,5 @@ __all__ = [
     'mask_cross_entropy', 'CrossEntropyLoss', 'reduce_loss',
     'weight_reduce_loss', 'weighted_loss', 'LovaszLoss', 'DiceLoss',
     'FocalLoss', 'TverskyLoss', 'OhemCrossEntropy', 'BoundaryLoss',
-    'HuasdorffDisstanceLoss', 'SiLogLoss', 'ATL_Loss','ATL_Loss2'
+    'HuasdorffDisstanceLoss', 'SiLogLoss', 'ATL_Loss'
 ]
