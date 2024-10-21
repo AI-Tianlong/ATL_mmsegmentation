@@ -15,7 +15,10 @@ from mmseg.evaluation import IoUMetric
 dataset_type = ATL_S2_5B_Dataset_22class
 # data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-加入雪-nvme'   
 # data_root = 'data/1-paper-segmentation/0-S2_5B-21类-包含雪21' # 浪潮
-data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-包含雪21'  # 超微
+# data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-包含雪21'  # 超微
+
+data_root = 'data/0-atl-paper-s2/0-东北三省-地物覆盖-512'  # 东北三省5B 超微
+
 crop_size = (512, 512)
 train_pipeline = [
     dict(type=LoadSingleRSImageFromFile),
