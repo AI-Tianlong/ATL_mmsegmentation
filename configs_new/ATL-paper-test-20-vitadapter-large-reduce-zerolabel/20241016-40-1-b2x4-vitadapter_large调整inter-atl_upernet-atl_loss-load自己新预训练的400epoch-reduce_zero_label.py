@@ -13,21 +13,18 @@ from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
                                        ResizeShortestEdge)
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
-
-from mmseg.evaluation import ATL_IoUMetric #多卡时有问题
-from mmseg.models.backbones import BEiTAdapter
-from mmseg.models.decode_heads.atl_fcn_head import ATL_FCNHead
-from mmseg.models.decode_heads.uper_head import UPerHead
-
-
-from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
-from mmseg.models.backbones import ViTAdapter
-from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
-from mmseg.models.decode_heads.fcn_head import FCNHead
-from mmseg.models.losses.atl_loss import ATL_Loss, ATL_Loss2, S2_5B_Dataset_21Classes_Map_nobackground
-from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
+from mmseg.evaluation import ATL_IoUMetric  # 多卡时有问题
 from mmseg.evaluation import IoUMetric
-
+from mmseg.models.backbones import BEiTAdapter, ViTAdapter
+from mmseg.models.decode_heads.atl_fcn_head import ATL_FCNHead
+from mmseg.models.decode_heads.atl_uper_head import (ATL_UPerHead,
+                                                     ATL_UPerHead_fenkai)
+from mmseg.models.decode_heads.fcn_head import FCNHead
+from mmseg.models.decode_heads.uper_head import UPerHead
+from mmseg.models.losses.atl_loss import (
+    ATL_Loss, ATL_Loss2, S2_5B_Dataset_21Classes_Map_nobackground)
+from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
+from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
 
 with read_base():
     from .._base_.datasets.atl_0_paper_5b_s2_22class import *

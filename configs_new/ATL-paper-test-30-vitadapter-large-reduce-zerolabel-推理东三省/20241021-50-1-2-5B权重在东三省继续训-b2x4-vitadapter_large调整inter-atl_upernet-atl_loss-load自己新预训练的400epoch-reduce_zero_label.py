@@ -22,7 +22,7 @@ from mmseg.models.decode_heads.atl_uper_head import (ATL_UPerHead,
 from mmseg.models.decode_heads.fcn_head import FCNHead
 from mmseg.models.decode_heads.uper_head import UPerHead
 from mmseg.models.losses.atl_loss import (
-    ATL_Loss, ATL_Loss2, S2_5B_Dataset_21Classes_Map_nobackground)
+    ATL_Loss, S2_5B_Dataset_21Classes_Map_nobackground)
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
 from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
 
@@ -46,7 +46,7 @@ num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
 crop_size = (512, 512)
-pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/vit-adapter/mmpretrainformat-10chan-ViT-Adapter-Aug-L-BGR.pth'
+pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/1-训练好的分割权重/iter_80000_miou50.95-vit_adapter_large-自己的头-自己的loss-5B数据集.pth'
 # pretrained = None
 data_preprocessor.update(
     dict(
@@ -79,7 +79,7 @@ model.update(
             deform_ratio=0.5,
             # interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]], # base
             interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]], # large
-            init_cfg=dict(type='Pretrained', checkpoint=pretrained) # 不加预训练权重
+            init_cfg=dict(type='Pretrained', checkpoint=pretrained, prefix='backbone.') # 不加预训练权重
             # frozen_exclude=None,
         ),  #backbone 完全一样
         decode_head=dict(
@@ -159,21 +159,15 @@ param_scheduler = [
     )
 ]
 
-load_from = None
+load_from = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/1-训练好的分割权重/iter_80000_miou50.95-vit_adapter_large-自己的头-自己的loss-5B数据集.pth'
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))
 
-# test_dataloader.update(
-#     dict(
-#         dataset=dict(
-#         data_root='data/0-atl-paper-s2/tiny-test',
-#         data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
-#         pipeline=test_pipeline)))
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
 test_evaluator = dict(
     type=IoUMetric,
     iou_metrics=['mIoU', 'mFscore'],
-    # format_only=True,
+    format_only=True,
     keep_results=True)
