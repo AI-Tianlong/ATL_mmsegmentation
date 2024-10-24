@@ -31,7 +31,7 @@ from mmseg.models.backbones import MSCAN
 from mmseg.models.decode_heads.ham_head import LightHamHead
 from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
 from mmseg.models.decode_heads.fcn_head import FCNHead
-from mmseg.models.losses.atl_loss import ATL_Loss, ATL_Loss2, S2_5B_Dataset_21Classes_Map_nobackground
+from mmseg.models.losses.atl_loss import ATL_Loss, S2_5B_Dataset_21Classes_Map_nobackground
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
 from mmseg.evaluation import IoUMetric
 
@@ -39,11 +39,11 @@ from mmseg.evaluation import IoUMetric
 with read_base():
     from .._base_.datasets.atl_0_paper_5b_s2_22class import *
     from .._base_.default_runtime import *
-    from .._base_.schedules.schedule_160k import *
+    from .._base_.schedules.schedule_80k import *
 
 
 # model settings
-checkpoint_file = '/share/home/aitlong/AI-Tianlong/checkpoints/1-对比实验的/segnext/segnext_mscan_l_10_chan_BGR.pth'   # noqa
+checkpoint_file = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segnext/base/segnext_mscan_b_10channel_BGR.pth'   # noqa
 ham_norm_cfg = dict(type=GN, num_groups=32, requires_grad=True)
 crop_size = (512, 512)
 data_preprocessor = dict(
@@ -66,8 +66,8 @@ model = dict(
         embed_dims=[64, 128, 320, 512],
         mlp_ratios=[8, 8, 4, 4],
         drop_rate=0.0,
-        drop_path_rate=0.3,
-        depths=[3, 5, 27, 3],
+        drop_path_rate=0.1,
+        depths=[3, 3, 12, 3],
         attention_kernel_sizes=[5, [1, 7], [1, 11], [1, 21]],
         attention_kernel_paddings=[2, [0, 3], [0, 5], [0, 10]],
         act_cfg=dict(type=GELU),
@@ -76,8 +76,8 @@ model = dict(
         type=LightHamHead,
         in_channels=[128, 320, 512],
         in_index=[1, 2, 3],
-        channels=1024,
-        ham_channels=1024,
+        channels=512,
+        ham_channels=512,
         dropout_ratio=0.1,
         num_classes=21,
         norm_cfg=ham_norm_cfg,
@@ -117,7 +117,7 @@ param_scheduler = [
         type=PolyLR,
         power=1.0,
         begin=1500,
-        end=160000,
+        end=80000,
         eta_min=0.0,
         by_epoch=False,
     )
