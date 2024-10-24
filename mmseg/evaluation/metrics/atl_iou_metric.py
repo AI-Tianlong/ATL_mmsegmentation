@@ -14,7 +14,7 @@ from PIL import Image
 from prettytable import PrettyTable
 from mmseg.utils import add_prefix
 
-from mmseg.models.losses.atl_loss import (S2_5B_Dataset_22Classes_Map,
+from mmseg.models.losses.atl_loss import (S2_5B_Dataset_21Classes_Map_nobackground,
                                           convert_low_level_label_to_High_level
                                           )
 from mmseg.registry import METRICS
@@ -97,9 +97,9 @@ class ATL_IoUMetric(BaseMetric):
 
             # 构造pred_label
             i_seg_logits = data_sample['seg_logits']['data']  # [40,512,512] # 都在cuda:0上device='cuda:0'
-            L1_seg_logits = i_seg_logits[0:6, :, :]  # [6,512,512]
-            L2_seg_logits = i_seg_logits[6:18, :, :]  # [12,512,512]
-            L3_seg_logits = i_seg_logits[18:40, :, :]  # [22,512,512]
+            L1_seg_logits = i_seg_logits[0:5, :, :]  # [6,512,512]
+            L2_seg_logits = i_seg_logits[5:16, :, :]  # [12,512,512]
+            L3_seg_logits = i_seg_logits[16:37, :, :]  # [22,512,512]
 
             L1_pred_seg = torch.argmax(L1_seg_logits, dim=0)  # [512,512] [0-5]
             L2_pred_seg = torch.argmax(L2_seg_logits, dim=0)  # [512,512] [0-11]
@@ -122,7 +122,7 @@ class ATL_IoUMetric(BaseMetric):
                 label = data_sample['gt_sem_seg']['data'].squeeze().to(
                     i_seg_logits)  # 把label放到了gpu上，和pred_label一样的device
 
-                label_list = convert_low_level_label_to_High_level(label, S2_5B_Dataset_22Classes_Map)
+                label_list = convert_low_level_label_to_High_level(label, S2_5B_Dataset_21Classes_Map_nobackground)
 
                 L1_label = label_list[0]  # [512,512] [0-5]
                 L2_label = label_list[1]  # [512,512] [0-11]
@@ -134,9 +134,9 @@ class ATL_IoUMetric(BaseMetric):
                 set_L3_label = set(L3_label.flatten().cpu().numpy().tolist())  #{0.0, 2.0, 4.0, 10.0, 11.0, 12.0, 13.0, 16.0, 255.0}
                 # pdb.set_trace()
 
-                self.L1results.append(self.intersect_and_union(L1_pred_seg, L1_label, 6, self.ignore_index))
-                self.L2results.append(self.intersect_and_union(L2_pred_seg, L2_label, 12, self.ignore_index))
-                self.L3results.append(self.intersect_and_union(L3_pred_seg, L3_label, 22, self.ignore_index))
+                self.L1results.append(self.intersect_and_union(L1_pred_seg, L1_label, 5, self.ignore_index))
+                self.L2results.append(self.intersect_and_union(L2_pred_seg, L2_label, 11, self.ignore_index))
+                self.L3results.append(self.intersect_and_union(L3_pred_seg, L3_label, 21, self.ignore_index))
 
 
                 self.results = [self.L1results, self.L2results, self.L3results]  # 会传入到mmengine-metric-evaluate
@@ -172,6 +172,10 @@ class ATL_IoUMetric(BaseMetric):
                 mainly includes aAcc, mIoU, mAcc, mDice, mFscore, mPrecision,
                 mRecall.
         """
+        
+        
+        
+        
         logger: MMLogger = MMLogger.get_current_instance()
         if self.format_only:
             logger.info(f'results are saved to {osp.dirname(self.output_dir)}')
@@ -219,11 +223,11 @@ class ATL_IoUMetric(BaseMetric):
         # 这里给他换掉！！！
         # class_names = self.dataset_meta['classes']
         class_names_L1 = list(
-            S2_5B_Dataset_22Classes_Map['Classes_Map_L1'].keys())
+            S2_5B_Dataset_21Classes_Map_nobackground['Classes_Map_L1'].keys())
         class_names_L2 = list(
-            S2_5B_Dataset_22Classes_Map['Classes_Map_L2'].keys())
+            S2_5B_Dataset_21Classes_Map_nobackground['Classes_Map_L2'].keys())
         class_names_L3 = list(
-            S2_5B_Dataset_22Classes_Map['Classes_Map_L3'].keys())
+            S2_5B_Dataset_21Classes_Map_nobackground['Classes_Map_L3'].keys())
 
         # processed_class_names_L1 = [name.split('_')[-1] for name in class_names_L1]
         # processed_class_names_L2 = [name.split('_')[-1] for name in class_names_L2]

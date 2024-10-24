@@ -88,15 +88,15 @@ class StemConv(BaseModule):
         self.proj = nn.Sequential(
             nn.Conv2d(
                 in_channels,
-                out_channels // 2,
+                out_channels // 2, # 64变成32了？ why
                 kernel_size=(3, 3),
                 stride=(2, 2),
                 padding=(1, 1)),
             build_norm_layer(norm_cfg, out_channels // 2)[1],
             build_activation_layer(act_cfg),
             nn.Conv2d(
-                out_channels // 2,
-                out_channels,
+                out_channels // 2,  #32
+                out_channels,       #64
                 kernel_size=(3, 3),
                 stride=(2, 2),
                 padding=(1, 1)),
@@ -303,7 +303,7 @@ class OverlapPatchEmbed(BaseModule):
         norm_cfg (dict): Config dict for normalization layer.
             Defaults: dict(type='SyncBN', requires_grad=True).
     """
-
+        
     def __init__(self,
                  patch_size=7,
                  stride=4,
@@ -313,13 +313,14 @@ class OverlapPatchEmbed(BaseModule):
         super().__init__()
 
         self.proj = nn.Conv2d(
-            in_channels,
-            embed_dim,
-            kernel_size=patch_size,
-            stride=stride,
+            in_channels,  # 10
+            embed_dim,    # 16
+            kernel_size=patch_size,# 3
+            stride=stride, # 3
             padding=patch_size // 2)
         self.norm = build_norm_layer(norm_cfg, embed_dim)[1]
 
+        # import pdb;pdb.set_trace()
     def forward(self, x):
         """Forward function."""
 
@@ -400,16 +401,18 @@ class MSCAN(BaseModule):
         cur = 0
 
         for i in range(num_stages):
+            # import pdb;pdb.set_trace()
             if i == 0:
-                patch_embed = StemConv(3, embed_dims[0], norm_cfg=norm_cfg)
+                patch_embed = StemConv(in_channels, embed_dims[0], norm_cfg=norm_cfg)
             else:
                 patch_embed = OverlapPatchEmbed(
                     patch_size=7 if i == 0 else 3,
                     stride=4 if i == 0 else 2,
                     in_channels=in_channels if i == 0 else embed_dims[i - 1],
-                    embed_dim=embed_dims[i],
+                    embed_dim=embed_dims[i], #不是64?
                     norm_cfg=norm_cfg)
-
+                
+            
             block = nn.ModuleList([
                 MSCABlock(
                     channels=embed_dims[i],
@@ -427,6 +430,8 @@ class MSCAN(BaseModule):
             setattr(self, f'patch_embed{i + 1}', patch_embed)
             setattr(self, f'block{i + 1}', block)
             setattr(self, f'norm{i + 1}', norm)
+
+        # import pdb;pdb.set_trace()
 
     def init_weights(self):
         """Initialize modules of MSCAN."""
