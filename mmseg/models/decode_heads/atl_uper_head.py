@@ -587,12 +587,7 @@ class ATL_UPerHead_fenkai(BaseDecodeHead):
         
         # import pdb;pdb.set_trace()
         # for i in range(seg_logits.shape[1]):
-<<<<<<< HEAD
-        #     # print(f'seg_logits[0,{i},128,128]的 值：{seg_logits[0,i,256,256]}')
-        #     print(f'{seg_logits[0,i,256,256]}')
-=======
             # print(f'seg_logits[0,{i},128,128]的 值：{seg_logits[0,i,256,256]}')
             # print(f'{seg_logits[0,i,256,256]}')
->>>>>>> 825bf3ca2c3498c7f1508c1de6c92e64daf9b9ff
         # import pdb;pdb.set_trace()
         return seg_logits

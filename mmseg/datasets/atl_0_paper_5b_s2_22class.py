@@ -25,7 +25,7 @@ class ATL_S2_5B_Dataset_22class(BaseSegDataset):
     def __init__(
         self,
         img_suffix='.tif',
-        seg_map_suffix='.png',
+        seg_map_suffix='.tif',
         reduce_zero_label=True,  # 这里还是要设置为True，因为实际推理出来的结果是 0+24 类，是有reduce_zero_label的
         **kwargs
     ) -> None:  # 所以推理的时候，会加上一个背景类。

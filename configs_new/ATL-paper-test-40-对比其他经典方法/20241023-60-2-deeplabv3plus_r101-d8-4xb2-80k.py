@@ -54,7 +54,7 @@ data_preprocessor = dict(
 model = dict(
     type=EncoderDecoder,
     data_preprocessor=data_preprocessor,
-    pretrained='open-mmlab://resnet101_v1c',
+    pretrained='/data/AI-Tianlong/Checkpoints/2-对比实验的权重/deeplabv3plus/resnet101_v1c-10channel_BGR.pth',
     backbone=dict(
         type=ResNetV1c,
         depth=101,
@@ -78,7 +78,7 @@ model = dict(
         dropout_ratio=0.1,
         num_classes=21,
         norm_cfg=norm_cfg,
-        align_corners=True,
+        align_corners=False,
         loss_decode=dict(
             type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
     auxiliary_head=dict(
@@ -91,7 +91,7 @@ model = dict(
         dropout_ratio=0.1,
         num_classes=21,
         norm_cfg=norm_cfg,
-        align_corners=True,
+        align_corners=False,
         loss_decode=dict(
             type=CrossEntropyLoss, use_sigmoid=False, loss_weight=0.4)),
     # model training and testing settings
