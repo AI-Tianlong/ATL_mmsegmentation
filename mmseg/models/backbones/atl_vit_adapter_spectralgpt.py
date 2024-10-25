@@ -36,7 +36,8 @@ from mmseg.registry import MODELS
 
 # 为了和预训练保持一致，还是选择从mmpretrain中加载 VisionTransformer，可以权重对应上
 # from mmseg.models.backbones.vit import VisionTransformer
-from mmpretrain.models.backbones.vision_transformer import VisionTransformer
+# from mmpretrain.models.backbones.vision_transformer import VisionTransformer
+from .atl_spectral_gpt_utils import VisionTransformer
 
 # 在做多尺度的时候，需要对输入的特征图进行插值，这里是插值的函数
 
@@ -765,11 +766,19 @@ class SpatialPriorModule(nn.Module):
 class ViTAdapter_SpectralGPT(VisionTransformer): 
     # 从mmpretrain中继承，权重什么的可以和预训练的对应上
     def __init__(self,
-                 img_size=512,
+                 
+                #  arch='l',
+                 #Spectral_VIT
+                 num_frames=12,
+                 t_patch_size=3,
+                 patch_size = 8,
+                 img_size=128,
+                 sep_pos_embed=True,
+                 cls_embed=False,
+                 in_chans=1,
+                 #
                  pretrain_size=224, #重新reshape pos_embedding.
-                 patch_size = 16,
                  in_channels=10,
-                 arch='l',
                  conv_inplane=64,
                  n_points=4,
                  deform_num_heads=6,

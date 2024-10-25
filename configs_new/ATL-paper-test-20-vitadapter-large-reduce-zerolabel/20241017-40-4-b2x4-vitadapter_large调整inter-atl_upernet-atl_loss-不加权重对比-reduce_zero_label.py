@@ -13,18 +13,21 @@ from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
                                        ResizeShortestEdge)
 from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
-from mmseg.evaluation import ATL_IoUMetric  # 多卡时有问题
-from mmseg.evaluation import IoUMetric
-from mmseg.models.backbones import BEiTAdapter, ViTAdapter
+
+from mmseg.evaluation import ATL_IoUMetric #多卡时有问题
+from mmseg.models.backbones import BEiTAdapter
 from mmseg.models.decode_heads.atl_fcn_head import ATL_FCNHead
-from mmseg.models.decode_heads.atl_uper_head import (ATL_UPerHead,
-                                                     ATL_UPerHead_fenkai)
-from mmseg.models.decode_heads.fcn_head import FCNHead
 from mmseg.models.decode_heads.uper_head import UPerHead
-from mmseg.models.losses.atl_loss import (
-    ATL_Loss, S2_5B_Dataset_21Classes_Map_nobackground)
-from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
+
+
 from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
+from mmseg.models.backbones import ViTAdapter
+from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
+from mmseg.models.decode_heads.fcn_head import FCNHead
+from mmseg.models.losses.atl_loss import ATL_Loss, ATL_Loss2, S2_5B_Dataset_21Classes_Map_nobackground
+from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
+from mmseg.evaluation import IoUMetric
+
 
 with read_base():
     from .._base_.datasets.atl_0_paper_5b_s2_22class import *
@@ -41,12 +44,12 @@ L3_num_classes = 21  # number of L1 Level label  # 21
 
 # 总的类别数，包括背景，L1+L2+L3级标签数
 
-num_classes = L1_num_classes + L2_num_classes + L3_num_classes  # 37
+num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
 crop_size = (512, 512)
-pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/1-训练好的分割权重/iter_80000_miou50.95-vit_adapter_large-自己的头-自己的loss-5B数据集.pth'
+pretrained = '/share/home/aitlong/AI-Tianlong/checkpoints/0-atl-自己预训练的/4-mmpretrain-mae-vit_large-norem_pixel-重建像素+指数-epoch_400.pth'
 # pretrained = None
 data_preprocessor.update(
     dict(
@@ -66,7 +69,7 @@ model.update(
             type=ViTAdapter,
             img_size=512,
             patch_size=16,
-            arch='large',  # embed_dims=1024, num_layers=24, num_heads=16
+            arch='large', # embed_dims=1024, num_layers=24, num_heads=16
             in_channels=10,  # 4个波段
             # mlp_ratio=4,  # mpl的通道数，是4倍的enbed_dim
             qkv_bias=True,
@@ -78,10 +81,8 @@ model.update(
             cffn_ratio=0.25,
             deform_ratio=0.5,
             # interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]], # base
-            interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]],  # large
-            init_cfg=dict(
-                type='Pretrained', checkpoint=pretrained,
-                prefix='backbone.')  # 不加预训练权重
+            interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]], # large
+            # init_cfg=dict(type='Pretrained', checkpoint=pretrained, prefix='backbone.') # 不加预训练权重
             # frozen_exclude=None,
         ),  #backbone 完全一样
         decode_head=dict(
@@ -89,11 +90,10 @@ model.update(
             in_channels=[1024, 1024, 1024, 1024],  # 和vit的结构保持一致，large的话1024
             in_index=[0, 1, 2, 3],
             pool_scales=(1, 2, 3, 6),
-            channels=1024,  # 这是个 啥参数来着？
+            channels=1024,   # 这是个 啥参数来着？
             dropout_ratio=0.1,
-            num_classes=num_classes,  #37
-            num_level_classes=[L1_num_classes, L2_num_classes,
-                               L3_num_classes],  # 这里需要和loss的map对应上
+            num_classes=num_classes, #37
+            num_level_classes=[L1_num_classes, L2_num_classes, L3_num_classes],  # 这里需要和loss的map对应上
             norm_cfg=norm_cfg,
             align_corners=False,
             loss_decode=dict(
@@ -101,17 +101,17 @@ model.update(
                 use_sigmoid=False,
                 loss_weight=1.0,
                 classes_map=S2_5B_Dataset_21Classes_Map_nobackground)),
-        # loss_decode=dict(
-        #     type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
+            # loss_decode=dict(
+            #     type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
         auxiliary_head=dict(
             type=FCNHead,
-            in_channels=1024,  # 和上面的768 保持统一
+            in_channels=1024, # 和上面的768 保持统一
             in_index=3,
             channels=256,
             num_convs=1,
             concat_input=False,
             dropout_ratio=0.1,
-            num_classes=L3_num_classes,  #21
+            num_classes=L3_num_classes, #21
             norm_cfg=norm_cfg,
             align_corners=False,
             loss_decode=dict(
@@ -132,7 +132,8 @@ train_pipeline = [
     # dict(type=PhotoMetricDistortion),
     dict(type=PackSegInputs)
 ]
-train_dataloader.update(dataset=dict(pipeline=train_pipeline))  # potsdam的变量
+train_dataloader.update(
+    dataset=dict(pipeline=train_pipeline))  # potsdam的变量
 
 # optimizer
 optimizer = dict(
@@ -161,15 +162,21 @@ param_scheduler = [
     )
 ]
 
-# load_from = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/1-训练好的分割权重/iter_80000_miou50.95-vit_adapter_large-自己的头-自己的loss-5B数据集.pth'
 load_from = None
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))
+
+# test_dataloader.update(
+#     dict(
+#         dataset=dict(
+#         data_root='data/0-atl-paper-s2/tiny-test',
+#         data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
+#         pipeline=test_pipeline)))
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
 test_evaluator = dict(
     type=IoUMetric,
     iou_metrics=['mIoU', 'mFscore'],
-    format_only=True,
+    # format_only=True,
     keep_results=True)

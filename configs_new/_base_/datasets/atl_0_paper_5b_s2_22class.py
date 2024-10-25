@@ -14,18 +14,18 @@ from mmseg.evaluation import IoUMetric
 # dataset settings
 dataset_type = ATL_S2_5B_Dataset_22class
 # data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-加入雪-nvme'   
-# data_root = 'data/1-paper-segmentation/0-S2_5B-21类-包含雪21' # 浪潮
-data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-包含雪21'  # 超微
+data_root = 'data/1-paper-segmentation/0-S2_5B-21类-包含雪21' # 浪潮
+# data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-包含雪21'  # 超微
 
 # data_root = 'data/0-atl-paper-s2/0-东北三省-地物覆盖-512'  # 东北三省5B 超微
 
-crop_size = (512, 512)
+crop_size = (128, 128)
 train_pipeline = [
     dict(type=LoadSingleRSImageFromFile),
     dict(type=LoadAnnotations),
     dict(
         type=RandomResize,
-        scale=(512, 512),
+        scale=crop_size,
         ratio_range=(0.5, 2.0),
         keep_ratio=True),
     dict(type=RandomCrop, crop_size=crop_size, cat_max_ratio=0.75),
@@ -36,7 +36,7 @@ train_pipeline = [
 
 val_pipeline = [  #
     dict(type=LoadSingleRSImageFromFile),
-    dict(type=Resize, scale=(512, 512), keep_ratio=True),
+    dict(type=Resize, scale=crop_size, keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
     # does not need to do resize data transform
     dict(type=LoadAnnotations),

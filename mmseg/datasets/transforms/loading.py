@@ -545,11 +545,18 @@ class LoadSingleRSImageFromFile(BaseTransform):
             raise Exception(f'Unable to open file: {filename}')
         img = np.einsum('ijk->jki', ds.ReadAsArray())  # 这句报错，说
 
+
         # 把图像中的nan值替换为0
         # print("[atl-log-img]",img)
         img = np.nan_to_num(img, nan=0)
         # print("[atl-log-img]",img)
         # img = img*10
+
+        # 把10通道的图像扩充成12通道，只有spectral_GPT采用，太傻比了
+        b = np.mean(img, axis=2)
+        b = np.expand_dims(b, axis=2)
+        img = np.concatenate((img,b,b), axis=2)
+
 
         if self.to_float32:
             img = img.astype(np.float32)

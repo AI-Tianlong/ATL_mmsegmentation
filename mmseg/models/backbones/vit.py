@@ -458,8 +458,8 @@ class VisionTransformer(BaseModule): #我直接继承mmpretrain的是不是也�
     def forward(self, inputs):
         B = inputs.shape[0]
 
-        x, hw_shape = self.patch_embed(inputs)
-
+        x, hw_shape = self.patch_embed(inputs) #32/32 = img_size/patch_size = 512/16 = 32
+        # import pdb;pdb.set_trace()
         # stole cls_tokens impl from Phil Wang, thanks
         cls_tokens = self.cls_token.expand(B, -1, -1)
         x = torch.cat((cls_tokens, x), dim=1)

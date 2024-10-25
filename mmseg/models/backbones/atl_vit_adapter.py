@@ -784,7 +784,7 @@ class ViTAdapter(VisionTransformer):
                  init_cfg=None,
                  drop_path_rate=0.3,
                  use_extra_extractor=True,
-                 norm_cfg=None,
+                 norm_cfg=dict(type='LN'),
                  norm_layer=partial(nn.LayerNorm, eps=1e-6),
                  *args,
                  **kwargs):
