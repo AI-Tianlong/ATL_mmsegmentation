@@ -553,9 +553,9 @@ class LoadSingleRSImageFromFile(BaseTransform):
         # img = img*10
 
         # 把10通道的图像扩充成12通道，只有spectral_GPT采用，太傻比了
-        b = np.mean(img, axis=2)
-        b = np.expand_dims(b, axis=2)
-        img = np.concatenate((img,b,b), axis=2)
+        # b = np.mean(img, axis=2)
+        # b = np.expand_dims(b, axis=2)
+        # img = np.concatenate((img,b,b), axis=2)
 
 
         if self.to_float32:
