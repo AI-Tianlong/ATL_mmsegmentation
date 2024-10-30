@@ -501,6 +501,78 @@ class InferencerLoader(BaseTransform):
         return self.from_file(inputs)
 
 
+
+@TRANSFORMS.register_module()
+class LoadSingleRSImageFromFile_spectral_GPT(BaseTransform):
+    """Load a Remote Sensing mage from file.
+
+    Required Keys:
+
+    - img_path
+
+    Modified Keys:
+
+    - img
+    - img_shape
+    - ori_shape
+
+    Args:
+        to_float32 (bool): Whether to convert the loaded image to a float32
+            numpy array. If set to False, the loaded image is a float64 array.
+            Defaults to True.
+    """
+
+    def __init__(self, to_float32: bool = True):
+        self.to_float32 = to_float32
+
+        if gdal is None:
+            raise RuntimeError('gdal is not installed')
+
+    def transform(self, results: Dict) -> Dict:
+        """Functions to load image.
+
+        Args:
+            results (dict): Result dict from :obj:``mmcv.BaseDataset``.
+
+        Returns:
+            dict: The dict contains loaded image and meta information.
+        """
+
+        filename = results['img_path']
+        ds = gdal.Open(filename)
+        # img_array = ds.ReadAsArray()
+        # print(f'【ATL-LOG-LoadSingleRSImageFromFile】filename:{filename} img_array.shape {img_array.shape}')
+        if ds is None:
+            raise Exception(f'Unable to open file: {filename}')
+        img = np.einsum('ijk->jki', ds.ReadAsArray())  # 这句报错，说
+
+
+        # 把图像中的nan值替换为0
+        # print("[atl-log-img]",img)
+        img = np.nan_to_num(img, nan=0)
+        # print("[atl-log-img]",img)
+        # img = img*10
+
+        # 把10通道的图像扩充成12通道，只有spectral_GPT采用，太傻比了
+        b = np.mean(img, axis=2)
+        b = np.expand_dims(b, axis=2)
+        img = np.concatenate((img,b,b), axis=2)
+
+
+        if self.to_float32:
+            img = img.astype(np.float32)
+
+        results['img'] = img
+        results['img_shape'] = img.shape[:2]
+        results['ori_shape'] = img.shape[:2]
+        return results
+
+    def __repr__(self):
+        repr_str = (f'{self.__class__.__name__}('
+                    f'to_float32={self.to_float32})')
+        return repr_str
+
+
 @TRANSFORMS.register_module()
 class LoadSingleRSImageFromFile(BaseTransform):
     """Load a Remote Sensing mage from file.

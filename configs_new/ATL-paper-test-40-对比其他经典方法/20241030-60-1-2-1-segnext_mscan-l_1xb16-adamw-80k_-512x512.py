@@ -41,6 +41,7 @@ with read_base():
     from .._base_.default_runtime import *
     from .._base_.schedules.schedule_80k import *
 
+num_classes = 19 #倒是也不太影像，这里该改成19的
 
 # model settings
 checkpoint_file = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segnext/large/segnext_mscan_l_10_chan_BGR.pth'   # noqa
@@ -79,7 +80,7 @@ model = dict(
         channels=1024,
         ham_channels=1024,
         dropout_ratio=0.1,
-        num_classes=21,
+        num_classes=num_classes,
         norm_cfg=ham_norm_cfg,
         align_corners=False,
         loss_decode=dict(
