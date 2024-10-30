@@ -37,13 +37,13 @@ from mmseg.evaluation import IoUMetric
 
 
 with read_base():
-    from .._base_.datasets.atl_0_paper_5b_s2_22class import *
+    from .._base_.datasets.atl_0_paper_5b_s2_19class import *
     from .._base_.default_runtime import *
     from .._base_.schedules.schedule_160k import *
 
 
 # model settings
-checkpoint_file = '/share/home/aitlong/AI-Tianlong/checkpoints/1-对比实验的/segnext/segnext_mscan_l_10_chan_BGR.pth'   # noqa
+checkpoint_file = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segnext/large/segnext_mscan_l_10_chan_BGR.pth'   # noqa
 ham_norm_cfg = dict(type=GN, num_groups=32, requires_grad=True)
 crop_size = (512, 512)
 data_preprocessor = dict(
@@ -53,7 +53,7 @@ data_preprocessor = dict(
     # bgr_to_rgb=True,
     pad_val=0,
     seg_pad_val=255,
-    size=(512, 512),
+    size=crop_size,
     test_cfg=dict(size_divisor=32))
 model = dict(
     type=EncoderDecoder,

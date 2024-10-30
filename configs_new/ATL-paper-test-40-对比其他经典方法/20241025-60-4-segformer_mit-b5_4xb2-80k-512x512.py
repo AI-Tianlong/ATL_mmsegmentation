@@ -46,7 +46,7 @@ with read_base():
 
 crop_size = (512, 512)
 num_classes=21
-checkpoint = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segformer/mit_b5_10channel_BGR.pth'  # noqa
+checkpoint = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segformer/mit_b5_20220624-658746d9.pth'  # noqa
 
 # model settings
 norm_cfg = dict(type=SyncBN, requires_grad=True)
@@ -94,6 +94,7 @@ model = dict(
         ),
     # model training and testing settings
     train_cfg=dict(),
+    # test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)))
     test_cfg=dict(mode='whole'))
 
 
