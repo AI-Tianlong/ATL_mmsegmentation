@@ -31,6 +31,9 @@ from .potsdam import PotsdamDataset
 from .refuge import REFUGEDataset
 from .stare import STAREDataset
 from .synapse import SynapseDataset
+
+from .atl_2024_JL_bisai_road import ATL2024Bisai_ROAD
+
 # yapf: disable
 from .transforms import (CLAHE, AdjustGamma, Albu, BioMedical3DPad,
                          BioMedical3DRandomCrop, BioMedical3DRandomFlip,
@@ -71,5 +74,5 @@ __all__ = [
     'NYUDataset', 'FiveBillionPixelsDataset', 'GID25Dataset',
     'ATLS2FIveBillionDataset24','ATLS2FIveBillionDataset5' 'ATL2024Bisai',
     'NYUDataset', 'HSIDrive20Dataset','ATL_S2_TUM_13class',
-    'ATL_S2_5B_Dataset_22class', 'ATL_S2_5B_Dataset_19class' 
+    'ATL_S2_5B_Dataset_22class', 'ATL_S2_5B_Dataset_19class' ,'ATL2024Bisai_ROAD'
     ] # type: ignore
