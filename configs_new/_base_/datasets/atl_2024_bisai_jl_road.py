@@ -77,7 +77,7 @@ train_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         data_prefix=dict(
-            img_path='train/img', seg_map_path='train/label'),
+            img_path='train_val/img', seg_map_path='train_val/label'),
         pipeline=train_pipeline))
 
 val_dataloader = dict(
@@ -89,7 +89,7 @@ val_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         data_prefix=dict(
-            img_path='train/img', seg_map_path='train/label'),
+            img_path='train_val/img', seg_map_path='train_val/label'),
         pipeline=val_pipeline))
 # 想用大图去推理
 test_dataloader = dict(

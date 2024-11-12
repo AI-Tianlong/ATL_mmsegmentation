@@ -128,5 +128,5 @@ param_scheduler = [
     )
 ]
 train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=8000)
-load_from = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/atl_beit_adapter_checkpoints/20240409-5million-miou-81.92-iter24000.pth'
+load_from = '/data/AI-Tianlong/2024比赛/吉林一号道路提取/训好的权重/iter_80000_67.82第三.pth'
 # load_from = None
