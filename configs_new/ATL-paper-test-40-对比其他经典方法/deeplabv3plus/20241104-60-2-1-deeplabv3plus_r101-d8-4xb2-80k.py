@@ -36,9 +36,9 @@ from torch.optim.sgd import SGD
 from mmseg.evaluation import IoUMetric
 
 with read_base():
-    from .._base_.datasets.atl_0_paper_5b_s2_19class import *
-    from .._base_.default_runtime import *
-    from .._base_.schedules.schedule_80k import *
+    from ..._base_.datasets.atl_0_paper_5b_s2_19class import *
+    from ..._base_.default_runtime import *
+    from ..._base_.schedules.schedule_80k import *
 
 crop_size = (512, 512)
 num_classes = 19

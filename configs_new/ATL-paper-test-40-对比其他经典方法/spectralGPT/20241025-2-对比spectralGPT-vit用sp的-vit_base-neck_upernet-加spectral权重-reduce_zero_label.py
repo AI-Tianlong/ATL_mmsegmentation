@@ -44,10 +44,10 @@ from torch.nn.modules.normalization import LayerNorm as LN
 
 
 with read_base():
-    from .._base_.datasets.atl_0_paper_5b_s2_19class_128 import *
-    from .._base_.default_runtime import *
-    from .._base_.models.upernet_beit_potsdam import *
-    from .._base_.schedules.schedule_80k import *
+    from ..._base_.datasets.atl_0_paper_5b_s2_19class_128 import *
+    from ..._base_.default_runtime import *
+    from ..._base_.models.upernet_beit_potsdam import *
+    from ..._base_.schedules.schedule_80k import *
 
 # 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
 norm_cfg = dict(type=SyncBN, requires_grad=True)

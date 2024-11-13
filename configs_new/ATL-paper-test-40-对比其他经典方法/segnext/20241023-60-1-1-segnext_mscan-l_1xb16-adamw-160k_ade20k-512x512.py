@@ -31,17 +31,16 @@ from mmseg.models.backbones import MSCAN
 from mmseg.models.decode_heads.ham_head import LightHamHead
 from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
 from mmseg.models.decode_heads.fcn_head import FCNHead
-from mmseg.models.losses.atl_loss import ATL_Loss, S2_5B_Dataset_21Classes_Map_nobackground
+from mmseg.models.losses.atl_loss import ATL_Loss, ATL_Loss2, S2_5B_Dataset_21Classes_Map_nobackground
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
 from mmseg.evaluation import IoUMetric
 
 
 with read_base():
-    from .._base_.datasets.atl_0_paper_5b_s2_19class import *
-    from .._base_.default_runtime import *
-    from .._base_.schedules.schedule_80k import *
+    from ..._base_.datasets.atl_0_paper_5b_s2_19class import *
+    from ..._base_.default_runtime import *
+    from ..._base_.schedules.schedule_160k import *
 
-num_classes = 19 #倒是也不太影像，这里该改成19的
 
 # model settings
 checkpoint_file = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segnext/large/segnext_mscan_l_10_chan_BGR.pth'   # noqa
@@ -80,7 +79,7 @@ model = dict(
         channels=1024,
         ham_channels=1024,
         dropout_ratio=0.1,
-        num_classes=num_classes,
+        num_classes=21,
         norm_cfg=ham_norm_cfg,
         align_corners=False,
         loss_decode=dict(
@@ -118,7 +117,7 @@ param_scheduler = [
         type=PolyLR,
         power=1.0,
         begin=1500,
-        end=80000,
+        end=160000,
         eta_min=0.0,
         by_epoch=False,
     )
@@ -127,7 +126,7 @@ param_scheduler = [
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
 test_evaluator = dict(
-    type=IoUMetric,
+    type=ATL_IoUMetric,
     iou_metrics=['mIoU', 'mFscore'],
     # format_only=True,
     keep_results=True)

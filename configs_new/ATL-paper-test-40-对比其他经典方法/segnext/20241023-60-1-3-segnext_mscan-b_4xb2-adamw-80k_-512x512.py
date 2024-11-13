@@ -37,9 +37,9 @@ from mmseg.evaluation import IoUMetric
 
 
 with read_base():
-    from .._base_.datasets.atl_0_paper_5b_s2_22class import *
-    from .._base_.default_runtime import *
-    from .._base_.schedules.schedule_80k import *
+    from ..._base_.datasets.atl_0_paper_5b_s2_22class import *
+    from ..._base_.default_runtime import *
+    from ..._base_.schedules.schedule_80k import *
 
 
 # model settings

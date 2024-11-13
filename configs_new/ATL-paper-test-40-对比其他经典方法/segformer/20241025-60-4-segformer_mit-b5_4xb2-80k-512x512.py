@@ -1,3 +1,4 @@
+
 from mmcv.transforms import (LoadImageFromFile, RandomChoice,
                              RandomChoiceResize, RandomFlip)
 from mmengine.config import read_base
@@ -15,7 +16,7 @@ from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
 from mmseg.models.data_preprocessor import SegDataPreProcessor
 
 from mmseg.evaluation import ATL_IoUMetric #多卡时有问题
-from mmseg.models.backbones import BEiTAdapter
+
 from mmseg.models.decode_heads.atl_fcn_head import ATL_FCNHead
 from mmseg.models.decode_heads.uper_head import UPerHead
 
@@ -27,7 +28,9 @@ from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
 from mmseg.models.backbones import ViTAdapter
 from mmseg.models.backbones import MSCAN
+from mmseg.models.backbones.mit import MixVisionTransformer
 
+from mmseg.models.decode_heads.segformer_head import SegformerHead
 from mmseg.models.decode_heads.ham_head import LightHamHead
 from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
 from mmseg.models.decode_heads.fcn_head import FCNHead
@@ -37,15 +40,16 @@ from mmseg.evaluation import IoUMetric
 
 
 with read_base():
-    from .._base_.datasets.atl_0_paper_5b_s2_19class import *
-    from .._base_.default_runtime import *
-    from .._base_.schedules.schedule_80k import *
+    from ..._base_.datasets.atl_0_paper_5b_s2_22class import *
+    from ..._base_.default_runtime import *
+    from ..._base_.schedules.schedule_80k import *
 
+crop_size = (512, 512)
+num_classes=21
+checkpoint = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segformer/mit_b5_20220624-658746d9.pth'  # noqa
 
 # model settings
-checkpoint_file = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segnext/large/segnext_mscan_l_10_chan_BGR.pth'   # noqa
-ham_norm_cfg = dict(type=GN, num_groups=32, requires_grad=True)
-crop_size = (512, 512)
+norm_cfg = dict(type=SyncBN, requires_grad=True)
 data_preprocessor = dict(
     type=SegDataPreProcessor,
     mean=None,
@@ -53,52 +57,48 @@ data_preprocessor = dict(
     # bgr_to_rgb=True,
     pad_val=0,
     seg_pad_val=255,
-    size=crop_size,
-    test_cfg=dict(size_divisor=32))
+    size=crop_size)
+
 model = dict(
     type=EncoderDecoder,
     data_preprocessor=data_preprocessor,
     pretrained=None,
     backbone=dict(
-        type=MSCAN,
-        init_cfg=dict(type='Pretrained', checkpoint=checkpoint_file),
+        type=MixVisionTransformer,
         in_channels=10,
-        embed_dims=[64, 128, 320, 512],
-        mlp_ratios=[8, 8, 4, 4],
+        embed_dims=64,
+        num_stages=4,
+        num_layers=[3, 6, 40, 3],
+        num_heads=[1, 2, 5, 8],
+        patch_sizes=[7, 3, 3, 3],
+        sr_ratios=[8, 4, 2, 1],
+        out_indices=(0, 1, 2, 3),
+        mlp_ratio=4,
+        qkv_bias=True,
         drop_rate=0.0,
-        drop_path_rate=0.3,
-        depths=[3, 5, 27, 3],
-        attention_kernel_sizes=[5, [1, 7], [1, 11], [1, 21]],
-        attention_kernel_paddings=[2, [0, 3], [0, 5], [0, 10]],
-        act_cfg=dict(type=GELU),
-        norm_cfg=dict(type=SyncBN, requires_grad=True)),
+        attn_drop_rate=0.0,
+        drop_path_rate=0.1,
+        init_cfg=dict(type='Pretrained', checkpoint=checkpoint)
+        ),
     decode_head=dict(
-        type=LightHamHead,
-        in_channels=[128, 320, 512],
-        in_index=[1, 2, 3],
-        channels=1024,
-        ham_channels=1024,
+        type=SegformerHead,
+        in_channels=[64, 128, 320, 512],
+        in_index=[0, 1, 2, 3],
+        channels=256,
         dropout_ratio=0.1,
-        num_classes=21,
-        norm_cfg=ham_norm_cfg,
+        num_classes=num_classes,
+        norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
-            type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0),
-        ham_kwargs=dict(
-            MD_S=1,
-            MD_R=16,
-            train_steps=6,
-            eval_steps=7,
-            inv_t=100,
-            rand_init=True)),
+            type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)
+        ),
     # model training and testing settings
     train_cfg=dict(),
+    # test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341)))
     test_cfg=dict(mode='whole'))
 
-# # dataset settings
-# train_dataloader = dict(batch_size=16)
 
-# optimizer
+
 optim_wrapper = dict(
     type=OptimWrapper,
     optimizer=dict(
@@ -115,10 +115,10 @@ param_scheduler = [
         type=LinearLR, start_factor=1e-6, by_epoch=False, begin=0, end=1500),
     dict(
         type=PolyLR,
+        eta_min=0.0,
         power=1.0,
         begin=1500,
         end=80000,
-        eta_min=0.0,
         by_epoch=False,
     )
 ]

@@ -11,7 +11,7 @@ from torch.optim import AdamW
 from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
                                        PhotoMetricDistortion, RandomCrop,
                                        ResizeShortestEdge)
-from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile, LoadSingleRSImageFromFile_spectral_GPT
+from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
 
 from mmseg.evaluation import ATL_IoUMetric #多卡时有问题
@@ -34,10 +34,10 @@ from functools import partial
 import torch.nn as nn
 
 with read_base():
-    from .._base_.datasets.atl_0_paper_5b_s2_19class_128 import *
-    from .._base_.default_runtime import *
-    from .._base_.models.upernet_beit_potsdam import *
-    from .._base_.schedules.schedule_80k import *
+    from ..._base_.datasets.atl_0_paper_5b_s2_22class import *
+    from ..._base_.default_runtime import *
+    from ..._base_.models.upernet_beit_potsdam import *
+    from ..._base_.schedules.schedule_80k import *
 
 find_unuser_parameters = True
 
@@ -45,8 +45,8 @@ find_unuser_parameters = True
 norm_cfg = dict(type=SyncBN, requires_grad=True)
 
 L1_num_classes = 5  # number of L1 Level label   # 5
-L2_num_classes = 10  # number of L1 Level label  # 11 5+11+21=37类
-L3_num_classes = 19  # number of L1 Level label  # 21
+L2_num_classes = 11  # number of L1 Level label  # 11 5+11+21=37类
+L3_num_classes = 21  # number of L1 Level label  # 21
 
 # 总的类别数，包括背景，L1+L2+L3级标签数
 
@@ -54,7 +54,7 @@ num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 crop_size = (128, 128)
-pretrained = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/spectral-GPT的权重/SpectralGPT+.pth'
+pretrained = '/share/home/aitlong/AI-Tianlong/checkpoints/1-对比实验的/spectral-GPT的权重/SpectralGPT+.pth'
 data_preprocessor.update(
     dict(
         type=SegDataPreProcessor,
@@ -121,18 +121,18 @@ model.update(
             align_corners=False,
             loss_decode=dict(
                 type=CrossEntropyLoss, use_sigmoid=False, loss_weight=0.4)),
-        test_cfg=dict(mode='whole')))
+        test_cfg=dict(mode='slide', crop_size=crop_size, stride=(341, 341))))
 
 
 # dataset config
 train_pipeline = [
-    dict(type=LoadSingleRSImageFromFile_spectral_GPT),
+    dict(type=LoadSingleRSImageFromFile),
     dict(type=LoadAnnotations),
     dict(
         type=RandomChoiceResize,
-        scales=[int(x * 0.1 * 128) for x in range(5, 21)],
+        scales=[int(x * 0.1 * 512) for x in range(5, 21)],
         resize_type=ResizeShortestEdge,
-        max_size=512),
+        max_size=2048),
     dict(type=RandomCrop, crop_size=crop_size, cat_max_ratio=0.75),
     dict(type=RandomFlip, prob=0.5),
     # dict(type=PhotoMetricDistortion),
@@ -167,8 +167,16 @@ param_scheduler = [
 ]
 
 load_from = None
+# load_from = '/opt/AI-Tianlong/openmmlab/mmsegmentation/work_dirs/20240920-s2_5B_S2-beit_uperner_large-b4x2-80k-ATL调试paper/iter_24000.pth'
 default_hooks.update(
     dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))
+
+# test_dataloader.update(
+#     dict(
+#         dataset=dict(
+#         data_root='data/0-atl-paper-s2/tiny-test',
+#         data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
+#         pipeline=test_pipeline)))
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'

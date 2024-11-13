@@ -97,7 +97,7 @@ test_dataloader = dict(
     sampler=dict(type=DefaultSampler, shuffle=False),
     dataset=dict(
         type=dataset_type,
-        data_root=data_root,
+        data_root='data/1-paper-segmentation/0-S2_5B未裁切的/0-5B_S2_NEW裁切好的用来训练的图像/S2_5B-19类-包含雪_size512/',
         data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
         pipeline=test_pipeline))
 

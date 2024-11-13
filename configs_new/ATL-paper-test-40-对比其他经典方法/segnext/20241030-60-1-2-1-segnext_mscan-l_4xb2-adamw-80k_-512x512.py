@@ -37,13 +37,14 @@ from mmseg.evaluation import IoUMetric
 
 
 with read_base():
-    from .._base_.datasets.atl_0_paper_5b_s2_22class import *
-    from .._base_.default_runtime import *
-    from .._base_.schedules.schedule_80k import *
+    from ..._base_.datasets.atl_0_paper_5b_s2_19class import *
+    from ..._base_.default_runtime import *
+    from ..._base_.schedules.schedule_80k import *
 
+num_classes = 19 #倒是也不太影像，这里该改成19的
 
 # model settings
-checkpoint_file = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segnext/base/segnext_mscan_b_10channel_BGR.pth'   # noqa
+checkpoint_file = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segnext/large/segnext_mscan_l_10_chan_BGR.pth'   # noqa
 ham_norm_cfg = dict(type=GN, num_groups=32, requires_grad=True)
 crop_size = (512, 512)
 data_preprocessor = dict(
@@ -53,7 +54,7 @@ data_preprocessor = dict(
     # bgr_to_rgb=True,
     pad_val=0,
     seg_pad_val=255,
-    size=(512, 512),
+    size=crop_size,
     test_cfg=dict(size_divisor=32))
 model = dict(
     type=EncoderDecoder,
@@ -66,8 +67,8 @@ model = dict(
         embed_dims=[64, 128, 320, 512],
         mlp_ratios=[8, 8, 4, 4],
         drop_rate=0.0,
-        drop_path_rate=0.1,
-        depths=[3, 3, 12, 3],
+        drop_path_rate=0.3,
+        depths=[3, 5, 27, 3],
         attention_kernel_sizes=[5, [1, 7], [1, 11], [1, 21]],
         attention_kernel_paddings=[2, [0, 3], [0, 5], [0, 10]],
         act_cfg=dict(type=GELU),
@@ -76,10 +77,10 @@ model = dict(
         type=LightHamHead,
         in_channels=[128, 320, 512],
         in_index=[1, 2, 3],
-        channels=512,
-        ham_channels=512,
+        channels=1024,
+        ham_channels=1024,
         dropout_ratio=0.1,
-        num_classes=21,
+        num_classes=num_classes,
         norm_cfg=ham_norm_cfg,
         align_corners=False,
         loss_decode=dict(

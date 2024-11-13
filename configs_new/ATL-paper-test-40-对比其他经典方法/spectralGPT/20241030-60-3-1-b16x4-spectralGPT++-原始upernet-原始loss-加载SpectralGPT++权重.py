@@ -34,10 +34,10 @@ from functools import partial
 import torch.nn as nn
 
 with read_base():
-    from .._base_.datasets.atl_0_paper_5b_s2_19class_128 import *
-    from .._base_.default_runtime import *
-    from .._base_.models.upernet_beit_potsdam import *
-    from .._base_.schedules.schedule_80k import *
+    from ..._base_.datasets.atl_0_paper_5b_s2_19class_128 import *
+    from ..._base_.default_runtime import *
+    from ..._base_.models.upernet_beit_potsdam import *
+    from ..._base_.schedules.schedule_80k import *
 
 find_unuser_parameters = True
 
