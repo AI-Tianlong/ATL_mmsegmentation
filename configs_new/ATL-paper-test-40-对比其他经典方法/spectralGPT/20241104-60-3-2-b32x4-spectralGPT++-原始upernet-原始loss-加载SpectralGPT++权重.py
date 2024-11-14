@@ -121,7 +121,7 @@ model.update(
             align_corners=False,
             loss_decode=dict(
                 type=CrossEntropyLoss, use_sigmoid=False, loss_weight=0.4)),
-        test_cfg=dict(mode='slide', crop_size=crop_size, stride=(128, 128))))# 在512的图上推理
+        test_cfg=dict(mode='slide', crop_size=crop_size, stride=(64, 64))))# 在512的图上推理
 
 
 # dataset config
