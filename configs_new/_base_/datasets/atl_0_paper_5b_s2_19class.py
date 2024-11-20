@@ -17,7 +17,7 @@ dataset_type = ATL_S2_5B_Dataset_19class
 # data_root = 'data/1-paper-segmentation/0-S2_5B-21类-包含雪21' # 浪潮
 # data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-包含雪21'  # 超微
 # data_root = 'data/1-paper-segmentation/0-S2_5B未裁切的/0-5B_S2_NEW裁切好的用来训练的图像/S2_5B-19类-包含雪_size512'  # 浪潮19类
-data_root = 'data/0-atl-paper-s2/0-5B_S2_NEW裁切好的用来训练的图像/S2_5B-19类-包含雪_size512'
+data_root = 'data/0-atl-paper-s2/0-5B_S2_NEW裁切好的用来训练的图像/S2_5B-19类-包含雪_size512_new'
 # data_root = 'data/0-atl-paper-s2/0-东北三省-地物覆盖-512'  # 东北三省5B 超微
 
 crop_size = (512, 512)
