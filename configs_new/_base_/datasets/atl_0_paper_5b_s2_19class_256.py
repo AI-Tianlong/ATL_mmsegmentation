@@ -15,9 +15,9 @@ from mmseg.evaluation import IoUMetric
 # dataset settings
 dataset_type = ATL_S2_5B_Dataset_19class
 # data_root = 'data/1-paper-segmentation/0-S2_5B未裁切的/0-5B_S2_NEW裁切好的用来训练的图像/S2_5B-19类-包含雪_size128'  # 浪潮19类
-data_root = 'data/0-atl-paper-s2/S2_5B-19类-包含雪_size128'  # 5B 超微
+data_root = 'data/0-atl-paper-s2/0-5B_S2_NEW裁切好的用来训练的图像/S2_5B-19类-包含雪_size256'  # 5B 超微
 
-crop_size = (128, 128)
+crop_size = (256, 256)
 train_pipeline = [
     dict(type=LoadSingleRSImageFromFile_spectral_GPT),
     dict(type=LoadAnnotations),
@@ -68,7 +68,7 @@ tta_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=4, # 扩大16倍
+    batch_size=2, # 扩大16倍  4*4=16,160k
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type=InfiniteSampler, shuffle=True),

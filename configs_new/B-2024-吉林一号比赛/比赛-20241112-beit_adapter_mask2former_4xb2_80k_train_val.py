@@ -29,8 +29,8 @@ num_classes = 2  # loss 要用，也要加 # 加上背景是25类
 
 crop_size = (512, 512)
 # pretrained = None
-# pretrained = '/opt/AI-Tianlong/checkpoints/vit-adapter-offical/beitv2_large_patch16_224_pt1k_ft21k.pth' #超微
-pretrained = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/vit-adapter-offical/beitv2_large_patch16_224_pt1k_ft21k.pth' #浪潮
+pretrained = '/opt/AI-Tianlong/checkpoints/vit-adapter-offical/beitv2_large_patch16_224_pt1k_ft21k.pth' #超微
+# pretrained = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/vit-adapter-offical/beitv2_large_patch16_224_pt1k_ft21k.pth' #浪潮
 data_preprocessor.update(
     dict(
         type=SegDataPreProcessor,
@@ -128,5 +128,5 @@ param_scheduler = [
     )
 ]
 train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=8000)
-load_from = '/data/AI-Tianlong/2024比赛/吉林一号道路提取/训好的权重/iter_80000_67.82第三.pth'
+load_from = '/opt/AI-Tianlong/2024年比赛/训好的权重/iter_80000_67.82第三.pth'
 # load_from = None
