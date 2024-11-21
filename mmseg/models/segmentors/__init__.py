@@ -6,7 +6,9 @@ from .encoder_decoder import EncoderDecoder
 from .multimodal_encoder_decoder import MultimodalEncoderDecoder
 from .seg_tta import SegTTAModel
 
+from .atl_encoder_decoder_hyp import EncoderDecoder_hyp
+
 __all__ = [
     'BaseSegmentor', 'EncoderDecoder', 'CascadeEncoderDecoder', 'SegTTAModel',
-    'MultimodalEncoderDecoder', 'DepthEstimator'
+    'MultimodalEncoderDecoder', 'DepthEstimator','EncoderDecoder_hyp'
 ]
