@@ -42,9 +42,15 @@ class PackSegInputs(BaseTransform):
     """
 
     def __init__(self,
-                 meta_keys=('img_path', 'seg_map_path', 'ori_shape',
-                            'img_shape', 'pad_shape', 'scale_factor', 'flip',
-                            'flip_direction', 'reduce_zero_label')):
+                 meta_keys=('img_path', 
+                            'seg_map_path', 
+                            'ori_shape',
+                            'img_shape', 
+                            'pad_shape', 
+                            'scale_factor', 
+                            'flip',
+                            'flip_direction', 
+                            'reduce_zero_label')):
         self.meta_keys = meta_keys
 
     def transform(self, results: dict) -> dict:
@@ -104,6 +110,117 @@ class PackSegInputs(BaseTransform):
         data_sample.set_metainfo(img_meta)
         packed_results['data_samples'] = data_sample
 
+        return packed_results
+
+    def __repr__(self) -> str:
+        repr_str = self.__class__.__name__
+        repr_str += f'(meta_keys={self.meta_keys})'
+        return repr_str
+
+
+
+@TRANSFORMS.register_module()
+class ATL_3_embedding_PackSegInputs(BaseTransform):
+    """Pack the inputs data for the semantic segmentation.
+
+    The ``img_meta`` item is always populated.  The contents of the
+    ``img_meta`` dictionary depends on ``meta_keys``. By default this includes:
+
+        - ``img_path``: filename of the image
+
+        - ``ori_shape``: original shape of the image as a tuple (h, w, c)
+
+        - ``img_shape``: shape of the image input to the network as a tuple \
+            (h, w, c).  Note that images may be zero padded on the \
+            bottom/right if the batch tensor is larger than this shape.
+
+        - ``pad_shape``: shape of padded images
+
+        - ``scale_factor``: a float indicating the preprocessing scale
+
+        - ``flip``: a boolean indicating if image flip transform was used
+
+        - ``flip_direction``: the flipping direction
+
+    Args:
+        meta_keys (Sequence[str], optional): Meta keys to be packed from
+            ``SegDataSample`` and collected in ``data[img_metas]``.
+            Default: ``('img_path', 'ori_shape',
+            'img_shape', 'pad_shape', 'scale_factor', 'flip',
+            'flip_direction')``
+    """
+
+    def __init__(self,
+                 meta_keys=('img_path',
+                            'seg_map_path', 
+                            'img_path_MIS_4chan', 
+                            'img_path_MIS_10chan', 
+                            'seg_map_path_MIS_4chan', 
+                            'seg_map_path_MIS_10chan', 
+                            'ori_shape',
+                            'img_shape', 
+                            'pad_shape', 
+                            'scale_factor', 
+                            'flip',
+                            'flip_direction', 
+                            'reduce_zero_label')):
+        self.meta_keys = meta_keys
+
+    def transform(self, results: dict) -> dict:
+        """Method to pack the input data.
+
+        Args:
+            results (dict): Result dict from the data pipeline.
+
+        Returns:
+            dict:
+
+            - 'inputs' (obj:`torch.Tensor`): The forward data of models.
+            - 'data_sample' (obj:`SegDataSample`): The annotation info of the
+                sample.
+        """
+        packed_results = dict()
+        
+        if 'img_MSI_4chan' in results:
+            img_MSI_4chan = results['img_MSI_4chan']
+            if len(img_MSI_4chan.shape) < 3:
+                img_MSI_4chan = np.expand_dims(img_MSI_4chan, -1)
+            if not img_MSI_4chan.flags.c_contiguous:
+                img_MSI_4chan = to_tensor(np.ascontiguousarray(img_MSI_4chan.transpose(2, 0, 1)))
+            else:
+                img_MSI_4chan = img_MSI_4chan.transpose(2, 0, 1)
+                img_MSI_4chan = to_tensor(img_MSI_4chan).contiguous()
+
+        if 'img_MSI_10chan' in results:
+            img_MSI_10chan = results['img_MSI_10chan']
+            if len(img_MSI_10chan.shape) < 3:
+                img_MSI_10chan = np.expand_dims(img_MSI_10chan, -1)
+            if not img_MSI_10chan.flags.c_contiguous:
+                img_MSI_10chan = to_tensor(np.ascontiguousarray(img_MSI_10chan.transpose(2, 0, 1)))
+            else:
+                img_MSI_10chan = img_MSI_10chan.transpose(2, 0, 1)
+                img_MSI_10chan = to_tensor(img_MSI_10chan).contiguous()
+
+        packed_results['inputs']=[img_MSI_4chan, img_MSI_10chan] # 为什么，这个里面，[0][0] [0][1]是四通道的？
+
+        data_sample = SegDataSample()
+        if 'gt_semantic_seg_MSI_4chan' in results:
+            gt_sem_seg_MSI_4chan_data = dict(data=to_tensor(results['gt_semantic_seg_MSI_4chan'].astype(np.int64)))
+            data_sample.set_data(dict(gt_semantic_seg_MSI_4chan=PixelData(**gt_sem_seg_MSI_4chan_data)))
+
+        if 'gt_semantic_seg_MSI_10chan' in results:
+            gt_sem_seg_MSI_10chan_data = dict(data=to_tensor(results['gt_semantic_seg_MSI_10chan'].astype(np.int64)))
+            data_sample.set_data(dict(gt_semantic_seg_MSI_10chan=PixelData(**gt_sem_seg_MSI_10chan_data)))
+
+        img_meta = {}
+        for key in self.meta_keys:
+            if key in results:
+                img_meta[key] = results[key]
+        data_sample.set_metainfo(img_meta)
+        packed_results['data_samples'] = data_sample
+
+        # print(packed_results)
+        # import pdb;pdb.set_trace()
         return packed_results
 
     def __repr__(self) -> str:

@@ -36,8 +36,8 @@ from mmseg.registry import MODELS
 
 # 为了和预训练保持一致，还是选择从mmpretrain中加载 VisionTransformer，可以权重对应上
 # from mmseg.models.backbones.vit import VisionTransformer
-from mmpretrain.models.backbones.vision_transformer import VisionTransformer
-
+# from mmpretrain.models.backbones.vision_transformer import VisionTransformer
+from mmseg.models.backbones.atl_vit_multi_embedding import atl_multi_embedding_VisionTransformer
 
 # 在做多尺度的时候，需要对输入的特征图进行插值，这里是插值的函数
 
@@ -764,13 +764,13 @@ class SpatialPriorModule(nn.Module):
 # ===================================== vit-adapter BEiTAdapter.py =====================================
 
 @MODELS.register_module()
-class ViTAdapter(VisionTransformer): 
+class ViTAdapter_multi_embedding(atl_multi_embedding_VisionTransformer): 
     # 从mmpretrain中继承，权重什么的可以和预训练的对应上
     def __init__(self,
                  img_size=512,
                  pretrain_size=224, #重新reshape pos_embedding.
                  patch_size = 16,
-                 in_channels=10,
+                 in_channels=[3, 4, 10],
                  arch='l',
                  conv_inplane=64,
                  n_points=4,
@@ -815,12 +815,23 @@ class ViTAdapter(VisionTransformer):
 
         # 没懂这个 level_embed 是干嘛的
         self.level_embed = nn.Parameter(torch.zeros(3, embed_dim)) # [3, 1024] 3个level，每个level一个1024维的嵌入, 为什么是1024维度？
-        self.spm = SpatialPriorModule(
+        
+        self.spm_RGB_3chan = SpatialPriorModule(
             inplanes=conv_inplane, # 64
             embed_dim=embed_dim,   # 1024
             with_cp=False,
-            in_chans=in_channels)  # 10
-        
+            in_chans=3)  # 10
+        self.spm_MSI_4chan = SpatialPriorModule(
+            inplanes=conv_inplane, # 64
+            embed_dim=embed_dim,   # 1024
+            with_cp=False,
+            in_chans=4)  # 10
+        self.spm_MSI_10chan = SpatialPriorModule(
+            inplanes=conv_inplane, # 64
+            embed_dim=embed_dim,   # 1024
+            with_cp=False,
+            in_chans=10)  # 10
+
         self.interactions = nn.Sequential(*[
             InteractionBlock(
                 dim=embed_dim, # 1024
@@ -849,7 +860,11 @@ class ViTAdapter(VisionTransformer):
         
 
         self.up.apply(self._init_weights)
-        self.spm.apply(self._init_weights)
+        # self.spm.apply(self._init_weights)
+        self.spm_RGB_3chan.apply(self._init_weights)
+        self.spm_MSI_4chan.apply(self._init_weights)
+        self.spm_MSI_10chan.apply(self._init_weights)
+
         self.interactions.apply(self._init_weights)
         self.apply(self._init_deform_weights)
         normal_(self.level_embed)
@@ -912,21 +927,33 @@ class ViTAdapter(VisionTransformer):
 
         # import pdb;pdb.set_trace()
         # SPM forward
-        c1, c2, c3, c4 = self.spm(x) # [2,1024,128,128] # [2,4096,1024] [2,1024,1024] [2,256,1024]
+
+        if x.shape[1] == 3:
+            c1, c2, c3, c4 = self.spm_RGB_3chan(x) # [2,1024,128,128] # [2,4096,1024] [2,1024,1024] [2,256,1024]
+        elif x.shape[1] == 4:
+            c1, c2, c3, c4 = self.spm_MSI_4chan(x) # [2,1024,128,128] # [2,4096,1024] [2,1024,1024] [2,256,1024]
+        elif x.shape[1] == 10:
+            c1, c2, c3, c4 = self.spm_MSI_10chan(x) # [2,1024,128,128] # [2,4096,1024] [2,1024,1024] [2,256,1024]
+        
         c2, c3, c4 = self._add_level_embed(c2, c3, c4)
         c = torch.cat([c2, c3, c4], dim=1) #  [2, 5376, 1024]
         # import pdb;pdb.set_trace()
         # Patch Embedding forward #一个512*512的图，打成1024个1024维度的patch，一个patch有16*16*10=2560个像素
-        x, out_size = self.patch_embed(x) # [2,1024,1024] (32 32)  #如果是patch=8的话，[2,4096,1024] (64,64)
+        
+        # 调用的是VisionTransformer的patch_embed,座椅这里也要改！！！ 我应该先用最基础的ViT，然后再用这个ViT-Adapter
+        if x.shape[1] == 3:
+            x, out_size = self.patch_embed_RGB_3chan(x)
+        elif x.shape[1] == 4:
+            x, out_size = self.patch_embed_MSI_4chan(x)
+        elif x.shape[1] == 10:
+            x, out_size = self.patch_embed_MSI_10chan(x)
+            
+        # x, out_size = self.patch_embed(x) # [2,1024,1024] (32 32)  #如果是patch=8的话，[2,4096,1024] (64,64)
 
         # import pdb;pdb.set_trace()
         H, W = out_size # 32 32
-        bs, n, dim = x.shape
+        bs, n, dim = x.shape  # [3, 1024, 1024] lenth:1024 Num:1024个
 
-        # import pdb;pdb.set_trace()
-        # 会报错 RuntimeError: shape '[1, 14, 14, -1]' is invalid for input of size 1048576（32*32*1024）
-        # pos_embed = self._get_pos_embed(self.pos_embed[:, 1:], H, W) #有问题，自动去resize吧。
-                                          #[1,32*32,1024]
 
         pos_embed = self.pos_embed[:, 1:] #[1,1024,1024]  | [1,4096,1024]
 
@@ -972,4 +999,4 @@ class ViTAdapter(VisionTransformer):
         f2 = self.sync_norm2(c2) # c2:[2, 1024, 64, 64]
         f3 = self.sync_norm3(c3) # c3:[2, 1024, 32, 32]
         f4 = self.sync_norm4(c4) # c3:[2, 1024, 16, 16]
-        return [f1, f2, f3, f4]
+        return [f1, f2, f3, f4]  #一个多尺度的输出

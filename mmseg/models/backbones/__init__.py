@@ -26,6 +26,7 @@ from .unet import UNet
 from .vit import VisionTransformer
 from .vpd import VPD
 from .atl_vit_adapter import ViTAdapter
+from .atl_vit_adapter_multi_embedding import ViTAdapter_multi_embedding
 
 __all__ = [
     'ResNet', 'ResNetV1c', 'ResNetV1d', 'ResNeXt', 'HRNet', 'FastSCNN',
@@ -33,5 +34,5 @@ __all__ = [
     'VisionTransformer', 'SwinTransformer', 'MixVisionTransformer',
     'BiSeNetV1', 'BiSeNetV2', 'ICNet', 'TIMMBackbone', 'ERFNet', 'PCPVT',
     'SVT', 'STDCNet', 'STDCContextPathNet', 'BEiT', 'MAE', 'PIDNet', 'MSCAN',
-    'DDRNet', 'VPD', 'BEiTAdapter','ViTAdapter'
+    'DDRNet', 'VPD', 'BEiTAdapter','ViTAdapter','ViTAdapter_multi_embedding'
 ]

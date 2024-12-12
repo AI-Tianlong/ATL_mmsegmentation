@@ -33,6 +33,7 @@ from .stare import STAREDataset
 from .synapse import SynapseDataset
 
 from .atl_2024_JL_bisai_road import ATL2024Bisai_ROAD
+from .atl_2024_bisai_GF import ATL2024Bisai_GF
 
 # yapf: disable
 from .transforms import (CLAHE, AdjustGamma, Albu, BioMedical3DPad,
@@ -50,6 +51,7 @@ from .transforms import (CLAHE, AdjustGamma, Albu, BioMedical3DPad,
 from .voc import PascalVOCDataset
 from .atl_0_paper_TUM_13classes import ATL_S2_TUM_13class
 from .atl_0_paper_5b_s2_22class import ATL_S2_5B_Dataset_22class, ATL_S2_5B_Dataset_19class
+from .atl_0_paper_new_5b_GF_Google_S2_19class import ATL_5B_GF_Google_S2_Dataset_19class
 
 # yapf: enable
 __all__ = [
@@ -74,5 +76,6 @@ __all__ = [
     'NYUDataset', 'FiveBillionPixelsDataset', 'GID25Dataset',
     'ATLS2FIveBillionDataset24','ATLS2FIveBillionDataset5' 'ATL2024Bisai',
     'NYUDataset', 'HSIDrive20Dataset','ATL_S2_TUM_13class',
-    'ATL_S2_5B_Dataset_22class', 'ATL_S2_5B_Dataset_19class' ,'ATL2024Bisai_ROAD'
+    'ATL_S2_5B_Dataset_22class', 'ATL_S2_5B_Dataset_19class' , 'ATL_S2_5B_Dataset_24class',
+    'ATL2024Bisai_ROAD', 'ATL2024Bisai_GF', 'ATL_5B_GF_Google_S2_Dataset_19class'
     ] # type: ignore

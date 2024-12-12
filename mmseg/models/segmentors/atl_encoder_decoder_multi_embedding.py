@@ -14,7 +14,7 @@ from .base import BaseSegmentor
 
 
 @MODELS.register_module()
-class EncoderDecoder(BaseSegmentor):
+class ATL_Multi_Embedding_EncoderDecoder(BaseSegmentor):
     """Encoder Decoder segmentors.
 
     EncoderDecoder typically consists of backbone, decode_head, auxiliary_head.
@@ -116,12 +116,26 @@ class EncoderDecoder(BaseSegmentor):
 
     def extract_feat(self, inputs: Tensor) -> List[Tensor]:
         """Extract features from images."""
+
+        # inputs: list: [2,4,512,512],[2,10,512,512]
         # import pdb;pdb.set_trace()
-        x = self.backbone(inputs)
+
+        if isinstance(inputs, list) and isinstance(inputs[0], Tensor):
+            if inputs[0].shape[1]==4:
+                inputs_MSI_4chan = inputs[0]
+            if inputs[1].shape[1]==10:
+                inputs_MSI_10chan = inputs[1]
+
+            x_MSI_4chan = self.backbone(inputs_MSI_4chan)   # [b,1024,128,128] [b,1024,64,64] [b,1024,32,32] [b,1024,16,16]
+            x_MSI_10chan = self.backbone(inputs_MSI_10chan) # [b,1024,128,128] [b,1024,64,64] [b,1024,32,32] [b,1024,16,16]
+
+        # import pdb;pdb.set_trace()
         if self.with_neck:
-            x = self.neck(x)
+            x_MSI_4chan = self.neck(x_MSI_4chan)
+            x_MSI_10chan = self.neck(x_MSI_10chan)
         # import pdb;pdb.set_trace()
-        return x
+        # import pdb;pdb.set_trace()
+        return [x_MSI_4chan, x_MSI_10chan]
 
     def encode_decode(self, inputs: Tensor,
                       batch_img_metas: List[dict]) -> Tensor:
@@ -138,10 +152,33 @@ class EncoderDecoder(BaseSegmentor):
         """Run forward function and calculate loss for decode head in
         training."""
         losses = dict()
-        loss_decode = self.decode_head.loss(inputs, data_samples,
-                                            self.train_cfg)
+        inputs_MSI_4chan = inputs[0]
+        inputs_MSI_10chan = inputs[1]
+
+        # decode_head返回的loss值
+        # {'loss_ce': tensor(1.9797, device='cuda:0', grad_fn=<MulBackward0>), 'acc_seg': tensor([0.9762], device='cuda:0')}
+        loss_decode_MSI_4chan = self.decode_head.loss(inputs_MSI_4chan, 
+                                            data_samples,
+                                            self.train_cfg,
+                                            gt_semantic_seg_name = 'gt_semantic_seg_MSI_4chan')
+        # {'loss_ce': tensor(1.9797, device='cuda:0', grad_fn=<MulBackward0>), 'acc_seg': tensor([0.9762], device='cuda:0')}
+        loss_decode_MSI_10chan = self.decode_head.loss(inputs_MSI_10chan, 
+                                            data_samples,
+                                            self.train_cfg,
+                                            gt_semantic_seg_name = 'gt_semantic_seg_MSI_10chan')
+        
+        new_loss_value = loss_decode_MSI_4chan['loss_ce'] + loss_decode_MSI_10chan['loss_ce']
+        new_acc_seg = [loss_decode_MSI_4chan['acc_seg'], loss_decode_MSI_10chan['acc_seg']]
+
+
+        loss_decode = loss_decode_MSI_4chan
+        loss_decode['loss_ce'] = new_loss_value
+        loss_decode['acc_seg'] = new_acc_seg
+
+        # loss_decode = (loss_decode_MSI_4chan + loss_decode_MSI_10chan)/len(inputs)
 
         losses.update(add_prefix(loss_decode, 'decode'))
+
         return losses
 
     def _auxiliary_head_forward_train(self, inputs: List[Tensor],
@@ -164,7 +201,7 @@ class EncoderDecoder(BaseSegmentor):
         """Calculate losses from a batch of inputs and data samples.
 
         Args:
-            inputs (Tensor): Input images.
+            inputs (List): [[2,4,512,512] [2,10,512,512]]  # 如果是两个输入的话。
             data_samples (list[:obj:`SegDataSample`]): The seg data samples.
                 It usually includes information such as `metainfo` and
                 `gt_sem_seg`.
@@ -173,12 +210,12 @@ class EncoderDecoder(BaseSegmentor):
             dict[str, Tensor]: a dictionary of loss components
         """
 
-        import pdb;pdb.set_trace()
-        x = self.extract_feat(inputs)  
+        x = self.extract_feat(inputs)    # x: list [x_MSI_4chan], [x_MSI_10chan] 分别是四个尺度的特征图
 
+        # import pdb;pdb.set_trace()
         losses = dict()
 
-        loss_decode = self._decode_head_forward_train(x, data_samples)
+        loss_decode = self._decode_head_forward_train(x, data_samples) # x:[[4个多尺度列表][4个多尺度列表]]
         losses.update(loss_decode)
 
         if self.with_auxiliary_head:

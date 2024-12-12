@@ -33,7 +33,7 @@ class TransformerEncoderLayer(BaseModule): #和mmpretrain里的有点不一样
         drop_path_rate (float): stochastic depth rate. Default 0.0.
         num_fcs (int): The number of fully-connected layers for FFNs.
             Default: 2.
-        qkv_bias (bool): enable bias for qkv if True. Default: True
+        qkv_bias (bool): enable bias for qkv if True. Default: True 
         act_cfg (dict): The activation config for FFNs.
             Default: dict(type='GELU').
         norm_cfg (dict): Config dict for normalization layer.
@@ -122,7 +122,8 @@ class TransformerEncoderLayer(BaseModule): #和mmpretrain里的有点不一样
 
 
 @MODELS.register_module()
-class VisionTransformer(BaseModule): #我直接继承mmpretrain的是不是也行啊？
+class VisionTransformer(BaseModule): #我直接继承mmpretrain的是不是也行啊？是的，也行。
+    
     """Vision Transformer.
 
     This backbone is the implementation of `An Image is Worth 16x16 Words:

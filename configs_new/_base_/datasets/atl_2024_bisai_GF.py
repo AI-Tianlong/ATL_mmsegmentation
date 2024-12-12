@@ -3,7 +3,7 @@ from mmcv.transforms.processing import (RandomFlip, RandomResize, Resize,
                                         TestTimeAug)
 from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
 
-from mmseg.datasets.atl_0_paper_5b_s2_22class import ATL_S2_5B_Dataset_19class
+from mmseg.datasets.atl_2024_bisai_GF import ATL2024Bisai_GF
 from mmseg.datasets.transforms.formatting import PackSegInputs
 from mmseg.datasets.transforms.loading import (LoadAnnotations,
                                                LoadSingleRSImageFromFile)
@@ -12,13 +12,8 @@ from mmseg.datasets.transforms.transforms import (PhotoMetricDistortion,
 from mmseg.evaluation import IoUMetric
 
 # dataset settings
-dataset_type = ATL_S2_5B_Dataset_19class
-# data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-加入雪-nvme'   
-# data_root = 'data/1-paper-segmentation/0-S2_5B-21类-包含雪21' # 浪潮
-# data_root = 'data/0-atl-paper-s2/0-S2_5B-21类-包含雪21'  # 超微
-data_root = 'data/1-paper-segmentation/0-S2_5B未裁切的/0-5B_S2_NEW裁切好的用来训练的图像/S2_5B-19类-包含雪_size512_new'  # 浪潮19类
-# data_root = 'data/0-atl-paper-s2/0-5B_S2_NEW裁切好的用来训练的图像/S2_5B-19类-包含雪_size512'
-# data_root = 'data/0-atl-paper-s2/0-东北三省-地物覆盖-512'  # 东北三省5B 超微
+dataset_type = ATL2024Bisai_GF
+data_root = 'data/2024-高分对地观测比赛/初赛/裁切好的训练图像_512'
 
 crop_size = (512, 512)
 train_pipeline = [
@@ -46,33 +41,36 @@ val_pipeline = [  #
 
 test_pipeline = [  #
     dict(type=LoadSingleRSImageFromFile),
-    # dict(type=Resize, scale=(512, 512), keep_ratio=True),   # 不 Resize 按原图尺寸推理
+    # dict(type=Resize, scale=(512, 512), keep_ratio=True),
     # dict(type=Resize, scale=(6800, 7200), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
     # does not need to do resize data transform
-    dict(type=LoadAnnotations),  # 不需要验证，不用添加 Annotations
+    # dict(type=LoadAnnotations),
     dict(type=PackSegInputs)
 ]
 
-img_ratios = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75]
+img_ratios = [0.5, 1.0,1.5]
 tta_pipeline = [
-    dict(type=LoadSingleRSImageFromFile, backend_args=None),
+    dict(type=LoadSingleRSImageFromFile),
     dict(
         type=TestTimeAug,
         transforms=[[
             dict(type=Resize, scale_factor=r, keep_ratio=True)
+            # dict(type=Resize, scale_factor=0.75, keep_ratio=True)
+            # dict(type=Resize, scale_factor=1.0, keep_ratio=True)
+            # dict(type=Resize, scale_factor=1.25, keep_ratio=True)
             for r in img_ratios
         ],
                     [
                         dict(type=RandomFlip, prob=0., direction='horizontal'),
                         dict(type=RandomFlip, prob=1., direction='horizontal')
-                    ], [dict(type=LoadAnnotations)],
+                    ], # [dict(type=LoadAnnotations)],
                     [dict(type=PackSegInputs)]])
 ]
 
 train_dataloader = dict(
     batch_size=2,
-    num_workers=2,
+    num_workers=4,
     persistent_workers=True,
     sampler=dict(type=InfiniteSampler, shuffle=True),
     dataset=dict(
@@ -90,7 +88,8 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
+        data_prefix=dict(
+            img_path='img_dir/train', seg_map_path='ann_dir/train'),
         pipeline=val_pipeline))
 # 想用大图去推理
 test_dataloader = dict(
@@ -100,8 +99,9 @@ test_dataloader = dict(
     sampler=dict(type=DefaultSampler, shuffle=False),
     dataset=dict(
         type=dataset_type,
-        data_root=data_root,
-        data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
+        data_root=None,
+        data_prefix=dict(
+            img_path='/data/AI-Tianlong/Datasets/2024-高分对地观测比赛/初赛/test/GF_test_image/'),
         pipeline=test_pipeline))
 
 val_evaluator = dict(
@@ -109,5 +109,5 @@ val_evaluator = dict(
 test_evaluator = dict(
     type=IoUMetric,
     iou_metrics=['mIoU', 'mFscore'],
-    # format_only=True,
+    format_only=True,
     keep_results=True)

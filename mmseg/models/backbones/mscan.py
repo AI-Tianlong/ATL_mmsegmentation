@@ -88,7 +88,7 @@ class StemConv(BaseModule):
         self.proj = nn.Sequential(
             nn.Conv2d(
                 in_channels,
-                out_channels // 2, # 64变成32了？ why
+                out_channels // 2,  # 64变成32了？ why
                 kernel_size=(3, 3),
                 stride=(2, 2),
                 padding=(1, 1)),
@@ -114,7 +114,11 @@ class StemConv(BaseModule):
 
 class MSCAAttention(BaseModule):
     """Attention Module in Multi-Scale Convolutional Attention Module (MSCA).
-
+        # Conv(1x1) --> GELU --> MSCA --> Conv(1x1)
+        # MSCA: ---> DeConv(5x5) --> Conv(1x7)->Conv(7x1)     -->
+                  |               --> Conv(1x11)->Conv(11x1)  --> ＋ --> Conv(1x1)---->
+                  |              --> Conv(1x21)->Conv(21x1)   -->                  ×
+                  -----------------------------------------------------------------↑
     Args:
         channels (int): The dimension of channels.
         kernel_sizes (list): The size of attention
@@ -147,34 +151,34 @@ class MSCAAttention(BaseModule):
                     nn.Conv2d(
                         channels,
                         channels,
-                        tuple(i_kernel),
+                        tuple(i_kernel),  
                         padding=i_pad,
                         groups=channels))
-        self.conv3 = nn.Conv2d(channels, channels, 1)
+        self.conv3 = nn.Conv2d(channels, channels, 1) # 1x1
 
     def forward(self, x):
         """Forward function."""
 
-        u = x.clone()
+        u = x.clone()       # x
 
-        attn = self.conv0(x)
+        attn = self.conv0(x)   # 5x5
 
         # Multi-Scale Feature extraction
-        attn_0 = self.conv0_1(attn)
-        attn_0 = self.conv0_2(attn_0)
+        attn_0 = self.conv0_1(attn)   # 1x7
+        attn_0 = self.conv0_2(attn_0) # 7x1
 
-        attn_1 = self.conv1_1(attn)
-        attn_1 = self.conv1_2(attn_1)
+        attn_1 = self.conv1_1(attn)   # 1x11
+        attn_1 = self.conv1_2(attn_1) # 11x1
 
-        attn_2 = self.conv2_1(attn)
-        attn_2 = self.conv2_2(attn_2)
+        attn_2 = self.conv2_1(attn)   # 1x21
+        attn_2 = self.conv2_2(attn_2) # 21x1
 
         attn = attn + attn_0 + attn_1 + attn_2
         # Channel Mixing
-        attn = self.conv3(attn)
+        attn = self.conv3(attn)  # 1x1
 
         # Convolutional Attention
-        x = attn * u
+        x = attn * u   # 给每一个x加一个权重，注意力！
 
         return x
 
@@ -262,7 +266,7 @@ class MSCABlock(BaseModule):
             drop_path) if drop_path > 0. else nn.Identity()
         self.norm2 = build_norm_layer(norm_cfg, channels)[1]
         mlp_hidden_channels = int(channels * mlp_ratio)
-        self.mlp = Mlp(
+        self.mlp = Mlp(                              # FFN
             in_features=channels,
             hidden_features=mlp_hidden_channels,
             act_cfg=act_cfg,
@@ -462,11 +466,11 @@ class MSCAN(BaseModule):
             patch_embed = getattr(self, f'patch_embed{i + 1}')
             block = getattr(self, f'block{i + 1}')
             norm = getattr(self, f'norm{i + 1}')
-            x, H, W = patch_embed(x)
-            for blk in block:
+            x, H, W = patch_embed(x)  # []  ---> []
+            for blk in block:         # 过 depth 个 block
                 x = blk(x, H, W)
-            x = norm(x)
+            x = norm(x)               
             x = x.reshape(B, H, W, -1).permute(0, 3, 1, 2).contiguous()
-            outs.append(x)
+            outs.append(x)            # 记录一个stage的输出
 
         return outs
