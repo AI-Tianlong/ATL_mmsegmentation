@@ -3,7 +3,7 @@ from mmcv.transforms.processing import (RandomFlip, RandomResize, Resize,
                                         TestTimeAug)
 from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
 
-from mmseg.datasets.atl_0_paper_new_5b_GF_Google_S2_19class import ATL_5B_GF_Google_S2_Dataset_19class
+
 from mmseg.datasets.transforms.formatting import PackSegInputs, ATL_3_embedding_PackSegInputs
 from mmseg.datasets.transforms.loading import (LoadAnnotations,
                                                LoadSingleRSImageFromFile)
@@ -13,16 +13,21 @@ from mmseg.evaluation import IoUMetric
 
 from mmseg.datasets.transforms.loading import (LoadSingleRSImageFromFile,
                                                ATL_multi_embedding_LoadAnnotations,
-                                               LoadSingleRSImageFromFile_with_data_preproocess)
+                                               LoadSingleRSImageFromFile_with_data_preproocess,
+                                               LoadMultiRSImageFromFile_with_data_preproocess)
+
+from mmseg.datasets.atl_0_paper_new_5b_GF_Google_S2_19class import (ATL_5B_GF_Google_S2_Dataset_19class_train, 
+                                                                    ATL_5B_GF_Google_S2_Dataset_19class_test)
 
 # dataset settings
-dataset_type = ATL_5B_GF_Google_S2_Dataset_19class
+dataset_type_train = ATL_5B_GF_Google_S2_Dataset_19class_train
+dataset_type_test = ATL_5B_GF_Google_S2_Dataset_19class_test
 
 data_root = 'data/1-paper-segmentation/2-多领域地物覆盖基础/0-seg-裁切好的训练图像_S2_GF2_Google_size512'
 
 crop_size = (512, 512)
 train_pipeline = [
-    dict(type=LoadSingleRSImageFromFile_with_data_preproocess),
+    dict(type=LoadMultiRSImageFromFile_with_data_preproocess),
     dict(type=ATL_multi_embedding_LoadAnnotations),
     # dict(
     #     type=RandomResize,
@@ -40,8 +45,8 @@ val_pipeline = [  #
     dict(type=Resize, scale=crop_size, keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
     # does not need to do resize data transform
-    dict(type=ATL_multi_embedding_LoadAnnotations),
-    dict(type=ATL_3_embedding_PackSegInputs)
+    dict(type=LoadAnnotations),
+    dict(type=PackSegInputs)
 ]
 
 test_pipeline = [  #
@@ -50,8 +55,8 @@ test_pipeline = [  #
     # dict(type=Resize, scale=(6800, 7200), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
     # does not need to do resize data transform
-    dict(type=ATL_multi_embedding_LoadAnnotations),  # 不需要验证，不用添加 Annotations
-    dict(type=ATL_3_embedding_PackSegInputs)
+    dict(type=LoadAnnotations),  # 不需要验证，不用添加 Annotations
+    dict(type=PackSegInputs)
 ]
 
 img_ratios = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75]
@@ -67,7 +72,7 @@ tta_pipeline = [
                         dict(type=RandomFlip, prob=0., direction='horizontal'),
                         dict(type=RandomFlip, prob=1., direction='horizontal')
                     ], [dict(type=ATL_multi_embedding_LoadAnnotations)],
-                    [dict(type=ATL_3_embedding_PackSegInputs)]])
+                    [dict(type=PackSegInputs)]])
 ]
 
 train_dataloader = dict(
@@ -76,7 +81,7 @@ train_dataloader = dict(
     persistent_workers=True,
     sampler=dict(type=InfiniteSampler, shuffle=True),
     dataset=dict(
-        type=dataset_type,
+        type=dataset_type_train,
         data_root=data_root,
         data_prefix=dict(
             # img_path='img_dir/train/Google_5B_19类_size512', seg_map_path='ann_dir/train/Google_5B_19类_size512'), # 3chan
@@ -96,15 +101,11 @@ val_dataloader = dict(
     persistent_workers=True,
     sampler=dict(type=DefaultSampler, shuffle=False),
     dataset=dict(
-        type=dataset_type,
+        type=dataset_type_test,
         data_root=data_root,
         data_prefix=dict(
-            # img_path='img_dir/train/Google_5B_19类_size512', seg_map_path='ann_dir/train/Google_5B_19类_size512'), # 3chan
-            img_path_MSI_4chan='img_dir/val/GF2_5B_19类_size512',         # 4chan GF2
-            img_path_MSI_10chan='img_dir/val/S2_5B_19类_包含雪_size512',   # 10chan S2
-            
-            seg_map_path_MSI_4chan='ann_dir/val/GF2_5B_19类_size512',     # 4chan
-            seg_map_path_MSI_10chan='ann_dir/val/S2_5B_19类_包含雪_size512'),    # 10chan
+            img_path='img_dir/val/GF2_5B_19类_size512',         # 4chan GF2
+            seg_map_path='ann_dir/val/GF2_5B_19类_size512'),    # 10chan
         pipeline=val_pipeline))
 # 想用大图去推理
 test_dataloader = dict(
@@ -113,15 +114,12 @@ test_dataloader = dict(
     persistent_workers=True,
     sampler=dict(type=DefaultSampler, shuffle=False),
     dataset=dict(
-        type=dataset_type,
+        type=dataset_type_test,
         data_root=data_root,
         data_prefix=dict(
             # img_path='img_dir/train/Google_5B_19类_size512', seg_map_path='ann_dir/train/Google_5B_19类_size512'), # 3chan
-            img_path_MSI_4chan='img_dir/val/GF2_5B_19类_size512',         # 4chan GF2
-            img_path_MSI_10chan='img_dir/val/S2_5B_19类_包含雪_size512',   # 10chan S2
-            
-            seg_map_path_MSI_4chan='ann_dir/val/GF2_5B_19类_size512',     # 4chan
-            seg_map_path_MSI_10chan='ann_dir/val/S2_5B_19类_包含雪_size512'),    # 10chan
+            img_path='img_dir/val/GF2_5B_19类_size512',         # 4chan GF2
+            seg_map_path='ann_dir/val/GF2_5B_19类_size512'),    # 10chan
         pipeline=test_pipeline))
 
 val_evaluator = dict(

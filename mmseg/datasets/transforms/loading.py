@@ -702,7 +702,7 @@ class ATL_multi_embedding_LoadAnnotations(MMCV_LoadAnnotations):
         return repr_str
 
 @TRANSFORMS.register_module()
-class LoadSingleRSImageFromFile_with_data_preproocess(BaseTransform):
+class LoadMultiRSImageFromFile_with_data_preproocess(BaseTransform):
     """Load a Remote Sensing mage from file.
 
     Required Keys:
@@ -789,6 +789,87 @@ class LoadSingleRSImageFromFile_with_data_preproocess(BaseTransform):
                     f'to_float32={self.to_float32})',
                     f'normalization={self.normalization}')
         return repr_str
+
+
+@TRANSFORMS.register_module()
+class LoadSingleRSImageFromFile_with_data_preproocess(BaseTransform):
+    """Load a Remote Sensing mage from file.
+
+    Required Keys:
+
+    - img_path
+
+    Modified Keys:
+
+    - img
+    - img_shape
+    - ori_shape
+
+    Args:
+        to_float32 (bool): Whether to convert the loaded image to a float32
+            numpy array. If set to False, the loaded image is a float64 array.
+            Defaults to True.
+        normalization (bool): Whether to normalize the loaded image.
+    """
+
+    def __init__(self, to_float32: bool = True,
+                 normalization: bool = True):
+        self.to_float32 = to_float32
+        self.normalization = normalization
+
+        if gdal is None:
+            raise RuntimeError('gdal is not installed')
+
+    def transform(self, results: Dict) -> Dict:
+        """Functions to load image.
+
+        Args:
+            results (dict): Result dict from :obj:``mmcv.BaseDataset``.
+
+        Returns:
+            dict: The dict contains loaded image and meta information.
+        """
+        # print(results)
+
+        filename= results['img_path']
+        ds = gdal.Open(filename)
+        # print(f'【ATL-LOG-LoadSingleRSImageFromFile】filename:{filename} img_array.shape {img_array.shape}')
+        if ds is None:
+            raise Exception(f'Unable to open file: {filename}')
+        img = np.einsum('ijk->jki', ds.ReadAsArray())  # (512, 512, 4)
+
+        if self.to_float32:
+            img = img.astype(np.float32)
+
+        img = np.nan_to_num(img, nan=0)
+  
+
+        if self.normalization:
+            RGB_3chan_mean = [123.675, 116.28, 103.53]
+            RGB_3chan_std = [58.395, 57.12, 57.375]
+            MSI_4chan_mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428]
+            MSI_4chan_std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602]
+
+
+            if img.shape[2] == 4:
+                img= (img- MSI_4chan_mean) / MSI_4chan_std
+           
+            if img.shape[2] == 10:
+                img = img # S2 MSI 10通道的图像不需要归一化
+
+
+        results['img'] = img
+        results['img_shape'] = img.shape[:2]
+        results['ori_shape'] = img.shape[:2]
+        # print(f"img.shape {results['img'].shape}")
+        return results
+
+    def __repr__(self):   # print(repr(dataset))会输出这些东西  # 对于开发展，清晰的看到当前对象的各个属性
+        repr_str = (f'{self.__class__.__name__}('
+                    f'to_float32={self.to_float32})',
+                    f'normalization={self.normalization}')
+        return repr_str
+
 
 
 @TRANSFORMS.register_module()

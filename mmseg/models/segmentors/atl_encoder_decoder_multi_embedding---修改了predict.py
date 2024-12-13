@@ -228,7 +228,7 @@ class ATL_Multi_Embedding_EncoderDecoder(BaseSegmentor):
                 data_samples: OptSampleList = None) -> SampleList:
         """Predict results from a batch of inputs and data samples with post-
         processing.
-        
+
         Args:
             inputs (Tensor): Inputs with shape (N, C, H, W).
             data_samples (List[:obj:`SegDataSample`], optional): The seg data
@@ -243,12 +243,13 @@ class ATL_Multi_Embedding_EncoderDecoder(BaseSegmentor):
             - ``seg_logits``(PixelData): Predicted logits of semantic
                 segmentation before normalization.
         """
+        import pdb;pdb.set_trace()
+        inputs_MSI_4chan = inputs[0]  # [1,4,512,512]
+        inputs_MSI_10chan = inputs[1] # [1,10,512,512]
 
-        # import pdb;pdb.set_trace()
         if data_samples is not None:
-            batch_img_metas = [
-                data_sample.metainfo for data_sample in data_samples
-            ]
+            import pdb;pdb.set_trace()
+            batch_img_metas = [data_sample.metainfo for data_sample in data_samples]
         else:
             batch_img_metas = [
                 dict(
@@ -256,12 +257,17 @@ class ATL_Multi_Embedding_EncoderDecoder(BaseSegmentor):
                     img_shape=inputs.shape[2:],
                     pad_shape=inputs.shape[2:],
                     padding_size=[0, 0, 0, 0])
-            ] * inputs.shape[0]
+            ] * inputs_MSI_4chan.shape[0]
 
-        seg_logits = self.inference(inputs, batch_img_metas)
-        post_result = self.postprocess_result(seg_logits, data_samples)
-    
-        return post_result
+
+        # [seg_logit_MSI_4chan, seg_logit_MSI_10chan]
+        seg_logits_MSI_4chan = self.inference(inputs_MSI_4chan, batch_img_metas)
+        seg_logits_MSI_10chan = self.inference(inputs_MSI_10chan, batch_img_metas)
+        
+        post_result_MSI_4chan = self.postprocess_result(seg_logits_MSI_4chan, data_samples)
+        post_result_MSI_10chan = self.postprocess_result(seg_logits_MSI_10chan, data_samples)
+        
+        return [post_result_MSI_4chan, post_result_MSI_10chan]
 
     def _forward(self,
                  inputs: Tensor,
