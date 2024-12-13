@@ -58,7 +58,7 @@ data_preprocessor = dict(
 model = dict(
     type=EncoderDecoder_hyp,
     data_preprocessor=data_preprocessor,
-    pretrained='/data/AI-Tianlong/Checkpoints/2-对比实验的权重/deeplabv3plus/resnet101_v1c-10channel_BGR.pth',
+    pretrained='/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/2-对比实验的权重/deeplabv3plus/resnet101_v1c-10channel_BGR.pth',
     backbone=dict(
         type=ResNetV1c,
         depth=101,
@@ -129,6 +129,6 @@ test_evaluator = dict(
 
 
 
-train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=8000)
+train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=1000)
 default_hooks.update(dict(
     checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=2000, max_keep_ckpts=10)))

@@ -15,7 +15,7 @@ class iSAIDDataset(BaseSegDataset):
     """
 
     METAINFO = dict(
-        classes=('background', 'ship', 'store_tank', 'baseball_diamond',
+        classes=('background', 'ship', 'store_tank', 'baseball_diamond',           # 16个类别，不同的目标，也可以试试
                  'tennis_court', 'basketball_court', 'Ground_Track_Field',
                  'Bridge', 'Large_Vehicle', 'Small_Vehicle', 'Helicopter',
                  'Swimming_pool', 'Roundabout', 'Soccer_ball_field', 'plane',
