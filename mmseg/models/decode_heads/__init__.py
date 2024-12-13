@@ -40,6 +40,8 @@ from .vpd_depth_head import VPDDepthHead
 from .atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
 from .atl_fcn_head import ATL_FCNHead
 from .atl_sep_aspp_head_hyp import DepthwiseSeparableASPPHead_hyp
+from .atl_uper_head_multi_embedding import ATL_multi_embedding_UPerHead
+from .atl_fcn_head_multi_embedding import ATL_multi_embedding_FCNHead
 
 __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
@@ -51,5 +53,5 @@ __all__ = [
     'KernelUpdateHead', 'KernelUpdator', 'MaskFormerHead', 'Mask2FormerHead',
     'LightHamHead', 'PIDHead', 'DDRHead', 'VPDDepthHead',
     'SideAdapterCLIPHead', 'ATL_UPerHead','ATL_FCNHead','ATL_UPerHead_fenkai',
-    'DepthwiseSeparableASPPHead_hyp'
+    'DepthwiseSeparableASPPHead_hyp','ATL_multi_embedding_UPerHead'
 ]

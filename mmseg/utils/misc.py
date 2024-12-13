@@ -50,6 +50,8 @@ def stack_batch(inputs: List[torch.Tensor],
        Tensor: The 4D-tensor.
        List[:obj:`SegDataSample`]: After the padding of the gt_seg_map.
     """
+
+    import pdb; pdb.set_trace()
     assert isinstance(inputs, list), \
         f'Expected input type to be list, but got {type(inputs)}'
     assert len({tensor.ndim for tensor in inputs}) == 1, \
@@ -74,6 +76,7 @@ def stack_batch(inputs: List[torch.Tensor],
         max_size = (max_size +
                     (size_divisor - 1)) // size_divisor * size_divisor
 
+    # 开始拼接多个 tensor 为一个 4D 的batch
     for i in range(len(inputs)):
         tensor = inputs[i]
         if size is not None:

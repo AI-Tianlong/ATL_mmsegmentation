@@ -7,14 +7,17 @@ import torch.nn.functional as F
 from mmengine.logging import print_log
 from torch import Tensor
 
+from mmseg.structures import SegDataSample
+from mmengine.structures import PixelData
+from ..utils import resize
 from mmseg.registry import MODELS
 from mmseg.utils import (ConfigType, OptConfigType, OptMultiConfig,
                          OptSampleList, SampleList, add_prefix)
 from .base import BaseSegmentor
-
+import copy
 
 @MODELS.register_module()
-class EncoderDecoder(BaseSegmentor):
+class ATL_Multi_Embedding_EncoderDecoder(BaseSegmentor):
     """Encoder Decoder segmentors.
 
     EncoderDecoder typically consists of backbone, decode_head, auxiliary_head.
@@ -122,49 +125,59 @@ class EncoderDecoder(BaseSegmentor):
             x = self.neck(x)
         # import pdb;pdb.set_trace()
         return x
-
+    
     def encode_decode(self, inputs: Tensor,
                       batch_img_metas: List[dict]) -> Tensor:
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
-        x = self.extract_feat(inputs)
+        x = self.extract_feat(inputs)  # [b,1024,128,128] [b,1024,64,64] [b,1024,32,32] [b,1024,16,16]
         seg_logits = self.decode_head.predict(x, batch_img_metas,
                                               self.test_cfg)
 
         return seg_logits
 
     def _decode_head_forward_train(self, inputs: List[Tensor],
-                                   data_samples: SampleList) -> dict:
+                                   data_samples: SampleList,
+                                   gt_semantic_seg_name:str) -> dict:
         """Run forward function and calculate loss for decode head in
         training."""
         losses = dict()
-        loss_decode = self.decode_head.loss(inputs, data_samples,
-                                            self.train_cfg)
-
+        loss_decode = self.decode_head.loss(inputs, 
+                                            data_samples,
+                                            self.train_cfg,
+                                            gt_semantic_seg_name)
         losses.update(add_prefix(loss_decode, 'decode'))
         return losses
 
     def _auxiliary_head_forward_train(self, inputs: List[Tensor],
-                                      data_samples: SampleList) -> dict:
+                                      data_samples: SampleList,
+                                      gt_semantic_seg_name:str) -> dict:
         """Run forward function and calculate loss for auxiliary head in
         training."""
         losses = dict()
         if isinstance(self.auxiliary_head, nn.ModuleList):
             for idx, aux_head in enumerate(self.auxiliary_head):
-                loss_aux = aux_head.loss(inputs, data_samples, self.train_cfg)
+                loss_aux = aux_head.loss(inputs, 
+                                         data_samples, 
+                                         self.train_cfg,
+                                         gt_semantic_seg_name)
                 losses.update(add_prefix(loss_aux, f'aux_{idx}'))
         else:
-            loss_aux = self.auxiliary_head.loss(inputs, data_samples,
-                                                self.train_cfg)
+            loss_aux = self.auxiliary_head.loss(inputs, 
+                                                data_samples,
+                                                self.train_cfg,
+                                                gt_semantic_seg_name)
             losses.update(add_prefix(loss_aux, 'aux'))
-
+            # aux.loss_ce: 0.0877  aux.acc_seg: 98.7294
         return losses
 
-    def loss(self, inputs: Tensor, data_samples: SampleList) -> dict:
+    def loss(self, 
+             inputs: Tensor, 
+             data_samples: SampleList) -> dict:
         """Calculate losses from a batch of inputs and data samples.
 
         Args:
-            inputs (Tensor): Input images.
+            inputs (List): [[2,4,512,512] [2,10,512,512]]  # 如果是两个输入的话。
             data_samples (list[:obj:`SegDataSample`]): The seg data samples.
                 It usually includes information such as `metainfo` and
                 `gt_sem_seg`.
@@ -172,17 +185,40 @@ class EncoderDecoder(BaseSegmentor):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-
-        import pdb;pdb.set_trace()
-        x = self.extract_feat(inputs)  
-
+        if isinstance(inputs, list) and isinstance(inputs[0], Tensor):
+            if inputs[0].shape[1]==4:
+                inputs_MSI_4chan = inputs[0]
+            if inputs[1].shape[1]==10:
+                inputs_MSI_10chan = inputs[1]
+        
+        x_MSI_4chan = self.extract_feat(inputs_MSI_4chan)    # x: list [x_MSI_4chan], [x_MSI_10chan] 分别是四个尺度的特征图
+        x_MSI_10chan = self.extract_feat(inputs_MSI_10chan)
+        # import pdb;pdb.set_trace()
         losses = dict()
 
-        loss_decode = self._decode_head_forward_train(x, data_samples)
+
+        loss_decode_MSI_4chan = self._decode_head_forward_train(x_MSI_4chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_4chan') # x:[4个多尺度列表]]
+        loss_decode_MSI_10chan = self._decode_head_forward_train(x_MSI_10chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_10chan') # x:[4个多尺度列表]]
+        
+        # decode_head返回的loss值
+        new_loss_value = loss_decode_MSI_4chan['decode.loss_ce'] + loss_decode_MSI_10chan['decode.loss_ce']
+        new_acc_seg = (loss_decode_MSI_4chan['decode.acc_seg']+loss_decode_MSI_10chan['decode.acc_seg'])/2
+
+        loss_decode = loss_decode_MSI_4chan
+        loss_decode['decode.loss_ce'] = new_loss_value
+        loss_decode['decode.acc_seg'] = new_acc_seg
+
         losses.update(loss_decode)
 
         if self.with_auxiliary_head:
-            loss_aux = self._auxiliary_head_forward_train(x, data_samples)
+            loss_aux_MSI_4chan = self._auxiliary_head_forward_train(x_MSI_4chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_4chan')
+            loss_aux_MSI_10chan = self._auxiliary_head_forward_train(x_MSI_10chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_10chan')
+            
+            loss_aux = loss_aux_MSI_4chan
+            new_loss_aux_value = loss_aux_MSI_4chan['aux.loss_ce'] + loss_aux_MSI_10chan['aux.loss_ce']
+            new_aux_acc_seg =  (loss_aux_MSI_4chan['aux.acc_seg'] + loss_aux_MSI_10chan['aux.acc_seg'])/2
+            loss_aux['aux.loss_ce'] = new_loss_aux_value
+            loss_aux['aux.acc_seg'] = new_aux_acc_seg
             losses.update(loss_aux)
 
         return losses
@@ -207,10 +243,13 @@ class EncoderDecoder(BaseSegmentor):
             - ``seg_logits``(PixelData): Predicted logits of semantic
                 segmentation before normalization.
         """
+        import pdb;pdb.set_trace()
+        inputs_MSI_4chan = inputs[0]  # [1,4,512,512]
+        inputs_MSI_10chan = inputs[1] # [1,10,512,512]
+
         if data_samples is not None:
-            batch_img_metas = [
-                data_sample.metainfo for data_sample in data_samples
-            ]
+            import pdb;pdb.set_trace()
+            batch_img_metas = [data_sample.metainfo for data_sample in data_samples]
         else:
             batch_img_metas = [
                 dict(
@@ -218,11 +257,17 @@ class EncoderDecoder(BaseSegmentor):
                     img_shape=inputs.shape[2:],
                     pad_shape=inputs.shape[2:],
                     padding_size=[0, 0, 0, 0])
-            ] * inputs.shape[0]
+            ] * inputs_MSI_4chan.shape[0]
 
-        seg_logits = self.inference(inputs, batch_img_metas)
 
-        return self.postprocess_result(seg_logits, data_samples)
+        # [seg_logit_MSI_4chan, seg_logit_MSI_10chan]
+        seg_logits_MSI_4chan = self.inference(inputs_MSI_4chan, batch_img_metas)
+        seg_logits_MSI_10chan = self.inference(inputs_MSI_10chan, batch_img_metas)
+        
+        post_result_MSI_4chan = self.postprocess_result(seg_logits_MSI_4chan, data_samples)
+        post_result_MSI_10chan = self.postprocess_result(seg_logits_MSI_10chan, data_samples)
+        
+        return [post_result_MSI_4chan, post_result_MSI_10chan]
 
     def _forward(self,
                  inputs: Tensor,
@@ -264,6 +309,7 @@ class EncoderDecoder(BaseSegmentor):
 
         h_stride, w_stride = self.test_cfg.stride
         h_crop, w_crop = self.test_cfg.crop_size
+
         batch_size, _, h_img, w_img = inputs.size()
         out_channels = self.out_channels
         h_grids = max(h_img - h_crop + h_stride - 1, 0) // h_stride + 1
@@ -340,6 +386,7 @@ class EncoderDecoder(BaseSegmentor):
                 'Image shapes are different in the batch.',
                 logger='current',
                 level=logging.WARN)
+
         if self.test_cfg.mode == 'slide':
             seg_logit = self.slide_inference(inputs, batch_img_metas)
         else:
@@ -365,3 +412,81 @@ class EncoderDecoder(BaseSegmentor):
         # unravel batch dim
         seg_pred = list(seg_pred)
         return seg_pred
+
+
+
+    def postprocess_result(self,
+                           seg_logits: Tensor,
+                           data_samples: OptSampleList = None) -> SampleList:
+        """ Convert results list to `SegDataSample`.
+        Args:
+            seg_logits (Tensor): The segmentation results, seg_logits from
+                model of each input image.
+            data_samples (list[:obj:`SegDataSample`]): The seg data samples.
+                It usually includes information such as `metainfo` and
+                `gt_sem_seg`. Default to None.
+        Returns:
+            list[:obj:`SegDataSample`]: Segmentation results of the
+            input images. Each SegDataSample usually contain:
+
+            - ``pred_sem_seg``(PixelData): Prediction of semantic segmentation.
+            - ``seg_logits``(PixelData): Predicted logits of semantic
+                segmentation before normalization.
+        """
+        batch_size, C, H, W = seg_logits.shape
+
+        if data_samples is None:
+            data_samples = [SegDataSample() for _ in range(batch_size)]
+            only_prediction = True
+        else:
+            only_prediction = False
+
+        for i in range(batch_size):
+            if not only_prediction:
+                img_meta = data_samples[i].metainfo
+                # remove padding area
+                if 'img_padding_size' not in img_meta:
+                    padding_size = img_meta.get('padding_size', [0] * 4)
+                else:
+                    padding_size = img_meta['img_padding_size']
+                padding_left, padding_right, padding_top, padding_bottom =\
+                    padding_size
+                # i_seg_logits shape is 1, C, H, W after remove padding
+                i_seg_logits = seg_logits[i:i + 1, :,
+                                          padding_top:H - padding_bottom,
+                                          padding_left:W - padding_right]
+
+                flip = img_meta.get('flip', None)
+                if flip:
+                    flip_direction = img_meta.get('flip_direction', None)
+                    assert flip_direction in ['horizontal', 'vertical']
+                    if flip_direction == 'horizontal':
+                        i_seg_logits = i_seg_logits.flip(dims=(3, ))
+                    else:
+                        i_seg_logits = i_seg_logits.flip(dims=(2, ))
+
+                # resize as original shape
+                i_seg_logits = resize(
+                    i_seg_logits,
+                    size=img_meta['ori_shape'],
+                    mode='bilinear',
+                    align_corners=self.align_corners,
+                    warning=False).squeeze(0)
+            else:
+                i_seg_logits = seg_logits[i]
+
+            if C > 1:
+                i_seg_pred = i_seg_logits.argmax(
+                    dim=0, keepdim=True)  # keepdim=True，保留第0维度，大小为1
+            else:
+                i_seg_logits = i_seg_logits.sigmoid()
+                i_seg_pred = (i_seg_logits >
+                              self.decode_head.threshold).to(i_seg_logits)
+            data_samples[i].set_data({
+                'seg_logits':
+                PixelData(**{'data': i_seg_logits}),
+                'pred_sem_seg':
+                PixelData(**{'data': i_seg_pred})
+            })
+
+        return data_samples

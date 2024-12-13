@@ -574,6 +574,305 @@ class LoadSingleRSImageFromFile_spectral_GPT(BaseTransform):
 
 
 @TRANSFORMS.register_module()
+class ATL_multi_embedding_LoadAnnotations(MMCV_LoadAnnotations):
+    """Load annotations for semantic segmentation provided by dataset.
+
+    The annotation format is as the following:
+
+    .. code-block:: python
+
+        {
+            # Filename of semantic segmentation ground truth file.
+            'seg_map_path': 'a/b/c'
+        }
+
+    After this module, the annotation has been changed to the format below:
+
+    .. code-block:: python
+
+        {
+            # in str
+            'seg_fields': List
+             # In uint8 type.
+            'gt_seg_map': np.ndarray (H, W)
+        }
+
+    Required Keys:
+
+    - seg_map_path (str): Path of semantic segmentation ground truth file.
+
+    Added Keys:
+
+    - seg_fields (List)
+    - gt_seg_map (np.uint8)
+
+    Args:
+        reduce_zero_label (bool, optional): Whether reduce all label value
+            by 1. Usually used for datasets where 0 is background label.
+            Defaults to None.
+        imdecode_backend (str): The image decoding backend type. The backend
+            argument for :func:``mmcv.imfrombytes``.
+            See :fun:``mmcv.imfrombytes`` for details.
+            Defaults to 'pillow'.
+        backend_args (dict): Arguments to instantiate a file backend.
+            See https://mmengine.readthedocs.io/en/latest/api/fileio.htm
+            for details. Defaults to None.
+            Notes: mmcv>=2.0.0rc4, mmengine>=0.2.0 required.
+    """
+
+    def __init__(
+        self,
+        reduce_zero_label=None,
+        backend_args=None,
+        imdecode_backend='pillow',
+    ) -> None:
+        super().__init__(
+            with_bbox=False,
+            with_label=False,
+            with_seg=True,
+            with_keypoints=False,
+            imdecode_backend=imdecode_backend,
+            backend_args=backend_args)
+        self.reduce_zero_label = reduce_zero_label
+        if self.reduce_zero_label is not None:
+            warnings.warn('`reduce_zero_label` will be deprecated, '
+                          'if you would like to ignore the zero label, please '
+                          'set `reduce_zero_label=True` when dataset '
+                          'initialized')
+        self.imdecode_backend = imdecode_backend
+
+    def _load_seg_map(self, results: dict) -> None:
+        """Private function to load semantic segmentation annotations.
+
+        Args:
+            results (dict): Result dict from :obj:``mmcv.BaseDataset``.
+
+        Returns:
+            dict: The dict contains loaded semantic segmentation annotations.
+        """
+
+        img_bytes_MSI_4chan = fileio.get(
+            results['seg_map_path_MIS_4chan'], backend_args=self.backend_args)
+        img_bytes_MSI_10chan = fileio.get(
+            results['seg_map_path_MIS_10chan'], backend_args=self.backend_args)
+ 
+        gt_semantic_seg_MSI_4chan = mmcv.imfrombytes(
+            img_bytes_MSI_4chan, flag='unchanged',
+            backend=self.imdecode_backend).squeeze().astype(np.uint8)
+        gt_semantic_seg_MSI_10chan = mmcv.imfrombytes(
+            img_bytes_MSI_10chan, flag='unchanged',
+            backend=self.imdecode_backend).squeeze().astype(np.uint8)
+
+        # reduce zero_label
+        if self.reduce_zero_label is None:
+            self.reduce_zero_label = results['reduce_zero_label']
+
+        assert self.reduce_zero_label == results['reduce_zero_label'], \
+            'Initialize dataset with `reduce_zero_label` as ' \
+            f'{results["reduce_zero_label"]} but when load annotation ' \
+            f'the `reduce_zero_label` is {self.reduce_zero_label}'
+        if self.reduce_zero_label:
+            # avoid using underflow conversion
+            gt_semantic_seg_MSI_4chan[gt_semantic_seg_MSI_4chan == 0] = 255
+            gt_semantic_seg_MSI_4chan = gt_semantic_seg_MSI_4chan - 1
+            gt_semantic_seg_MSI_4chan[gt_semantic_seg_MSI_4chan == 254] = 255
+
+            gt_semantic_seg_MSI_10chan[gt_semantic_seg_MSI_10chan == 0] = 255
+            gt_semantic_seg_MSI_10chan = gt_semantic_seg_MSI_10chan - 1
+            gt_semantic_seg_MSI_10chan[gt_semantic_seg_MSI_10chan == 254] = 255
+
+        # # modify if custom classes
+        # if results.get('label_map', None) is not None:
+        #     # Add deep copy to solve bug of repeatedly
+        #     # replace `gt_semantic_seg`, which is reported in
+        #     # https://github.com/open-mmlab/mmsegmentation/pull/1445/
+        #     gt_semantic_seg_copy_ = gt_semantic_seg.copy()
+        #     for old_id, new_id in results['label_map'].items():
+        #         gt_semantic_seg[gt_semantic_seg_copy == old_id] = new_id
+        results['gt_semantic_seg_MSI_4chan'] = gt_semantic_seg_MSI_4chan
+        results['gt_semantic_seg_MSI_10chan'] = gt_semantic_seg_MSI_10chan
+        results['seg_fields'].append('gt_semantic_seg_MSI_4chan')
+        results['seg_fields'].append('gt_semantic_seg_MSI_10chan')
+
+    def __repr__(self) -> str:
+        repr_str = self.__class__.__name__
+        repr_str += f'(reduce_zero_label={self.reduce_zero_label}, '
+        repr_str += f"imdecode_backend='{self.imdecode_backend}', "
+        repr_str += f'backend_args={self.backend_args})'
+        return repr_str
+
+@TRANSFORMS.register_module()
+class LoadMultiRSImageFromFile_with_data_preproocess(BaseTransform):
+    """Load a Remote Sensing mage from file.
+
+    Required Keys:
+
+    - img_path
+
+    Modified Keys:
+
+    - img
+    - img_shape
+    - ori_shape
+
+    Args:
+        to_float32 (bool): Whether to convert the loaded image to a float32
+            numpy array. If set to False, the loaded image is a float64 array.
+            Defaults to True.
+        normalization (bool): Whether to normalize the loaded image.
+    """
+
+    def __init__(self, to_float32: bool = True,
+                 normalization: bool = True):
+        self.to_float32 = to_float32
+        self.normalization = normalization
+
+        if gdal is None:
+            raise RuntimeError('gdal is not installed')
+
+    def transform(self, results: Dict) -> Dict:
+        """Functions to load image.
+
+        Args:
+            results (dict): Result dict from :obj:``mmcv.BaseDataset``.
+
+        Returns:
+            dict: The dict contains loaded image and meta information.
+        """
+        # print(results)
+
+        filename_MSI_4chan = results['img_path_MIS_4chan']
+        filename_MSI_10chan = results['img_path_MIS_10chan']
+        ds_MSI_4chan = gdal.Open(filename_MSI_4chan)
+        ds_MSI_10chan = gdal.Open(filename_MSI_10chan)
+        # img_array = ds.ReadAsArray()
+        # print(f'【ATL-LOG-LoadSingleRSImageFromFile】filename:{filename} img_array.shape {img_array.shape}')
+        if ds_MSI_4chan is None:
+            raise Exception(f'Unable to open file: {ds_MSI_4chan}')
+        if ds_MSI_10chan is None:
+            raise Exception(f'Unable to open file: {ds_MSI_10chan}')
+        img_MSI_4chan = np.einsum('ijk->jki', ds_MSI_4chan.ReadAsArray())  # (512, 512, 4)
+        img_MSI_10chan = np.einsum('ijk->jki', ds_MSI_10chan.ReadAsArray()) # (512, 512, 10)
+
+        if self.to_float32:
+            img_MSI_4chan = img_MSI_4chan.astype(np.float32)
+            img_MSI_10chan = img_MSI_10chan.astype(np.float32)
+
+
+        img_MSI_4chan = np.nan_to_num(img_MSI_4chan, nan=0)
+        img_MSI_10chan = np.nan_to_num(img_MSI_10chan, nan=0)
+
+
+        if self.normalization:
+            RGB_3chan_mean = [123.675, 116.28, 103.53]
+            RGB_3chan_std = [58.395, 57.12, 57.375]
+            MSI_4chan_mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428]
+            MSI_4chan_std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602]
+
+
+            if img_MSI_4chan.shape[2] == 4:
+                img_MSI_4chan= (img_MSI_4chan- MSI_4chan_mean) / MSI_4chan_std
+           
+            if img_MSI_10chan.shape[2] == 10:
+                img_MSI_10chan = img_MSI_10chan # S2 MSI 10通道的图像不需要归一化
+
+
+        results['img_MSI_4chan'] = img_MSI_4chan
+        results['img_MSI_10chan'] = img_MSI_10chan
+        results['img_shape'] = img_MSI_4chan.shape[:2]
+        results['ori_shape'] = img_MSI_4chan.shape[:2]
+        # print(f"img.shape {results['img'].shape}")
+        return results
+
+    def __repr__(self):   # print(repr(dataset))会输出这些东西  # 对于开发展，清晰的看到当前对象的各个属性
+        repr_str = (f'{self.__class__.__name__}('
+                    f'to_float32={self.to_float32})',
+                    f'normalization={self.normalization}')
+        return repr_str
+
+
+@TRANSFORMS.register_module()
+class LoadSingleRSImageFromFile_with_data_preproocess(BaseTransform):
+    """Load a Remote Sensing mage from file.
+
+    Required Keys:
+
+    - img_path
+
+    Modified Keys:
+
+    - img
+    - img_shape
+    - ori_shape
+
+    Args:
+        to_float32 (bool): Whether to convert the loaded image to a float32
+            numpy array. If set to False, the loaded image is a float64 array.
+            Defaults to True.
+        normalization (bool): Whether to normalize the loaded image.
+    """
+
+    def __init__(self, to_float32: bool = True,
+                 normalization: bool = True):
+        self.to_float32 = to_float32
+        self.normalization = normalization
+
+        if gdal is None:
+            raise RuntimeError('gdal is not installed')
+
+    def transform(self, results: Dict) -> Dict:
+        """Functions to load image.
+
+        Args:
+            results (dict): Result dict from :obj:``mmcv.BaseDataset``.
+
+        Returns:
+            dict: The dict contains loaded image and meta information.
+        """
+        # print(results)
+
+        filename= results['img_path']
+        ds = gdal.Open(filename)
+        # print(f'【ATL-LOG-LoadSingleRSImageFromFile】filename:{filename} img_array.shape {img_array.shape}')
+        if ds is None:
+            raise Exception(f'Unable to open file: {filename}')
+        img = np.einsum('ijk->jki', ds.ReadAsArray())  # (512, 512, 4)
+
+        if self.to_float32:
+            img = img.astype(np.float32)
+
+        img = np.nan_to_num(img, nan=0)
+  
+
+        if self.normalization:
+            RGB_3chan_mean = [123.675, 116.28, 103.53]
+            RGB_3chan_std = [58.395, 57.12, 57.375]
+            MSI_4chan_mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428]
+            MSI_4chan_std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602]
+
+
+            if img.shape[2] == 4:
+                img= (img- MSI_4chan_mean) / MSI_4chan_std
+           
+            if img.shape[2] == 10:
+                img = img # S2 MSI 10通道的图像不需要归一化
+
+
+        results['img'] = img
+        results['img_shape'] = img.shape[:2]
+        results['ori_shape'] = img.shape[:2]
+        # print(f"img.shape {results['img'].shape}")
+        return results
+
+    def __repr__(self):   # print(repr(dataset))会输出这些东西  # 对于开发展，清晰的看到当前对象的各个属性
+        repr_str = (f'{self.__class__.__name__}('
+                    f'to_float32={self.to_float32})',
+                    f'normalization={self.normalization}')
+        return repr_str
+
+
+
+@TRANSFORMS.register_module()
 class LoadSingleRSImageFromFile(BaseTransform):
     """Load a Remote Sensing mage from file.
 
@@ -617,7 +916,6 @@ class LoadSingleRSImageFromFile(BaseTransform):
             raise Exception(f'Unable to open file: {filename}')
         img = np.einsum('ijk->jki', ds.ReadAsArray())  # 这句报错，说
 
-
         # 把图像中的nan值替换为0
         # print("[atl-log-img]",img)
         img = np.nan_to_num(img, nan=0)
@@ -629,13 +927,14 @@ class LoadSingleRSImageFromFile(BaseTransform):
         # b = np.expand_dims(b, axis=2)
         # img = np.concatenate((img,b,b), axis=2)
 
-
         if self.to_float32:
             img = img.astype(np.float32)
 
+        img[img==-32768]=0    
         results['img'] = img
         results['img_shape'] = img.shape[:2]
         results['ori_shape'] = img.shape[:2]
+        # print(f"img.shape {results['img'].shape}")
         return results
 
     def __repr__(self):

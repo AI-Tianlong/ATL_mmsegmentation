@@ -2,7 +2,7 @@
 import warnings
 from abc import ABCMeta, abstractmethod
 from typing import List, Tuple
-
+from mmseg.utils import ConfigType, SampleList
 import torch
 import torch.nn as nn
 from mmengine.model import BaseModule

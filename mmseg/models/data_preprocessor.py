@@ -106,21 +106,27 @@ class SegDataPreProcessor(BaseDataPreprocessor):
         Returns:
             Dict: Data in the same format as the model input.
         """
+        import pdb;pdb.set_trace()   # 到了这步之后，然后按s进去调试
         data = self.cast_data(data)  # type: ignore
-        inputs = data['inputs']
+        inputs = data['inputs'] # 这里是两个图像的，我如果是四张图的话，应该就是四个矢量。然后拼batch的话，是相同维度的去拼。
         data_samples = data.get('data_samples', None)
+        # import pdb;pdb.set_trace()
         # TODO: whether normalize should be after stack_batch
         if self.channel_conversion and inputs[0].size(0) == 3:
             inputs = [_input[[2, 1, 0], ...] for _input in inputs]
-
-        inputs = [_input.float() for _input in inputs]
+        
+        inputs = [_input.float() for _input in inputs]  # 这才能把数据转换成float类型，不然全是255--->1367
+        # import pdb;pdb.set_trace()
         if self._enable_normalize:
             inputs = [(_input - self.mean) / self.std for _input in inputs]
 
+        # import pdb;pdb.set_trace()
         if training:
             assert data_samples is not None, ('During training, ',
                                               '`data_samples` must be define.')
-            inputs, data_samples = stack_batch(
+            
+            # 这句话 是把inputs，拼成batch的形式，然后返回拼接后的inputs和data_samples
+            inputs, data_samples = stack_batch(    # torch.Size([10, 358, 358])  torch.Size([10, 512, 512])  两个图
                 inputs=inputs,
                 data_samples=data_samples,
                 size=self.size,
