@@ -186,23 +186,28 @@ class ATL_Multi_Embedding_EncoderDecoder(BaseSegmentor):
             dict[str, Tensor]: a dictionary of loss components
         """
         if isinstance(inputs, list) and isinstance(inputs[0], Tensor):
-            if inputs[0].shape[1]==4:
-                inputs_MSI_4chan = inputs[0]
-            if inputs[1].shape[1]==10:
-                inputs_MSI_10chan = inputs[1]
+            if inputs[0].shape[1]==3:
+                inputs_MSI_3chan = inputs[0]
+            if inputs[1].shape[1]==4:
+                inputs_MSI_4chan = inputs[1]
+            if inputs[2].shape[1]==10:
+                inputs_MSI_10chan = inputs[2]
         
+        x_MSI_3chan = self.extract_feat(inputs_MSI_3chan)
         x_MSI_4chan = self.extract_feat(inputs_MSI_4chan)    # x: list [x_MSI_4chan], [x_MSI_10chan] 分别是四个尺度的特征图
         x_MSI_10chan = self.extract_feat(inputs_MSI_10chan)
         # import pdb;pdb.set_trace()
         losses = dict()
 
-
+        loss_decode_MSI_3chan = self._decode_head_forward_train(x_MSI_3chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_3chan') # x:[4个多尺度列表]]
         loss_decode_MSI_4chan = self._decode_head_forward_train(x_MSI_4chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_4chan') # x:[4个多尺度列表]]
         loss_decode_MSI_10chan = self._decode_head_forward_train(x_MSI_10chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_10chan') # x:[4个多尺度列表]]
         
         # decode_head返回的loss值
-        new_loss_value = loss_decode_MSI_4chan['decode.loss_ce'] + loss_decode_MSI_10chan['decode.loss_ce']
-        new_acc_seg = (loss_decode_MSI_4chan['decode.acc_seg']+loss_decode_MSI_10chan['decode.acc_seg'])/2
+        new_loss_value = loss_decode_MSI_3chan['decode.loss_ce'] + loss_decode_MSI_4chan['decode.loss_ce'] + loss_decode_MSI_10chan['decode.loss_ce']
+        # 以GF2的为基准，其他的两个acc不要
+        # new_acc_seg = (loss_decode_MSI_3chan['decode.acc_seg'] + loss_decode_MSI_4chan['decode.acc_seg']+loss_decode_MSI_10chan['decode.acc_seg'])/3
+        new_acc_seg = loss_decode_MSI_4chan['decode.acc_seg']
 
         loss_decode = loss_decode_MSI_4chan
         loss_decode['decode.loss_ce'] = new_loss_value
@@ -211,12 +216,14 @@ class ATL_Multi_Embedding_EncoderDecoder(BaseSegmentor):
         losses.update(loss_decode)
 
         if self.with_auxiliary_head:
+            loss_aux_MSI_3chan = self._auxiliary_head_forward_train(x_MSI_3chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_3chan')
             loss_aux_MSI_4chan = self._auxiliary_head_forward_train(x_MSI_4chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_4chan')
             loss_aux_MSI_10chan = self._auxiliary_head_forward_train(x_MSI_10chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_10chan')
             
             loss_aux = loss_aux_MSI_4chan
-            new_loss_aux_value = loss_aux_MSI_4chan['aux.loss_ce'] + loss_aux_MSI_10chan['aux.loss_ce']
-            new_aux_acc_seg =  (loss_aux_MSI_4chan['aux.acc_seg'] + loss_aux_MSI_10chan['aux.acc_seg'])/2
+            new_loss_aux_value = loss_aux_MSI_3chan['aux.loss_ce'] + loss_aux_MSI_4chan['aux.loss_ce'] + loss_aux_MSI_10chan['aux.loss_ce']
+            # new_aux_acc_seg =  (loss_aux_MSI_3chan['aux.acc_seg'] + loss_aux_MSI_4chan['aux.acc_seg'] + loss_aux_MSI_10chan['aux.acc_seg'])/3
+            new_aux_acc_seg = loss_aux_MSI_4chan['aux.acc_seg']
             loss_aux['aux.loss_ce'] = new_loss_aux_value
             loss_aux['aux.acc_seg'] = new_aux_acc_seg
             losses.update(loss_aux)

@@ -95,9 +95,11 @@ class Base_3embedding_Dataset(BaseDataset):
     def __init__(self,
                  ann_file: str = '',   
                 #  img_suffix_RGB_3chan: str = '.tif',      # 一次要加载3张图像，3个label
+                 img_suffix_MSI_3chan: str = '.tif',
                  img_suffix_MSI_4chan: str = '.tif',
                  img_suffix_MSI_10chan: str = '.tif',
                 #  seg_map_suffix_RGB_3chan: str = '.tif',
+                 seg_map_suffix_MSI_3chan: str = '.tif',
                  seg_map_suffix_MSI_4chan: str = '.tif',
                  seg_map_suffix_MSI_10chan: str = '.tif',
 
@@ -105,9 +107,11 @@ class Base_3embedding_Dataset(BaseDataset):
                  data_root: Optional[str] = None,
                  data_prefix: dict = dict(     # 输入两组数据的路径
                     #  img_path_RGB_3chan='', 
+                     img_path_MSI_3chan='', 
                      img_path_MSI_4chan='', 
                      img_path_MSI_10chan='', 
                     #  seg_map_path_RGB_3chan='', 
+                     seg_map_path_MSI_3chan='', 
                      seg_map_path_MSI_4chan='', 
                      seg_map_path_MSI_10chan=''),
 
@@ -123,8 +127,10 @@ class Base_3embedding_Dataset(BaseDataset):
                  backend_args: Optional[dict] = None) -> None:
 
         # ============================================== ATL ==============================
+        self.img_suffix_MSI_3chan = img_suffix_MSI_3chan
         self.img_suffix_MSI_4chan = img_suffix_MSI_4chan
         self.img_suffix_MSI_10chan = img_suffix_MSI_10chan
+        self.seg_map_suffix_MSI_3chan = seg_map_suffix_MSI_3chan
         self.seg_map_suffix_MSI_4chan = seg_map_suffix_MSI_4chan
         self.seg_map_suffix_MSI_10chan = seg_map_suffix_MSI_10chan
 
@@ -262,45 +268,59 @@ class Base_3embedding_Dataset(BaseDataset):
         """
         data_list = []
         # 设置图像的路劲，去读取数据
+        img_dir_MSI_3chan = self.data_prefix.get('img_path_MSI_3chan', None)
         img_dir_MSI_4chan = self.data_prefix.get('img_path_MSI_4chan', None)
         img_dir_MSI_10chan = self.data_prefix.get('img_path_MSI_10chan', None)
+        ann_dir_MSI_3chan = self.data_prefix.get('seg_map_path_MSI_3chan', None)
         ann_dir_MSI_4chan = self.data_prefix.get('seg_map_path_MSI_4chan', None)
         ann_dir_MSI_10chan = self.data_prefix.get('seg_map_path_MSI_10chan', None)
 
         if osp.isfile(self.ann_file):
-            lines_MSI_4chan = mmengine.list_from_file(
-                self.ann_file, backend_args=self.backend_args)
-            lines_MSI_10chan = mmengine.list_from_file(
-                self.ann_file, backend_args=self.backend_args)
-            # 这里可能会有问题，这两个list的长度不想等，一个3000+ 2w+ 16w+
-            for line_MSI_4chan, line_MSI_10chan in zip(lines_MSI_4chan, lines_MSI_10chan):
-                img_MSI_4chan_name = line_MSI_4chan.strip()
-                img_MSI_10chan_name = line_MSI_10chan.strip()
+            # lines_MSI_3chan = mmengine.list_from_file(
+            #     self.ann_file, backend_args=self.backend_args)
+            # lines_MSI_4chan = mmengine.list_from_file(
+            #     self.ann_file, backend_args=self.backend_args)
+            # lines_MSI_10chan = mmengine.list_from_file(
+            #     self.ann_file, backend_args=self.backend_args)
+            # # 这里可能会有问题，这两个list的长度不想等，一个3000+ 2w+ 16w+,需要循环扩充
+            # for line_MSI_3chan, line_MSI_4chan, line_MSI_10chan in zip(lines_MSI_3chan, lines_MSI_4chan, lines_MSI_10chan):
+            #     img_MSI_3chan_name = line_MSI_3chan.strip()
+            #     img_MSI_4chan_name = line_MSI_4chan.strip()
+            #     img_MSI_10chan_name = line_MSI_10chan.strip()
 
-                if '.' in osp.basename(img_name):
-                    img_name, img_ext = osp.splitext(img_name)
-                    self.img_suffix_MSI_4chan = img_ext
-                    self.img_suffix_MSI_10chan = img_ext
-                data_info = dict(
-                    img_path_MSI_4chan=osp.join(img_dir, img_name + self.img_suffix),
-                    img_path_MSI_10chan=osp.join(img_dir2, img_name + self.img_suffix2))
+            #     if '.' in osp.basename(img_name):
+            #         img_name, img_ext = osp.splitext(img_name)
+            #         self.img_suffix_MSI_4chan = img_ext
+            #         self.img_suffix_MSI_10chan = img_ext
+            #     data_info = dict(
+            #         img_path_MSI_4chan=osp.join(img_dir, img_name + self.img_suffix),
+            #         img_path_MSI_10chan=osp.join(img_dir2, img_name + self.img_suffix2))
 
-                if ann_dir is not None:
-                    seg_map = img_name + self.seg_map_suffix
-                    data_info['seg_map_path'] = osp.join(ann_dir, seg_map)
-                data_info['label_map'] = self.label_map
-                data_info['reduce_zero_label'] = self.reduce_zero_label
-                data_info['seg_fields'] = []
-                data_list.append(data_info)
+            #     if ann_dir is not None:
+            #         seg_map = img_name + self.seg_map_suffix
+            #         data_info['seg_map_path'] = osp.join(ann_dir, seg_map)
+            #     data_info['label_map'] = self.label_map
+            #     data_info['reduce_zero_label'] = self.reduce_zero_label
+            #     data_info['seg_fields'] = []
+            #     data_list.append(data_info)
+            pass
         else:
             # import pdb; pdb.set_trace()
-            img_MIS_4chan_list = list(fileio.list_dir_or_file(
+            img_MSI_3chan_list = list(fileio.list_dir_or_file(
+                    dir_path=img_dir_MSI_3chan,
+                    list_dir=False,
+                    suffix=self.img_suffix_MSI_3chan,
+                    recursive=True,
+                    backend_args=self.backend_args))
+
+            img_MSI_4chan_list = list(fileio.list_dir_or_file(
                     dir_path=img_dir_MSI_4chan,
                     list_dir=False,
                     suffix=self.img_suffix_MSI_4chan,
                     recursive=True,
                     backend_args=self.backend_args))
-            img_MIS_10chan_list = list(fileio.list_dir_or_file(
+            
+            img_MSI_10chan_list = list(fileio.list_dir_or_file(
                     dir_path=img_dir_MSI_10chan,
                     list_dir=False,
                     suffix=self.img_suffix_MSI_10chan,
@@ -310,34 +330,44 @@ class Base_3embedding_Dataset(BaseDataset):
             # 由于 len(img_MIS_10chan_list) < (img_MIS_4chan_list)
             # 需要循环扩充img_MIS_10chan_list
             # import pdb; pdb.set_trace()
-            img_MIS_10chan_list = list(itertools.islice(itertools.cycle(img_MIS_10chan_list), len(img_MIS_4chan_list)))
+            img_MSI_3chan_list =list(img_MSI_3chan_list)
+            img_MSI_4chan_list = list(itertools.islice(itertools.cycle(img_MSI_4chan_list), len(img_MSI_3chan_list)))
+            img_MSI_10chan_list = list(itertools.islice(itertools.cycle(img_MSI_10chan_list), len(img_MSI_3chan_list)))
             
-            assert len(img_MIS_10chan_list) == len(img_MIS_4chan_list), 'img_MIS_10chan_list and img_MIS_4chan_list should have the same length'
+            assert len(img_MSI_3chan_list)==len(img_MSI_4chan_list) == len(img_MSI_10chan_list), 'img_MSI_10chan_list and img_MSI_4chan_list should have the same length'
             
-            for img_MIS_4chan, img_MIS_10chan in zip(img_MIS_4chan_list, img_MIS_10chan_list):
-                if '.' in osp.basename(img_MIS_4chan):
-                    img_MIS_4chan, img_MIS_4chan_suffix = osp.splitext(img_MIS_4chan)
-                    self.img_suffix_MSI_4chan = img_MIS_4chan_suffix
+            for img_MSI_3chan, img_MSI_4chan, img_MSI_10chan in zip(img_MSI_3chan_list, img_MSI_4chan_list, img_MSI_10chan_list):
+                
+                if '.' in osp.basename(img_MSI_3chan):
+                    img_MSI_3chan, img_MSI_3chan_suffix = osp.splitext(img_MSI_3chan)
+                    self.img_suffix_MSI_3chan = img_MSI_3chan_suffix
+
+                if '.' in osp.basename(img_MSI_4chan):
+                    img_MSI_4chan, img_MSI_4chan_suffix = osp.splitext(img_MSI_4chan)
+                    self.img_suffix_MSI_4chan = img_MSI_4chan_suffix
                
-                if '.' in osp.basename(img_MIS_10chan):
-                    img_MIS_10chan, img_MIS_10chan_suffix = osp.splitext(img_MIS_10chan)
-                    self.img_suffix_MSI_10chan = img_MIS_10chan_suffix
+                if '.' in osp.basename(img_MSI_10chan):
+                    img_MSI_10chan, img_MSI_10chan_suffix = osp.splitext(img_MSI_10chan)
+                    self.img_suffix_MSI_10chan = img_MSI_10chan_suffix
 
                 data_info = dict(
-                    img_path_MIS_4chan=osp.join(img_dir_MSI_4chan, img_MIS_4chan + self.img_suffix_MSI_4chan),
-                    img_path_MIS_10chan=osp.join(img_dir_MSI_10chan, img_MIS_10chan + self.img_suffix_MSI_10chan))
-                if ann_dir_MSI_4chan and ann_dir_MSI_10chan is not None:
-                    seg_map_MIS_4chan = img_MIS_4chan + self.seg_map_suffix_MSI_4chan
-                    seg_map_MIS_10chan = img_MIS_10chan + self.seg_map_suffix_MSI_10chan
-                    data_info['seg_map_path_MIS_4chan'] = osp.join(ann_dir_MSI_4chan, seg_map_MIS_4chan)
-                    data_info['seg_map_path_MIS_10chan'] = osp.join(ann_dir_MSI_10chan, seg_map_MIS_10chan)
+                    img_path_MSI_3chan=osp.join(img_dir_MSI_3chan, img_MSI_3chan + self.img_suffix_MSI_3chan),
+                    img_path_MSI_4chan=osp.join(img_dir_MSI_4chan, img_MSI_4chan + self.img_suffix_MSI_4chan),
+                    img_path_MSI_10chan=osp.join(img_dir_MSI_10chan, img_MSI_10chan + self.img_suffix_MSI_10chan))
+                if ann_dir_MSI_3chan and ann_dir_MSI_4chan and ann_dir_MSI_10chan is not None:
+                    seg_map_MSI_3chan = img_MSI_3chan + self.seg_map_suffix_MSI_3chan
+                    seg_map_MSI_4chan = img_MSI_4chan + self.seg_map_suffix_MSI_4chan
+                    seg_map_MSI_10chan = img_MSI_10chan + self.seg_map_suffix_MSI_10chan
+                    data_info['seg_map_path_MSI_3chan'] = osp.join(ann_dir_MSI_3chan, seg_map_MSI_3chan)
+                    data_info['seg_map_path_MSI_4chan'] = osp.join(ann_dir_MSI_4chan, seg_map_MSI_4chan)
+                    data_info['seg_map_path_MSI_10chan'] = osp.join(ann_dir_MSI_10chan, seg_map_MSI_10chan)
 
                 # import pdb; pdb.set_trace()
                 data_info['label_map'] = self.label_map
                 data_info['reduce_zero_label'] = self.reduce_zero_label
                 data_info['seg_fields'] = []
                 data_list.append(data_info)
-            data_list = sorted(data_list, key=lambda x: x['img_path_MIS_4chan'])
+            data_list = sorted(data_list, key=lambda x: x['img_path_MSI_3chan'])
         return data_list
 
 @DATASETS.register_module()

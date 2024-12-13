@@ -153,8 +153,10 @@ class ATL_3_embedding_PackSegInputs(BaseTransform):
     def __init__(self,
                  meta_keys=('img_path',
                             'seg_map_path', 
+                            'img_path_MIS_3chan', 
                             'img_path_MIS_4chan', 
                             'img_path_MIS_10chan', 
+                            'seg_map_path_MIS_3chan', 
                             'seg_map_path_MIS_4chan', 
                             'seg_map_path_MIS_10chan', 
                             'ori_shape',
@@ -180,7 +182,17 @@ class ATL_3_embedding_PackSegInputs(BaseTransform):
                 sample.
         """
         packed_results = dict()
-        
+
+        if 'img_MSI_3chan' in results:
+            img_MSI_3chan = results['img_MSI_3chan']
+            if len(img_MSI_3chan.shape) < 3:
+                img_MSI_3chan = np.expand_dims(img_MSI_3chan, -1)
+            if not img_MSI_3chan.flags.c_contiguous:
+                img_MSI_3chan = to_tensor(np.ascontiguousarray(img_MSI_3chan.transpose(2, 0, 1)))
+            else:
+                img_MSI_3chan = img_MSI_3chan.transpose(2, 0, 1)
+                img_MSI_3chan = to_tensor(img_MSI_3chan).contiguous()
+
         if 'img_MSI_4chan' in results:
             img_MSI_4chan = results['img_MSI_4chan']
             if len(img_MSI_4chan.shape) < 3:
@@ -201,9 +213,13 @@ class ATL_3_embedding_PackSegInputs(BaseTransform):
                 img_MSI_10chan = img_MSI_10chan.transpose(2, 0, 1)
                 img_MSI_10chan = to_tensor(img_MSI_10chan).contiguous()
 
-        packed_results['inputs']=[img_MSI_4chan, img_MSI_10chan] # 为什么，这个里面，[0][0] [0][1]是四通道的？
+        packed_results['inputs']=[img_MSI_3chan, img_MSI_4chan, img_MSI_10chan] # 为什么，这个里面，[0][0] [0][1]是四通道的？
 
         data_sample = SegDataSample()
+        if 'gt_semantic_seg_MSI_3chan' in results:
+            gt_sem_seg_MSI_3chan_data = dict(data=to_tensor(results['gt_semantic_seg_MSI_3chan'].astype(np.int64)))
+            data_sample.set_data(dict(gt_semantic_seg_MSI_3chan=PixelData(**gt_sem_seg_MSI_3chan_data)))
+        
         if 'gt_semantic_seg_MSI_4chan' in results:
             gt_sem_seg_MSI_4chan_data = dict(data=to_tensor(results['gt_semantic_seg_MSI_4chan'].astype(np.int64)))
             data_sample.set_data(dict(gt_semantic_seg_MSI_4chan=PixelData(**gt_sem_seg_MSI_4chan_data)))
