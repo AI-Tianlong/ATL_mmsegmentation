@@ -22,16 +22,20 @@ class ATL_5B_GF_Google_S2_Dataset_19class_train(Base_3embedding_Dataset):
 
     def __init__(
         self,
+        img_suffix_MSI_3chan='.tif',
         img_suffix_MSI_4chan='.tif',
         img_suffix_MSI_10chan='.tif',
+        seg_map_suffix_MSI_3chan='.tif',
         seg_map_suffix_MSI_4chan='.tif',
         seg_map_suffix_MSI_10chan='.tif',
         reduce_zero_label=True,  # 这里还是要设置为True，因为实际推理出来的结果是 0+24 类，是有reduce_zero_label的
         **kwargs
     ) -> None:  # 所以推理的时候，会加上一个背景类。
         super().__init__(
+            img_suffix_MSI_3chan=img_suffix_MSI_3chan,
             img_suffix_MSI_4chan=img_suffix_MSI_4chan,
             img_suffix_MSI_10chan=img_suffix_MSI_10chan,
+            seg_map_suffix_MSI_3chan=seg_map_suffix_MSI_3chan,
             seg_map_suffix_MSI_4chan=seg_map_suffix_MSI_4chan,
             seg_map_suffix_MSI_10chan=seg_map_suffix_MSI_10chan,
             reduce_zero_label=reduce_zero_label,

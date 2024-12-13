@@ -94,6 +94,14 @@ def multi_embedding_stack_batch(inputs: List[tuple],  # 这里规定输入的inp
             pad_shape = None
 
             # 看ATL_3_packSegInputs的代码，这里是把gt_sem_seg, gt_edge_map, gt_depth_map都pad了
+
+            if 'gt_semantic_seg_MSI_3chan' in data_sample:
+                gt_semantic_seg_MSI_3chan = data_sample.gt_semantic_seg_MSI_3chan.data
+                del data_sample.gt_semantic_seg_MSI_3chan.data
+                data_sample.gt_semantic_seg_MSI_3chan.data = F.pad(
+                    gt_semantic_seg_MSI_3chan, padding_size, value=seg_pad_val)
+                pad_shape = data_sample.gt_semantic_seg_MSI_3chan.shape
+
             if 'gt_semantic_seg_MSI_4chan' in data_sample:
                 gt_semantic_seg_MSI_4chan = data_sample.gt_semantic_seg_MSI_4chan.data
                 del data_sample.gt_semantic_seg_MSI_4chan.data
@@ -121,12 +129,14 @@ def multi_embedding_stack_batch(inputs: List[tuple],  # 这里规定输入的inp
                 img_padding_size=padding_size,
                 pad_shape=pad_img.shape[-2:]))
         
+    batch_padded_inputs_MSI_3chan = torch.stack(padded_inputs[0:batch_size], dim=0)
+    batch_padded_inputs_MSI_4chan = torch.stack(padded_inputs[batch_size:2*batch_size], dim=0)
+    batch_padded_inputs_MSI_10chan = torch.stack(padded_inputs[2*batch_size:], dim=0)
 
-    batch_padded_inputs_MSI_4chan = torch.stack(padded_inputs[0:batch_size], dim=0)
-    batch_padded_inputs_MSI_10chan = torch.stack(padded_inputs[batch_size:], dim=0)
+
+    return [batch_padded_inputs_MSI_3chan, batch_padded_inputs_MSI_4chan, batch_padded_inputs_MSI_10chan], padded_samples
 
 
-    return [batch_padded_inputs_MSI_4chan, batch_padded_inputs_MSI_10chan], padded_samples
 def stack_batch(inputs: List[torch.Tensor],
                 data_samples: Optional[SampleList] = None,
                 size: Optional[tuple] = None,

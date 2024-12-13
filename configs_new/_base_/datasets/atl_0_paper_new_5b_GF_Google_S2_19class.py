@@ -85,9 +85,11 @@ train_dataloader = dict(
         data_root=data_root,
         data_prefix=dict(
             # img_path='img_dir/train/Google_5B_19类_size512', seg_map_path='ann_dir/train/Google_5B_19类_size512'), # 3chan
+            img_path_MSI_3chan='img_dir/train/Google_5B_19类_size512',
             img_path_MSI_4chan='img_dir/train/GF2_5B_19类_size512',         # 4chan GF2
             img_path_MSI_10chan='img_dir/train/S2_5B_19类_包含雪_size512',   # 10chan S2
             
+            seg_map_path_MSI_3chan='ann_dir/train/Google_5B_19类_size512',
             seg_map_path_MSI_4chan='ann_dir/train/GF2_5B_19类_size512',     # 4chan
             seg_map_path_MSI_10chan='ann_dir/train/S2_5B_19类_包含雪_size512'),    # 10chan
             

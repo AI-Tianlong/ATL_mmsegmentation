@@ -650,12 +650,13 @@ class ATL_multi_embedding_LoadAnnotations(MMCV_LoadAnnotations):
         Returns:
             dict: The dict contains loaded semantic segmentation annotations.
         """
-
-        img_bytes_MSI_4chan = fileio.get(
-            results['seg_map_path_MIS_4chan'], backend_args=self.backend_args)
-        img_bytes_MSI_10chan = fileio.get(
-            results['seg_map_path_MIS_10chan'], backend_args=self.backend_args)
+        img_bytes_MSI_3chan = fileio.get(results['seg_map_path_MSI_3chan'], backend_args=self.backend_args)
+        img_bytes_MSI_4chan = fileio.get(results['seg_map_path_MSI_4chan'], backend_args=self.backend_args)
+        img_bytes_MSI_10chan = fileio.get(results['seg_map_path_MSI_10chan'], backend_args=self.backend_args)
  
+        gt_semantic_seg_MSI_3chan = mmcv.imfrombytes(
+            img_bytes_MSI_3chan, flag='unchanged',
+            backend=self.imdecode_backend).squeeze().astype(np.uint8)
         gt_semantic_seg_MSI_4chan = mmcv.imfrombytes(
             img_bytes_MSI_4chan, flag='unchanged',
             backend=self.imdecode_backend).squeeze().astype(np.uint8)
@@ -673,6 +674,10 @@ class ATL_multi_embedding_LoadAnnotations(MMCV_LoadAnnotations):
             f'the `reduce_zero_label` is {self.reduce_zero_label}'
         if self.reduce_zero_label:
             # avoid using underflow conversion
+            gt_semantic_seg_MSI_3chan[gt_semantic_seg_MSI_3chan == 0] = 255
+            gt_semantic_seg_MSI_3chan = gt_semantic_seg_MSI_3chan - 1
+            gt_semantic_seg_MSI_3chan[gt_semantic_seg_MSI_3chan == 254] = 255
+
             gt_semantic_seg_MSI_4chan[gt_semantic_seg_MSI_4chan == 0] = 255
             gt_semantic_seg_MSI_4chan = gt_semantic_seg_MSI_4chan - 1
             gt_semantic_seg_MSI_4chan[gt_semantic_seg_MSI_4chan == 254] = 255
@@ -689,8 +694,10 @@ class ATL_multi_embedding_LoadAnnotations(MMCV_LoadAnnotations):
         #     gt_semantic_seg_copy_ = gt_semantic_seg.copy()
         #     for old_id, new_id in results['label_map'].items():
         #         gt_semantic_seg[gt_semantic_seg_copy == old_id] = new_id
+        results['gt_semantic_seg_MSI_3chan'] = gt_semantic_seg_MSI_3chan
         results['gt_semantic_seg_MSI_4chan'] = gt_semantic_seg_MSI_4chan
         results['gt_semantic_seg_MSI_10chan'] = gt_semantic_seg_MSI_10chan
+        results['seg_fields'].append('gt_semantic_seg_MSI_3chan')
         results['seg_fields'].append('gt_semantic_seg_MSI_4chan')
         results['seg_fields'].append('gt_semantic_seg_MSI_10chan')
 
@@ -740,35 +747,44 @@ class LoadMultiRSImageFromFile_with_data_preproocess(BaseTransform):
             dict: The dict contains loaded image and meta information.
         """
         # print(results)
+        filename_MSI_3chan = results['img_path_MSI_3chan']
+        filename_MSI_4chan = results['img_path_MSI_4chan']
+        filename_MSI_10chan = results['img_path_MSI_10chan']
 
-        filename_MSI_4chan = results['img_path_MIS_4chan']
-        filename_MSI_10chan = results['img_path_MIS_10chan']
+        ds_MSI_3chan = gdal.Open(filename_MSI_3chan)
         ds_MSI_4chan = gdal.Open(filename_MSI_4chan)
         ds_MSI_10chan = gdal.Open(filename_MSI_10chan)
         # img_array = ds.ReadAsArray()
         # print(f'【ATL-LOG-LoadSingleRSImageFromFile】filename:{filename} img_array.shape {img_array.shape}')
+        if ds_MSI_3chan is None:
+            raise Exception(f'Unable to open file: {ds_MSI_3chan}')
         if ds_MSI_4chan is None:
             raise Exception(f'Unable to open file: {ds_MSI_4chan}')
         if ds_MSI_10chan is None:
             raise Exception(f'Unable to open file: {ds_MSI_10chan}')
+        
+        img_MSI_3chan = np.einsum('ijk->jki', ds_MSI_3chan.ReadAsArray())  # (512, 512, 4)
         img_MSI_4chan = np.einsum('ijk->jki', ds_MSI_4chan.ReadAsArray())  # (512, 512, 4)
         img_MSI_10chan = np.einsum('ijk->jki', ds_MSI_10chan.ReadAsArray()) # (512, 512, 10)
 
         if self.to_float32:
+            img_MSI_3chan = img_MSI_3chan.astype(np.float32)
             img_MSI_4chan = img_MSI_4chan.astype(np.float32)
             img_MSI_10chan = img_MSI_10chan.astype(np.float32)
 
-
+        img_MSI_3chan = np.nan_to_num(img_MSI_3chan, nan=0)
         img_MSI_4chan = np.nan_to_num(img_MSI_4chan, nan=0)
         img_MSI_10chan = np.nan_to_num(img_MSI_10chan, nan=0)
 
 
         if self.normalization:
-            RGB_3chan_mean = [123.675, 116.28, 103.53]
-            RGB_3chan_std = [58.395, 57.12, 57.375]
+            MSI_3chan_mean = [123.675, 116.28, 103.53]
+            MSI_3chan_std = [58.395, 57.12, 57.375]
             MSI_4chan_mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428]
             MSI_4chan_std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602]
 
+            if img_MSI_3chan.shape[2] == 3:
+                img_MSI_3chan= (img_MSI_3chan- MSI_3chan_mean) / MSI_3chan_std
 
             if img_MSI_4chan.shape[2] == 4:
                 img_MSI_4chan= (img_MSI_4chan- MSI_4chan_mean) / MSI_4chan_std
@@ -776,7 +792,7 @@ class LoadMultiRSImageFromFile_with_data_preproocess(BaseTransform):
             if img_MSI_10chan.shape[2] == 10:
                 img_MSI_10chan = img_MSI_10chan # S2 MSI 10通道的图像不需要归一化
 
-
+        results['img_MSI_3chan'] = img_MSI_3chan
         results['img_MSI_4chan'] = img_MSI_4chan
         results['img_MSI_10chan'] = img_MSI_10chan
         results['img_shape'] = img_MSI_4chan.shape[:2]
