@@ -12,7 +12,7 @@ env_cfg = dict(
 )
 vis_backends = [dict(type=LocalVisBackend)]
 visualizer = dict(
-    type=SegLocalVisualizer, vis_backends=vis_backends, name='visualizer', with_labels=False)
+    type=SegLocalVisualizer, vis_backends=vis_backends, name='visualizer')
 log_processor = dict(by_epoch=False)
 log_level = 'INFO'
 load_from = None
