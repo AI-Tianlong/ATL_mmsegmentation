@@ -23,17 +23,17 @@ from mmseg.datasets.atl_0_paper_new_5b_GF_Google_S2_19class import (ATL_5B_GF_Go
 dataset_type_train = ATL_5B_GF_Google_S2_Dataset_19class_train
 dataset_type_test = ATL_5B_GF_Google_S2_Dataset_19class_test
 
-data_root = 'data/1-paper-segmentation/2-多领域地物覆盖基础/0-seg-裁切好的训练图像_S2_GF2_Google_size512'
+data_root = 'data/0-atl-paper-s2/2-多领域地物覆盖基础/0-seg-裁切好的训练图像_S2_GF2_Google_size512'
 
 crop_size = (512, 512)
 train_pipeline = [
     dict(type=LoadMultiRSImageFromFile_with_data_preproocess),
     dict(type=ATL_multi_embedding_LoadAnnotations),
-    # dict(
-    #     type=RandomResize,
-    #     scale=crop_size,
-    #     ratio_range=(0.5, 2.0),
-    #     keep_ratio=True),
+    dict(
+        type=RandomResize,
+        scale=crop_size,
+        ratio_range=(0.5, 2.0),
+        keep_ratio=True),
     # dict(type=RandomCrop, crop_size=crop_size, cat_max_ratio=0.75),
     # dict(type=RandomFlip, prob=0.5),
     # # dict(type=PhotoMetricDistortion), # 多通道 不太能用这个, 就全不用了
@@ -77,7 +77,7 @@ tta_pipeline = [
 
 train_dataloader = dict(
     batch_size=2,
-    num_workers=4,
+    num_workers=12,
     persistent_workers=True,
     sampler=dict(type=InfiniteSampler, shuffle=True),
     dataset=dict(
