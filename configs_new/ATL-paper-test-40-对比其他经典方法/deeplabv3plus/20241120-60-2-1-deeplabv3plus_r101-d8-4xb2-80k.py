@@ -24,11 +24,9 @@ from torch.nn.modules.normalization import GroupNorm as GN
 
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
-from mmseg.models.segmentors.atl_encoder_decoder_hyp import EncoderDecoder_hyp
 
 from mmseg.models.backbones.resnet import ResNetV1c
 from mmseg.models.decode_heads.sep_aspp_head import DepthwiseSeparableASPPHead
-from mmseg.models.decode_heads.atl_sep_aspp_head_hyp import DepthwiseSeparableASPPHead_hyp
 from mmseg.models.decode_heads.fcn_head import FCNHead
  
 from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
@@ -56,7 +54,7 @@ data_preprocessor = dict(
     seg_pad_val=255,
     size=crop_size)
 model = dict(
-    type=EncoderDecoder_hyp,
+    type=EncoderDecoder,
     data_preprocessor=data_preprocessor,
     pretrained='/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/2-对比实验的权重/deeplabv3plus/resnet101_v1c-10channel_BGR.pth',
     backbone=dict(
@@ -72,8 +70,7 @@ model = dict(
         style='pytorch',
         contract_dilation=True),
     decode_head=dict(
-        type=DepthwiseSeparableASPPHead_hyp,
-        hyperbolic = True,
+        type=DepthwiseSeparableASPPHead,
         in_channels=2048,
         in_index=3,
         channels=512,
@@ -126,9 +123,3 @@ test_evaluator = dict(
     iou_metrics=['mIoU', 'mFscore'],
     # format_only=True,
     keep_results=True)
-
-
-
-train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=1000)
-default_hooks.update(dict(
-    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=2000, max_keep_ckpts=10)))

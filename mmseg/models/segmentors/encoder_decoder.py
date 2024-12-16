@@ -173,7 +173,7 @@ class EncoderDecoder(BaseSegmentor):
             dict[str, Tensor]: a dictionary of loss components
         """
 
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         x = self.extract_feat(inputs)  
 
         losses = dict()

@@ -187,8 +187,10 @@ class DepthwiseSeparableASPPHead_hyp(ASPPHead):
             dict[str, Tensor]: a dictionary of loss components
         """
         curvature = torch.tensor(1.0)
-        self.embedding_space = self.init_embedding_space(offsets, normals, curvature)  #
-        seg_logits = self.forward(inputs=inputs, offsets=offsets, normals=normals)  # [2,40,128,128]
+        self.embedding_space = self.init_embedding_space(offsets, normals, curvature)  # self.embedding_space是一个EmbeddingSpace对象,也没用啊？
+        # import pdb;pdb.set_trace()
+
+        seg_logits = self.forward(inputs=inputs, offsets=offsets, normals=normals)  # [2,19,128,128]
         losses = self.loss_by_feat(seg_logits, batch_data_samples)
         return losses
     
@@ -211,8 +213,39 @@ class DepthwiseSeparableASPPHead_hyp(ASPPHead):
         Returns:
             Tensor: Outputs segmentation logits map.
         """
-        curvature = torch.tensor(1.0)
-        self.embedding_space = self.init_embedding_space(offsets, normals, curvature)  #
+        curvature = torch.tensor(1.0)  # self.embedding_space.run_log_torch(out_proj, offsets, normals, 1.0) forward里要用到
+        self.embedding_space = self.init_embedding_space(offsets, normals, curvature)  # 更新base_decode的 头啊？
+
+        # import pdb;pdb.set_trace()
         seg_logits = self.forward(inputs, offsets, normals)  # 过decode_head的forward--->[2,40,128,128]
 
+        # 或许 问题发生在这里啊？ 看看 那个的后处理是怎么做的。
         return self.predict_by_feat(seg_logits, batch_img_metas)   # [2,40,512,512]
+
+    def predict_by_feat(self, seg_logits: Tensor,
+                        batch_img_metas: List[dict]) -> Tensor:
+        """Transform a batch of output seg_logits to the input shape.  # 缩放！
+
+        Args:
+            seg_logits (Tensor): The output from decode head forward function.
+            batch_img_metas (list[dict]): Meta information of each image, e.g.,
+                image size, scaling factor, etc.
+
+        Returns:
+            Tensor: Outputs segmentation logits map.
+        """
+
+        if isinstance(batch_img_metas[0]['img_shape'], torch.Size):
+            # slide inference
+            size = batch_img_metas[0]['img_shape']
+        elif 'pad_shape' in batch_img_metas[0]:
+            size = batch_img_metas[0]['pad_shape'][:2]
+        else:
+            size = batch_img_metas[0]['img_shape']
+
+        seg_logits = resize(
+            input=seg_logits,
+            size=size,
+            mode='bilinear',
+            align_corners=self.align_corners)
+        return seg_logits  # 只是简单的 上采样成2倍啊

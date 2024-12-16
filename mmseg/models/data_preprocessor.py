@@ -106,7 +106,7 @@ class SegDataPreProcessor(BaseDataPreprocessor):
         Returns:
             Dict: Data in the same format as the model input.
         """
-        import pdb;pdb.set_trace()   # 到了这步之后，然后按s进去调试
+        # import pdb;pdb.set_trace()   # 到了这步之后，然后按s进去调试
         data = self.cast_data(data)  # type: ignore
         inputs = data['inputs'] # 这里是两个图像的，我如果是四张图的话，应该就是四个矢量。然后拼batch的话，是相同维度的去拼。
         data_samples = data.get('data_samples', None)

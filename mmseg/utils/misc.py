@@ -51,7 +51,7 @@ def stack_batch(inputs: List[torch.Tensor],
        List[:obj:`SegDataSample`]: After the padding of the gt_seg_map.
     """
 
-    import pdb; pdb.set_trace()
+    # import pdb; pdb.set_trace()
     assert isinstance(inputs, list), \
         f'Expected input type to be list, but got {type(inputs)}'
     assert len({tensor.ndim for tensor in inputs}) == 1, \
