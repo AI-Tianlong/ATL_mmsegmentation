@@ -19,6 +19,11 @@ from mmseg.datasets.transforms.loading import (LoadSingleRSImageFromFile,
 from mmseg.datasets.atl_0_paper_new_5b_GF_Google_S2_19class import (ATL_5B_GF_Google_S2_Dataset_19class_train, 
                                                                     ATL_5B_GF_Google_S2_Dataset_19class_test)
 
+
+from mmcv.transforms import (LoadImageFromFile, RandomChoice,
+                             RandomChoiceResize, RandomFlip)
+from mmseg.datasets.transforms import (RandomCrop, ResizeShortestEdge)
+
 # dataset settings
 dataset_type_train = ATL_5B_GF_Google_S2_Dataset_19class_train
 dataset_type_test = ATL_5B_GF_Google_S2_Dataset_19class_test
@@ -26,16 +31,22 @@ dataset_type_test = ATL_5B_GF_Google_S2_Dataset_19class_test
 data_root = 'data/1-paper-segmentation/2-多领域地物覆盖基础/0-seg-裁切好的训练图像_S2_GF2_Google_size512'
 
 crop_size = (512, 512)
+albu_train_transforms = [
+    dict(type='HorizontalFlip', p=0.5),
+    dict(type='VerticalFlip', p=0.5)
+]
+
+
 train_pipeline = [
     dict(type=LoadMultiRSImageFromFile_with_data_preproocess),
     dict(type=ATL_multi_embedding_LoadAnnotations),
-    # dict(
-    #     type=RandomResize,
-    #     scale=crop_size,
-    #     ratio_range=(0.5, 2.0),
-    #     keep_ratio=True),
-    # dict(type=RandomCrop, crop_size=crop_size, cat_max_ratio=0.75),
-    # dict(type=RandomFlip, prob=0.5),
+    dict(
+        type=RandomChoiceResize,
+        scales=[int(x * 0.1 * 512) for x in range(5, 21)],
+        resize_type=ResizeShortestEdge,
+        max_size=2048),
+    dict(type=RandomCrop, crop_size=crop_size, cat_max_ratio=0.75),
+    dict(type=RandomFlip, prob=0.5),
     # # dict(type=PhotoMetricDistortion), # 多通道 不太能用这个, 就全不用了
     dict(type=ATL_3_embedding_PackSegInputs)
 ]
