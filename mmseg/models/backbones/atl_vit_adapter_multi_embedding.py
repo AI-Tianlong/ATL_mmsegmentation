@@ -927,7 +927,7 @@ class ViTAdapter_multi_embedding(atl_multi_embedding_VisionTransformer):
 
         # import pdb;pdb.set_trace()
         # SPM forward
-
+        # multi_embedding，去过不同的spm
         if x.shape[1] == 3:
             c1, c2, c3, c4 = self.spm_RGB_3chan(x) # [2,1024,128,128] # [2,4096,1024] [2,1024,1024] [2,256,1024]
         elif x.shape[1] == 4:
@@ -940,7 +940,7 @@ class ViTAdapter_multi_embedding(atl_multi_embedding_VisionTransformer):
         # import pdb;pdb.set_trace()
         # Patch Embedding forward #一个512*512的图，打成1024个1024维度的patch，一个patch有16*16*10=2560个像素
         
-        # 调用的是VisionTransformer的patch_embed,座椅这里也要改！！！ 我应该先用最基础的ViT，然后再用这个ViT-Adapter
+        # 调用的是VisionTransformer的patch_embed,所以这里也要改！！！ 我应该先用最基础的ViT，然后再用这个ViT-Adapter
         if x.shape[1] == 3:
             x, out_size = self.patch_embed_RGB_3chan(x)
         elif x.shape[1] == 4:

@@ -701,6 +701,7 @@ class ATL_multi_embedding_LoadAnnotations(MMCV_LoadAnnotations):
         results['seg_fields'].append('gt_semantic_seg_MSI_4chan')
         results['seg_fields'].append('gt_semantic_seg_MSI_10chan')
 
+
     def __repr__(self) -> str:
         repr_str = self.__class__.__name__
         repr_str += f'(reduce_zero_label={self.reduce_zero_label}, '
@@ -867,9 +868,10 @@ class LoadSingleRSImageFromFile_with_data_preproocess(BaseTransform):
             MSI_4chan_std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602]
 
 
+            if img.shape[2] == 3:
+                img= (img- RGB_3chan_mean) / RGB_3chan_std
             if img.shape[2] == 4:
                 img= (img- MSI_4chan_mean) / MSI_4chan_std
-           
             if img.shape[2] == 10:
                 img = img # S2 MSI 10通道的图像不需要归一化
 

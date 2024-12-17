@@ -271,6 +271,7 @@ class Base_3embedding_Dataset(BaseDataset):
         img_dir_MSI_3chan = self.data_prefix.get('img_path_MSI_3chan', None)
         img_dir_MSI_4chan = self.data_prefix.get('img_path_MSI_4chan', None)
         img_dir_MSI_10chan = self.data_prefix.get('img_path_MSI_10chan', None)
+        
         ann_dir_MSI_3chan = self.data_prefix.get('seg_map_path_MSI_3chan', None)
         ann_dir_MSI_4chan = self.data_prefix.get('seg_map_path_MSI_4chan', None)
         ann_dir_MSI_10chan = self.data_prefix.get('seg_map_path_MSI_10chan', None)
