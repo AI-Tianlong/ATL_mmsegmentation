@@ -2,7 +2,7 @@
 import copy
 import inspect
 import warnings
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union, Iterable
 
 import cv2
 import mmcv
@@ -10,6 +10,7 @@ import mmengine
 import numpy as np
 from mmcv.transforms import RandomFlip as MMCV_RandomFlip
 from mmcv.transforms import Resize as MMCV_Resize
+from mmcv.image.geometric import _scale_size
 from mmcv.transforms.base import BaseTransform
 from mmcv.transforms.utils import cache_randomness
 from mmengine.utils import is_tuple_of
@@ -30,8 +31,308 @@ except ImportError:
 
 # =================================================== ATL Transform ===================================================
 # modify by open-cd: https://github.com/likyoo/open-cd.git
+
 @TRANSFORMS.register_module()
-class MultiImgRandomCrop(BaseTransform):
+class MultiImg_MultiAnn_Resize(BaseTransform):
+    """Resize images & seg & depth map.
+
+    This transform resizes the input image according to ``scale`` or
+    ``scale_factor``. Seg map, depth map and other relative annotations are
+    then resized with the same scale factor.
+    if ``scale`` and ``scale_factor`` are both set, it will use ``scale`` to
+    resize.
+
+    Required Keys:
+
+    - img_MSI_3chan
+    - img_MSI_4chan
+    - img_MSI_10chan
+    - gt_seg_map_MSI_3chan
+    - gt_seg_map_MSI_4chan
+    - gt_seg_map_MSI_10chan
+
+    Modified Keys:
+
+    - img_MSI_3chan
+    - img_MSI_4chan
+    - img_MSI_10chan
+    - gt_seg_map_MSI_3chan
+    - gt_seg_map_MSI_4chan
+    - gt_seg_map_MSI_10chan
+
+    Added Keys:
+
+    - scale
+    - scale_factor
+    - keep_ratio
+
+    Args:
+        scale (int or tuple): Images scales for resizing. Defaults to None
+        scale_factor (float or tuple[float]): Scale factors for resizing.
+            Defaults to None.
+        keep_ratio (bool): Whether to keep the aspect ratio when resizing the
+            image. Defaults to False.
+        clip_object_border (bool): Whether to clip the objects
+            outside the border of the image. In some dataset like MOT17, the gt
+            bboxes are allowed to cross the border of images. Therefore, we
+            don't need to clip the gt bboxes in these cases. Defaults to True.
+        backend (str): Image resize backend, choices are 'cv2' and 'pillow'.
+            These two backends generates slightly different results. Defaults
+            to 'cv2'.
+        interpolation (str): Interpolation method, accepted values are
+            "nearest", "bilinear", "bicubic", "area", "lanczos" for 'cv2'
+            backend, "nearest", "bilinear" for 'pillow' backend. Defaults
+            to 'bilinear'.
+    """
+    def __init__(self,
+                 scale: Optional[Union[int, Tuple[int, int]]] = None,
+                 scale_factor: Optional[Union[float, Tuple[float,
+                                                           float]]] = None,
+                 keep_ratio: bool = False,
+                 clip_object_border: bool = True,
+                 backend: str = 'cv2',
+                 interpolation='bilinear') -> None:
+        assert scale is not None or scale_factor is not None, (
+            '`scale` and'
+            '`scale_factor` can not both be `None`')
+        if scale is None:
+            self.scale = None
+        else:
+            if isinstance(scale, int):
+                self.scale = (scale, scale)
+            else:
+                self.scale = scale
+
+        self.backend = backend
+        self.interpolation = interpolation
+        self.keep_ratio = keep_ratio
+        self.clip_object_border = clip_object_border
+        if scale_factor is None:
+            self.scale_factor = None
+        elif isinstance(scale_factor, float):
+            self.scale_factor = (scale_factor, scale_factor)
+        elif isinstance(scale_factor, tuple):
+            assert (len(scale_factor)) == 2
+            self.scale_factor = scale_factor
+        else:
+            raise TypeError(
+                f'expect scale_factor is float or Tuple(float), but'
+                f'get {type(scale_factor)}')
+
+    def _resize_img(self, results: dict) -> None:
+        """Resize images with ``results['scale']``."""
+
+        if results.get('img_MSI_3chan', None) is not None:
+            if self.keep_ratio:
+                img, scale_factor = mmcv.imrescale(
+                    results['img_MSI_3chan'],
+                    results['scale'],
+                    interpolation=self.interpolation,
+                    return_scale=True,
+                    backend=self.backend)
+                # the w_scale and h_scale has minor difference
+                # a real fix should be done in the mmcv.imrescale in the future
+                new_h, new_w = img.shape[:2]
+                h, w = results['img_MSI_3chan'].shape[:2]
+                w_scale = new_w / w
+                h_scale = new_h / h
+            else:
+                pass
+                img, w_scale, h_scale = mmcv.imresize(
+                    results['img_MSI_3chan'],
+                    results['scale'],
+                    interpolation=self.interpolation,
+                    return_scale=True,
+                    backend=self.backend)
+            results['img_MSI_3chan'] = img
+            results['img_shape'] = img.shape[:2]
+            results['scale_factor'] = (w_scale, h_scale)
+            results['keep_ratio'] = self.keep_ratio
+
+        if results.get('img_MSI_4chan', None) is not None:
+            if self.keep_ratio:
+                img, scale_factor = mmcv.imrescale(
+                    results['img_MSI_4chan'],
+                    results['scale'],
+                    interpolation=self.interpolation,
+                    return_scale=True,
+                    backend=self.backend)
+                # the w_scale and h_scale has minor difference
+                # a real fix should be done in the mmcv.imrescale in the future
+                new_h, new_w = img.shape[:2]
+                h, w = results['img_MSI_4chan'].shape[:2]
+                w_scale = new_w / w
+                h_scale = new_h / h
+            else:
+                pass
+                img, w_scale, h_scale = mmcv.imresize(
+                    results['img_MSI_4chan'],
+                    results['scale'],
+                    interpolation=self.interpolation,
+                    return_scale=True,
+                    backend=self.backend)
+            results['img_MSI_4chan'] = img
+            results['img_shape'] = img.shape[:2]
+            results['scale_factor'] = (w_scale, h_scale)
+            results['keep_ratio'] = self.keep_ratio
+
+                
+        if results.get('img_MSI_10chan', None) is not None:
+            if self.keep_ratio:
+                img, scale_factor = mmcv.imrescale(
+                    results['img_MSI_10chan'],
+                    results['scale'],
+                    interpolation=self.interpolation,
+                    return_scale=True,
+                    backend=self.backend)
+                # the w_scale and h_scale has minor difference
+                # a real fix should be done in the mmcv.imrescale in the future
+                new_h, new_w = img.shape[:2]
+                h, w = results['img_MSI_10chan'].shape[:2]
+                w_scale = new_w / w
+                h_scale = new_h / h
+            else:
+                pass
+                img, w_scale, h_scale = mmcv.imresize(
+                    results['img_MSI_10chan'],
+                    results['scale'],
+                    interpolation=self.interpolation,
+                    return_scale=True,
+                    backend=self.backend)
+
+            results['img_MSI_10chan'] = img
+            results['img_shape'] = img.shape[:2]
+            results['scale_factor'] = (w_scale, h_scale)
+            results['keep_ratio'] = self.keep_ratio
+
+    def _resize_seg(self, results: dict) -> None:
+        """Resize semantic segmentation map with ``results['scale']``."""
+        for seg_key in results.get('seg_fields', []):
+            if results.get(seg_key, None) is not None:
+                if self.keep_ratio:
+                    gt_seg = mmcv.imrescale(
+                        results[seg_key],
+                        results['scale'],
+                        interpolation='nearest',
+                        backend=self.backend)
+                else:
+                    gt_seg = mmcv.imresize(
+                        results[seg_key],
+                        results['scale'],
+                        interpolation='nearest',
+                        backend=self.backend)
+                results[seg_key] = gt_seg
+
+    def transform(self, results: dict) -> dict:
+        """Transform function to resize images, bounding boxes, semantic
+        segmentation map and keypoints.
+
+        Args:
+            results (dict): Result dict from loading pipeline.
+        Returns:
+            dict: Resized results, 'img', 'gt_bboxes', 'gt_seg_map',
+            'gt_keypoints', 'scale', 'scale_factor', 'img_shape',
+            and 'keep_ratio' keys are updated in result dict.
+        """
+
+        if self.scale:
+            results['scale'] = self.scale
+        else:
+            img_shape = results['img_MSI_4chan'].shape[:2]
+            results['scale'] = _scale_size(img_shape[::-1],
+                                           self.scale_factor)  # type: ignore
+        self._resize_img(results)
+        self._resize_seg(results)
+        return results
+
+
+
+@TRANSFORMS.register_module()
+class MultiImg_MultiAnn_ResizeShortestEdge(BaseTransform):
+    """Resize the image and mask while keeping the aspect ratio unchanged.
+
+    Modified from https://github.com/facebookresearch/detectron2/blob/main/detectron2/data/transforms/augmentation_impl.py#L130 # noqa:E501
+    Copyright (c) Facebook, Inc. and its affiliates.
+    Licensed under the Apache-2.0 License
+
+    This transform attempts to scale the shorter edge to the given
+    `scale`, as long as the longer edge does not exceed `max_size`.
+    If `max_size` is reached, then downscale so that the longer
+    edge does not exceed `max_size`.
+
+    Required Keys:
+
+    - img
+    - gt_seg_map (optional)
+
+    Modified Keys:
+
+    - img
+    - img_shape
+    - gt_seg_map (optional))
+
+    Added Keys:
+
+    - scale
+    - scale_factor
+    - keep_ratio
+
+
+    Args:
+        scale (Union[int, Tuple[int, int]]): The target short edge length.
+            If it's tuple, will select the min value as the short edge length.
+        max_size (int): The maximum allowed longest edge length.
+    """
+
+    def __init__(self, scale: Union[int, Tuple[int, int]],
+                 max_size: int) -> None:
+        super().__init__()
+        self.scale = scale
+        self.max_size = max_size
+
+        # Create a empty Resize object
+        self.resize = TRANSFORMS.build({
+            'type': 'MultiImg_MultiAnn_Resize',
+            'scale': 0,
+            'keep_ratio': True
+        })
+
+    def _get_output_shape(self, img, short_edge_length) -> Tuple[int, int]:
+        """Compute the target image shape with the given `short_edge_length`.
+
+        Args:
+            img (np.ndarray): The input image.
+            short_edge_length (Union[int, Tuple[int, int]]): The target short
+                edge length. If it's tuple, will select the min value as the
+                short edge length.
+        """
+        h, w = img.shape[:2]
+        if isinstance(short_edge_length, int):
+            size = short_edge_length * 1.0
+        elif isinstance(short_edge_length, tuple):
+            size = min(short_edge_length) * 1.0
+        scale = size / min(h, w)
+        if h < w:
+            new_h, new_w = size, scale * w
+        else:
+            new_h, new_w = scale * h, size
+
+        if max(new_h, new_w) > self.max_size:
+            scale = self.max_size * 1.0 / max(new_h, new_w)
+            new_h *= scale
+            new_w *= scale
+
+        new_h = int(new_h + 0.5)
+        new_w = int(new_w + 0.5)
+        return (new_w, new_h)
+
+    def transform(self, results: Dict) -> Dict:
+        self.resize.scale = self._get_output_shape(results['img_MSI_4chan'], self.scale)
+        return self.resize(results)
+
+
+@TRANSFORMS.register_module()
+class MultiImg_MultiAnn_RandomCrop(BaseTransform):
     """Random crop the image & seg.
 
     Required Keys:
@@ -110,14 +411,16 @@ class MultiImgRandomCrop(BaseTransform):
             crop_y1, crop_y2 = offset_h, offset_h + self.crop_size[0]
             crop_x1, crop_x2 = offset_w, offset_w + self.crop_size[1]
 
+            # print(crop_y1, crop_y2, crop_x1, crop_x2)
             return crop_y1, crop_y2, crop_x1, crop_x2
 
-        img = results['img'][0]
-        crop_bbox = generate_crop_bbox(img)
-        if self.cat_max_ratio < 1.:
+        img = results['img_MSI_4chan']  # [512,512,4] 
+        # import pdb;pdb.set_trace()
+        crop_bbox = generate_crop_bbox(img)  #  
+        if self.cat_max_ratio < 1.:  # 确保crop之后的图像中，每个类别的比例不超过cat_max_ratio,即要包含多个类别
             # Repeat 10 times
             for _ in range(10):
-                seg_temp = self.crop(results['gt_seg_map'], crop_bbox)
+                seg_temp = self.crop(results['gt_semantic_seg_MSI_4chan'], crop_bbox)
                 labels, cnt = np.unique(seg_temp, return_counts=True)
                 cnt = cnt[labels != self.ignore_index]
                 if len(cnt) > 1 and np.max(cnt) / np.sum(
@@ -139,7 +442,7 @@ class MultiImgRandomCrop(BaseTransform):
         """
 
         crop_y1, crop_y2, crop_x1, crop_x2 = crop_bbox
-        img = img[crop_y1:crop_y2, crop_x1:crop_x2, ...]
+        img = img[crop_y1:crop_y2, crop_x1:crop_x2, ...]  # crop之后的图像
         return img
 
     def transform(self, results: dict) -> dict:
@@ -157,18 +460,300 @@ class MultiImgRandomCrop(BaseTransform):
         crop_bbox = self.crop_bbox(results)
 
         # crop the image
-        imgs = [self.crop(img, crop_bbox) for img in results['img']]
+        results['img_MSI_3chan'] = self.crop(results['img_MSI_3chan'], crop_bbox)
+        results['img_MSI_4chan'] = self.crop(results['img_MSI_4chan'], crop_bbox)
+        results['img_MSI_10chan'] = self.crop(results['img_MSI_10chan'], crop_bbox)
 
         # crop semantic seg
         for key in results.get('seg_fields', []):
             results[key] = self.crop(results[key], crop_bbox)
 
-        results['img'] = imgs
-        results['img_shape'] = imgs[0].shape
+        # print(f"MultiImg_MultiAnn_RandomCrop")
+        # print(f"results['img_MSI_3chan'].shape {results['img_MSI_3chan'].shape}")
+        # print(f"results['gt_semantic_seg_MSI_3chan'].shape {results['gt_semantic_seg_MSI_3chan'].shape}")
+
+
+        # print(f"results['img_MSI_4chan'].shape {results['img_MSI_4chan'].shape}")
+        # print(f"results['gt_semantic_seg_MSI_4chan'].shape {results['gt_semantic_seg_MSI_4chan'].shape}")
+
+        # print(f"results['img_MSI_10chan'].shape {results['img_MSI_10chan'].shape}")
+        # print(f"results['gt_semantic_seg_MSI_10chan'].shape {results['gt_semantic_seg_MSI_10chan'].shape}")
+
+        # new_gt_seg_map_MSI_3chan = self.crop(results['gt_seg_map_MSI_3chan'], crop_bbox)
+        # new_gt_seg_map_MSI_4chan = self.crop(results['gt_seg_map_MSI_4chan'], crop_bbox)
+        # new_gt_seg_map_MSI_10chan = self.crop(results['gt_seg_map_MSI_10chan'], crop_bbox)
+        # results['gt_seg_map_MSI_3chan'] = new_gt_seg_map_MSI_3chan
+        # results['gt_seg_map_MSI_4chan'] = new_gt_seg_map_MSI_4chan
+        # results['gt_seg_map_MSI_10chan'] = new_gt_seg_map_MSI_10chan
+
+        results['img_shape'] = results['img_MSI_4chan'].shape
         return results
 
     def __repr__(self):
         return self.__class__.__name__ + f'(crop_size={self.crop_size})'
+
+@TRANSFORMS.register_module()
+class MultiImg_MultiAnn_RandomFlip(BaseTransform):
+    """Flip the image & bbox & keypoints & segmentation map. Added or Updated
+    keys: flip, flip_direction, img, gt_bboxes, gt_seg_map, and
+    gt_keypoints. There are 3 flip modes:
+
+    - ``prob`` is float, ``direction`` is string: the image will be
+      ``direction``ly flipped with probability of ``prob`` .
+      E.g., ``prob=0.5``, ``direction='horizontal'``,
+      then image will be horizontally flipped with probability of 0.5.
+
+    - ``prob`` is float, ``direction`` is list of string: the image will
+      be ``direction[i]``ly flipped with probability of
+      ``prob/len(direction)``.
+      E.g., ``prob=0.5``, ``direction=['horizontal', 'vertical']``,
+      then image will be horizontally flipped with probability of 0.25,
+      vertically with probability of 0.25.
+
+    - ``prob`` is list of float, ``direction`` is list of string:
+      given ``len(prob) == len(direction)``, the image will
+      be ``direction[i]``ly flipped with probability of ``prob[i]``.
+      E.g., ``prob=[0.3, 0.5]``, ``direction=['horizontal',
+      'vertical']``, then image will be horizontally flipped with
+      probability of 0.3, vertically with probability of 0.5.
+
+    Required Keys:
+    - img_MSI_3chan
+    - img_MSI_4chan
+    - img_MSI_10chan
+    - gt_seg_map_MSI_3chan
+    - gt_seg_map_MSI_4chan
+    - gt_seg_map_MSI_10chan
+
+    Modified Keys:
+
+    - img_MSI_3chan
+    - img_MSI_4chan
+    - img_MSI_10chan
+    - gt_seg_map_MSI_3chan
+    - gt_seg_map_MSI_4chan
+    - gt_seg_map_MSI_10chan
+
+    Added Keys:
+
+    - flip
+    - flip_direction
+    - swap_seg_labels (optional)
+
+    Args:
+        prob (float | list[float], optional): The flipping probability.
+            Defaults to None.
+        direction(str | list[str]): The flipping direction. Options
+            If input is a list, the length must equal ``prob``. Each
+            element in ``prob`` indicates the flip probability of
+            corresponding direction. Defaults to 'horizontal'.
+        swap_seg_labels (list, optional): The label pair need to be swapped
+            for ground truth, like 'left arm' and 'right arm' need to be
+            swapped after horizontal flipping. For example, ``[(1, 5)]``,
+            where 1/5 is the label of the left/right arm. Defaults to None.
+    """
+
+    def __init__(self,
+                 prob: Optional[Union[float, Iterable[float]]] = None,
+                 direction: Union[str, Sequence[Optional[str]]] = 'horizontal',
+                 swap_seg_labels: Optional[Sequence] = None) -> None:
+        if isinstance(prob, list):
+            assert mmengine.is_list_of(prob, float)
+            assert 0 <= sum(prob) <= 1
+        elif isinstance(prob, float):
+            assert 0 <= prob <= 1
+        else:
+            raise ValueError(f'probs must be float or list of float, but \
+                              got `{type(prob)}`.')
+        self.prob = prob
+        self.swap_seg_labels = swap_seg_labels
+
+        valid_directions = ['horizontal', 'vertical', 'diagonal']
+        if isinstance(direction, str):
+            assert direction in valid_directions
+        elif isinstance(direction, list):
+            assert mmengine.is_list_of(direction, str)
+            assert set(direction).issubset(set(valid_directions))
+        else:
+            raise ValueError(f'direction must be either str or list of str, \
+                               but got `{type(direction)}`.')
+        self.direction = direction
+
+        if isinstance(prob, list):
+            assert len(prob) == len(self.direction)
+
+    def _flip_bbox(self, bboxes: np.ndarray, 
+                   img_shape: Tuple[int, int],
+                   direction: str) -> np.ndarray:
+        """Flip bboxes horizontally.
+
+        Args:
+            bboxes (numpy.ndarray): Bounding boxes, shape (..., 4*k)
+            img_shape (tuple[int]): Image shape (height, width)
+            direction (str): Flip direction. Options are 'horizontal',
+                'vertical', and 'diagonal'.
+
+        Returns:
+            numpy.ndarray: Flipped bounding boxes.
+        """
+        assert bboxes.shape[-1] % 4 == 0
+        flipped = bboxes.copy()
+        h, w = img_shape
+        if direction == 'horizontal':
+            flipped[..., 0::4] = w - bboxes[..., 2::4]
+            flipped[..., 2::4] = w - bboxes[..., 0::4]
+        elif direction == 'vertical':
+            flipped[..., 1::4] = h - bboxes[..., 3::4]
+            flipped[..., 3::4] = h - bboxes[..., 1::4]
+        elif direction == 'diagonal':
+            flipped[..., 0::4] = w - bboxes[..., 2::4]
+            flipped[..., 1::4] = h - bboxes[..., 3::4]
+            flipped[..., 2::4] = w - bboxes[..., 0::4]
+            flipped[..., 3::4] = h - bboxes[..., 1::4]
+        else:
+            raise ValueError(
+                f"Flipping direction must be 'horizontal', 'vertical', \
+                  or 'diagonal', but got '{direction}'")
+        return flipped
+
+    def _flip_keypoints(
+        self,
+        keypoints: np.ndarray,
+        img_shape: Tuple[int, int],
+        direction: str,
+    ) -> np.ndarray:
+        """Flip keypoints horizontally, vertically or diagonally.
+
+        Args:
+            keypoints (numpy.ndarray): Keypoints, shape (..., 2)
+            img_shape (tuple[int]): Image shape (height, width)
+            direction (str): Flip direction. Options are 'horizontal',
+                'vertical', and 'diagonal'.
+
+        Returns:
+            numpy.ndarray: Flipped keypoints.
+        """
+
+        meta_info = keypoints[..., 2:]
+        keypoints = keypoints[..., :2]
+        flipped = keypoints.copy()
+        h, w = img_shape
+        if direction == 'horizontal':
+            flipped[..., 0::2] = w - keypoints[..., 0::2]
+        elif direction == 'vertical':
+            flipped[..., 1::2] = h - keypoints[..., 1::2]
+        elif direction == 'diagonal':
+            flipped[..., 0::2] = w - keypoints[..., 0::2]
+            flipped[..., 1::2] = h - keypoints[..., 1::2]
+        else:
+            raise ValueError(
+                f"Flipping direction must be 'horizontal', 'vertical', \
+                  or 'diagonal', but got '{direction}'")
+        flipped = np.concatenate([flipped, meta_info], axis=-1)
+        return flipped
+
+    def _flip_seg_map(self, seg_map: dict, direction: str) -> np.ndarray:
+        """Flip segmentation map horizontally, vertically or diagonally.
+
+        Args:
+            seg_map (numpy.ndarray): segmentation map, shape (H, W).
+            direction (str): Flip direction. Options are 'horizontal',
+                'vertical'.
+
+        Returns:
+            numpy.ndarray: Flipped segmentation map.
+        """
+        seg_map = mmcv.imflip(seg_map, direction=direction)
+        if self.swap_seg_labels is not None:
+            # to handle datasets with left/right annotations
+            # like 'Left-arm' and 'Right-arm' in LIP dataset
+            # Modified from https://github.com/openseg-group/openseg.pytorch/blob/master/lib/datasets/tools/cv2_aug_transforms.py # noqa:E501
+            # Licensed under MIT license
+            temp = seg_map.copy()
+            assert isinstance(self.swap_seg_labels, (tuple, list))
+            for pair in self.swap_seg_labels:
+                assert isinstance(pair, (tuple, list)) and len(pair) == 2, \
+                    'swap_seg_labels must be a sequence with pair, but got ' \
+                    f'{self.swap_seg_labels}.'
+                seg_map[temp == pair[0]] = pair[1]
+                seg_map[temp == pair[1]] = pair[0]
+        return seg_map
+
+    @cache_randomness
+    def _choose_direction(self) -> str:
+        """Choose the flip direction according to `prob` and `direction`"""
+        if isinstance(self.direction,
+                      Sequence) and not isinstance(self.direction, str):
+            # None means non-flip
+            direction_list: list = list(self.direction) + [None]
+        elif isinstance(self.direction, str):
+            # None means non-flip
+            direction_list = [self.direction, None]
+
+        if isinstance(self.prob, list):
+            non_prob: float = 1 - sum(self.prob)
+            prob_list = self.prob + [non_prob]
+        elif isinstance(self.prob, float):
+            non_prob = 1. - self.prob
+            # exclude non-flip
+            single_ratio = self.prob / (len(direction_list) - 1)
+            prob_list = [single_ratio] * (len(direction_list) - 1) + [non_prob]
+
+        cur_dir = np.random.choice(direction_list, p=prob_list)
+
+        return cur_dir
+
+    def _flip(self, results: dict) -> None:
+        """Flip images, bounding boxes, semantic segmentation map and
+        keypoints."""
+        # flip image
+
+        results['img_MSI_3chan'] = mmcv.imflip(results['img_MSI_3chan'], direction=results['flip_direction'])
+        results['img_MSI_4chan'] = mmcv.imflip(results['img_MSI_4chan'], direction=results['flip_direction'])
+        results['img_MSI_10chan'] = mmcv.imflip(results['img_MSI_10chan'], direction=results['flip_direction'])
+        img_shape = results['img_MSI_4chan'].shape[:2]
+
+        # flip seg map
+        if results.get('gt_seg_map_MSI_4chan', None) is not None:
+            results['gt_seg_map_MSI_3chan'] = self._flip_seg_map(results['gt_seg_map_MSI_3chan'], direction=results['flip_direction'])
+            results['gt_seg_map_MSI_4chan'] = self._flip_seg_map(results['gt_seg_map_MSI_4chan'], direction=results['flip_direction'])
+            results['gt_seg_map_MSI_10chan'] = self._flip_seg_map(results['gt_seg_map_MSI_10chan'], direction=results['flip_direction'])
+            results['swap_seg_labels'] = self.swap_seg_labels
+
+    def _flip_on_direction(self, results: dict) -> None:
+        """Function to flip images, bounding boxes, semantic segmentation map
+        and keypoints."""
+        cur_dir = self._choose_direction()
+        if cur_dir is None:
+            results['flip'] = False
+            results['flip_direction'] = None
+        else:
+            results['flip'] = True
+            results['flip_direction'] = cur_dir
+            self._flip(results)
+
+    def transform(self, results: dict) -> dict:
+        """Transform function to flip images, bounding boxes, semantic
+        segmentation map and keypoints.
+
+        Args:
+            results (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Flipped results, 'img', 'gt_bboxes', 'gt_seg_map',
+            'gt_keypoints', 'flip', and 'flip_direction' keys are
+            updated in result dict.
+        """
+        self._flip_on_direction(results)
+
+        return results
+
+    def __repr__(self) -> str:
+        repr_str = self.__class__.__name__
+        repr_str += f'(prob={self.prob}, '
+        repr_str += f'direction={self.direction})'
+
+        return repr_str
 
 # =================================================== ATL Transform ===================================================
 @TRANSFORMS.register_module()

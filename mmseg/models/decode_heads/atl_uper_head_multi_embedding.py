@@ -169,8 +169,8 @@ class ATL_multi_embedding_UPerHead(BaseDecodeHead):
         # len(batch_data_samples) = 3 batch_size=3，每个里面两张图
         gt_semantic_segs = [getattr(data_sample, gt_semantic_seg_name).data for data_sample in batch_data_samples]
 
-        # import pdb; pdb.set_trace()
-        # [2,1,512,512]
+        
+ 
         return torch.stack(gt_semantic_segs, dim=0)
 
     def loss(self, inputs: Tuple[Tensor], 

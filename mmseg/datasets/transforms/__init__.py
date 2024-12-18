@@ -17,6 +17,7 @@ from .transforms import (CLAHE, AdjustGamma, Albu, BioMedical3DPad,
 from .loading import LoadMultiRSImageFromFile_with_data_preproocess, LoadSingleRSImageFromFile_with_data_preproocess, ATL_multi_embedding_LoadAnnotations
 from .formatting import ATL_3_embedding_PackSegInputs
 
+from .transforms import MultiImg_MultiAnn_RandomCrop, MultiImg_MultiAnn_RandomFlip, MultiImg_MultiAnn_Resize, MultiImg_MultiAnn_ResizeShortestEdge
 
 # yapf: enable
 __all__ = [
@@ -32,5 +33,7 @@ __all__ = [
     'RandomFlip', 'Resize','LoadSingleRSImageFromFile_spectral_GPT',
     'LoadMultiRSImageFromFile_with_data_preproocess', 'LoadSingleRSImageFromFile_with_data_preproocess',
     'ATL_multi_embedding_LoadAnnotations',
-    'ATL_3_embedding_PackSegInputs'
+    'ATL_3_embedding_PackSegInputs',
+    'MultiImg_MultiAnn_RandomCrop','MultiImg_MultiAnn_RandomFlip',
+    'MultiImg_MultiAnn_Resize','MultiImg_MultiAnn_ResizeShortestEdge'
 ]

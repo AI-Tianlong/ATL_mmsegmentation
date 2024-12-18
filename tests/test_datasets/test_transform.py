@@ -19,6 +19,32 @@ from mmseg.registry import TRANSFORMS
 init_default_scope('mmseg')
 
 
+# def test_MultiImg_MultiAnn_RandomCrop():
+#     from osgeo import gdal
+#     transform = dict(type='MultiImg_MultiAnn_RandomCrop', crop_size=crop_size, cat_max_ratio=0.75),
+#     TRANSFORMS.build(transform)
+
+#     results = dict()
+#     img = 
+#     seg = np.array(Image.open(osp.join('tests/data/seg.png')))
+#     results['img'] = img
+#     results['gt_semantic_seg'] = seg
+#     results['seg_fields'] = ['gt_semantic_seg']
+#     results['img_shape'] = img.shape
+#     results['ori_shape'] = img.shape
+#     # Set initial values for default meta_keys
+#     results['pad_shape'] = img.shape
+#     results['scale_factor'] = 1.0
+
+#     h, w, _ = img.shape
+#     pipeline = RandomCrop(crop_size=(h - 20, w - 20))
+
+#     results = pipeline(results)
+#     assert results['img'].shape[:2] == (h - 20, w - 20)
+#     assert results['img_shape'] == (h - 20, w - 20)
+#     assert results['gt_semantic_seg'].shape[:2] == (h - 20, w - 20)
+
+
 def test_resize():
     # Test `Resize`, `RandomResize` and `RandomChoiceResize` from
     # MMCV transform. Noted: `RandomResize` has args `scales` but

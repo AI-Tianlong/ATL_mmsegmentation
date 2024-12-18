@@ -200,13 +200,13 @@ class ATL_Multi_Embedding_EncoderDecoder(BaseSegmentor):
         x_MSI_10chan = self.extract_feat(inputs_MSI_10chan)
         # import pdb;pdb.set_trace()
         losses = dict()
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         loss_decode_MSI_3chan = self._decode_head_forward_train(x_MSI_3chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_3chan') # x:[4个多尺度列表]]
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         loss_decode_MSI_4chan = self._decode_head_forward_train(x_MSI_4chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_4chan') # x:[4个多尺度列表]]
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         loss_decode_MSI_10chan = self._decode_head_forward_train(x_MSI_10chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_10chan') # x:[4个多尺度列表]]
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         # decode_head返回的loss值
         new_loss_value = loss_decode_MSI_3chan['decode.loss_ce'] + loss_decode_MSI_4chan['decode.loss_ce'] + loss_decode_MSI_10chan['decode.loss_ce']
         # 以GF2的为基准，其他的两个acc不要

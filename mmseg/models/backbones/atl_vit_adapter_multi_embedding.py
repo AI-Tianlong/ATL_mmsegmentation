@@ -771,7 +771,7 @@ class ViTAdapter_multi_embedding(atl_multi_embedding_VisionTransformer):
                  pretrain_size=224, #重新reshape pos_embedding.
                  patch_size = 16,
                  in_channels=[3, 4, 10],
-                 arch='l',
+                 arch='base',
                  conv_inplane=64,
                  n_points=4,
                  deform_num_heads=6,
@@ -924,7 +924,7 @@ class ViTAdapter_multi_embedding(atl_multi_embedding_VisionTransformer):
         deform_inputs1, deform_inputs2 = deform_inputs(x.contiguous()) # Spatial Prior Module 
         # deform_inputs1 [[1,1024,1,2] [3,2] [3]]
         # deform_inputs2 [[1,5376,1,2] [1,2] [1]]
-
+        assert x.shape[2]==512, 'x.shape[2] should be 512'
         # import pdb;pdb.set_trace()
         # SPM forward
         # multi_embedding，去过不同的spm
