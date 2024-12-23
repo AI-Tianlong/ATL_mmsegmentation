@@ -504,8 +504,8 @@ class VisionTransformer(BaseModule): #我直接继承mmpretrain的是不是也�
                 if self.output_cls_token:
                     out = [out, x[:, 0]]
                 outs.append(out)
-
-        return tuple(outs)
+        # import pdb;pdb.set_trace()
+        return tuple(outs)  # [2, 768, 32, 32] [2, 768, 32, 32] [2, 768, 32, 32] [2, 768, 32, 32]
 
     def train(self, mode=True):
         super().train(mode)
