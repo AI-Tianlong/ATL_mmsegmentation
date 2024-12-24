@@ -3,7 +3,7 @@ from venv import logger
 
 import torch
 import torch.nn as nn
-from mmcv.cnn import ConvModule
+from mmcv.cnn import ConvModule, build_norm_layer
 from torch import Tensor
 
 from mmseg.registry import MODELS
@@ -13,8 +13,30 @@ from .decode_head import BaseDecodeHead
 from .psp_head import PPM
 
 
+class ProjectionHead(nn.Module):
+    def __init__(self, 
+                 dim_in, 
+                 norm_cfg, 
+                 proj_dim=256, 
+                 proj='convmlp'):
+        super(ProjectionHead, self).__init__()
+        
+        if proj == 'linear':
+            self.proj = nn.Conv2d(dim_in, proj_dim, kernel_size=1)
+        elif proj == 'convmlp':
+            self.proj = nn.Sequential(
+                nn.Conv2d(dim_in, dim_in, kernel_size=1),
+                build_norm_layer(norm_cfg, dim_in)[1],
+                nn.ReLU(inplace=True),
+                nn.Conv2d(dim_in, proj_dim, kernel_size=1)
+            )
+            
+    def forward(self, x):
+        return torch.nn.functional.normalize(self.proj(x), p=2, dim=1)
+    
+
 @MODELS.register_module()
-class UPerHead(BaseDecodeHead):
+class ATL_UPerHead_Hiera(BaseDecodeHead):
     """Unified Perceptual Parsing for Scene Understanding.
 
     This head is the implementation of `UPerNet
@@ -27,7 +49,9 @@ class UPerHead(BaseDecodeHead):
 
     # in_index=[0, 1, 2, 3]
 
-    def __init__(self, pool_scales=(1, 2, 3, 6), **kwargs):
+    def __init__(self, 
+                 pool_scales=(1, 2, 3, 6), 
+                 **kwargs):
         super().__init__(input_transform='multiple_select', **kwargs)
         # PSP Module
         self.psp_modules = PPM(
@@ -78,6 +102,16 @@ class UPerHead(BaseDecodeHead):
             conv_cfg=self.conv_cfg,
             norm_cfg=self.norm_cfg,
             act_cfg=self.act_cfg)
+
+        #  Hiera Seg Projection Head    # 这是哪来的？ dim_in=2048
+        # ViT-Backbone的输出
+        # c1:[2, 1024, 128, 128]   /  [2, 768, 128, 128]
+        # c2:[2, 1024, 64, 64]     /  [2, 768, 64, 64]
+        # c3:[2, 1024, 32, 32]     /  [2, 768, 32, 32] 
+        # c3:[2, 1024, 16, 16]     /  [2, 768, 16, 16]
+        self.proj_head = ProjectionHead(dim_in=2048, norm_cfg=self.norm_cfg)
+
+
 
     def psp_forward(self, inputs):
         """Forward function of PSP module."""
