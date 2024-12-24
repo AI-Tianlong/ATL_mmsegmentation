@@ -11,47 +11,29 @@ from torch.optim import AdamW
 from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
                                        PhotoMetricDistortion, RandomCrop,
                                        ResizeShortestEdge)
-
-
-from mmseg.datasets.transforms.loading import (LoadSingleRSImageFromFile,
-                                               ATL_multi_embedding_LoadAnnotations,
-                                               LoadSingleRSImageFromFile_with_data_preproocess,
-                                               LoadMultiRSImageFromFile_with_data_preproocess)
-
-
+from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
 from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
 
+from mmseg.evaluation import ATL_IoUMetric #多卡时有问题
+from mmseg.models.backbones import BEiTAdapter
+from mmseg.models.decode_heads.atl_fcn_head import ATL_FCNHead
+from mmseg.models.decode_heads.uper_head import UPerHead
 
-# from mmseg.evaluation import ATL_IoUMetric #多卡时有问题
-# from mmseg.models.backbones import BEiTAdapter
-# from mmseg.models.decode_heads.atl_fcn_head import ATL_FCNHead
-# from mmseg.models.decode_heads.uper_head import UPerHead
-# from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
-# from mmseg.models.backbones import ViTAdapter
-# from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
-# from mmseg.models.decode_heads.fcn_head import FCNHead
-# from mmseg.models.losses.atl_loss import ATL_Loss, S2_5B_Dataset_21Classes_Map_nobackground
 
-# EncoderDecoder
-from mmseg.models.segmentors.atl_encoder_decoder_multi_embedding import ATL_Multi_Embedding_EncoderDecoder
-# data_preprocessor
-from mmseg.models.data_preprocessor_atl import ATL_SegDataPreProcessor
-# train pipline
-from mmseg.datasets.transforms.formatting import PackSegInputs, ATL_3_embedding_PackSegInputs
-from mmseg.datasets.transforms.transforms import (MultiImg_MultiAnn_RandomCrop, MultiImg_MultiAnn_RandomFlip,
-                                                  MultiImg_MultiAnn_ResizeShortestEdge)
-# backbone
-from mmseg.models.backbones.atl_vit_adapter_multi_embedding import ViTAdapter_multi_embedding
-# decode_head auxiliary_head
-from mmseg.models.decode_heads.atl_uper_head_multi_embedding import ATL_multi_embedding_UPerHead
-from mmseg.models.decode_heads.atl_fcn_head_multi_embedding import ATL_multi_embedding_FCNHead
-# loss & validation
+from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
+from mmseg.models.backbones import ViTAdapter
+from mmpretrain.models.backbones.vision_transformer import VisionTransformer
+# from mmseg.models.backbones import VisionTransformer
+
+from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
+from mmseg.models.decode_heads.fcn_head import FCNHead
+from mmseg.models.losses.atl_loss import ATL_Loss, S2_5B_Dataset_21Classes_Map_nobackground
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
 from mmseg.evaluation import IoUMetric
 
 
 with read_base():
-    from .._base_.datasets.atl_0_paper_new_5b_GF_Google_S2_19class import *
+    from .._base_.datasets.a_atl_0_paper_5b_GF2_19class import *
     from .._base_.default_runtime import *
     from .._base_.models.upernet_beit_potsdam import *
     from .._base_.schedules.schedule_80k import *
@@ -71,46 +53,45 @@ num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 crop_size = (512, 512)
-pretrained = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/vit-adapter-offical/base/mmpretrainformat-ViT-Adapter-Aug-B-multi_embedding_3_4_10chan.pth'
-
-
-# 这个data_preprocessor是在mmengine中去定义的flow,需要改mmengine的东西啊？
-# 不需要改mmengine，这里的type_是mmseg定义的SegDataPreProcessor，而不是data_preprocessor
-data_preprocessor = dict(               # 将归一化的操作，写到LoadSingleRSImage那里
-        type=ATL_SegDataPreProcessor,
-        mean=None,
-        std=None,
+pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/2-对比实验的权重/vit-adapter/mmpretrainformat-ViT-Adapter-Aug-B-4chan.pth'
+data_preprocessor.update(
+    dict(
+        type=SegDataPreProcessor,
+        mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428],
+        std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602],
         pad_val=0,
         seg_pad_val=255,
-        size=crop_size)
+        size=crop_size))
 
 model.update(
     dict(
-        type=ATL_Multi_Embedding_EncoderDecoder,
+        type=EncoderDecoder,
         # level_classes_map=S2_5B_Dataset_21Classes_Map_nobackground,  # 注意传参！！
         data_preprocessor=data_preprocessor,
         backbone=dict(
-            type=ViTAdapter_multi_embedding,
+            type=VisionTransformer,
             img_size=512,
             patch_size=16,
-            arch='base', # embed_dims=1024, num_layers=24, num_heads=16
-            in_channels=[3, 4, 10],  # 4个波段
-            # mlp_ratio=4,  # mpl的通道数，是4倍的enbed_dim
-            qkv_bias=True,
-            init_values=1e-6,
-            drop_path_rate=0.3,
-            conv_inplane=64,
-            n_points=4,
-            deform_num_heads=16,
-            cffn_ratio=0.25,
-            deform_ratio=0.5,
-            interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]], # base
-            # interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]],
+            in_channels=4,  # 4个波段
+            arch='base', # final_norm=False,embed_dims=1024, num_layers=24, num_heads=16
+            final_norm=False,
+            out_type='featmap',
+            # embed_dims=768,
+            # num_layers=12,
+            # num_heads=12,
+            with_cls_token=True,
+            # out_type='raw',
+            out_indices=(2, 5, 8, 11),  # 输出第2个stage的，第5个stage的，第8个stage的，第11个stage的
             init_cfg=dict(type='Pretrained', checkpoint=pretrained) # 不加预训练权重
             # frozen_exclude=None,
         ),  
+        neck = dict(
+            type=MultiLevelNeck,
+            in_channels = [768, 768, 768, 768],
+            out_channels = 768,
+            scales = [4, 2, 1, 0.5]),
         decode_head=dict(
-            type=ATL_multi_embedding_UPerHead,
+            type=UPerHead,
             # in_channels=[1024, 1024, 1024, 1024],  # 和vit的结构保持一致，large的话1024
             in_channels=[768, 768, 768, 768],  # 和vit的结构保持一致，large的话1024
             in_index=[0, 1, 2, 3],
@@ -129,8 +110,7 @@ model.update(
             loss_decode=dict(
                 type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
         auxiliary_head=dict(
-            type=ATL_multi_embedding_FCNHead,
-            # in_channels=1024, # 和上面的768 保持统一
+            type=FCNHead,
             in_channels=768, # 和上面的768 保持统一
             in_index=3,
             channels=256,
@@ -146,35 +126,32 @@ model.update(
 
 # dataset config
 train_pipeline = [
-    dict(type=LoadMultiRSImageFromFile_with_data_preproocess),
-    dict(type=ATL_multi_embedding_LoadAnnotations),
+    dict(type=LoadSingleRSImageFromFile),
+    dict(type=LoadAnnotations),
     # dict(
     #     type=RandomChoiceResize,
     #     scales=[int(x * 0.1 * 512) for x in range(5, 21)],
-    #     resize_type='MultiImg_MultiAnn_ResizeShortestEdge',
+    #     resize_type=ResizeShortestEdge,
     #     max_size=2048),
-    # dict(type=MultiImg_MultiAnn_RandomCrop, crop_size=crop_size, cat_max_ratio=0.75), # 针对不同size的训练图像好使，这个没啥用貌似
-    # dict(type=MultiImg_MultiAnn_RandomFlip, prob=0.5),
+    # dict(type=RandomCrop, crop_size=crop_size, cat_max_ratio=0.75),
+    # dict(type=RandomFlip, prob=0.5),
     # dict(type=PhotoMetricDistortion),
-    dict(type=ATL_3_embedding_PackSegInputs)
+    dict(type=PackSegInputs)
 ]
-train_dataloader.update(
-    batch_size=2,
-    num_workers=4,  
-    dataset=dict(pipeline=train_pipeline))  # potsdam的变量
+train_dataloader.update(dataset=dict(pipeline=train_pipeline))  # potsdam的变量
 
 # optimizer
-optimizer = dict(
-    type=AdamW,
-    lr=2e-5,
-    betas=(0.9, 0.999),
-    weight_decay=0.05,
-)
 optim_wrapper = dict(
     type=OptimWrapper,
-    optimizer=optimizer,
-    constructor=LayerDecayOptimizerConstructor,
-    paramwise_cfg=dict(num_layers=24, layer_decay_rate=0.9))
+    optimizer=dict(
+        type=AdamW, lr=0.00006, betas=(0.9, 0.999), weight_decay=0.01),
+    paramwise_cfg=dict(
+        custom_keys={
+            'pos_embed': dict(decay_mult=0.),
+            'cls_token': dict(decay_mult=0.),
+            'norm': dict(decay_mult=0.)
+        }))
+
 
 # learning policy
 param_scheduler = [
@@ -192,10 +169,7 @@ param_scheduler = [
 
 load_from = None
 # load_from = '/opt/AI-Tianlong/openmmlab/mmsegmentation/work_dirs/20240920-s2_5B_S2-beit_uperner_large-b4x2-80k-ATL调试paper/iter_24000.pth'
-
-
-
-train_cfg.update(type=IterBasedTrainLoop, max_iters=80000, val_interval=4000)
+train_cfg.update(type=IterBasedTrainLoop, max_iters=80000, val_interval=8000)
 
 default_hooks.update(
     timer=dict(type=IterTimerHook),
@@ -204,6 +178,7 @@ default_hooks.update(
     checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=4000, max_keep_ckpts=20),
     sampler_seed=dict(type=DistSamplerSeedHook),
     visualization=dict(type=SegVisualizationHook))
+
 
 # test_dataloader.update(
 #     dict(
