@@ -38,11 +38,11 @@ from mmseg.evaluation import IoUMetric
 with read_base():
     from ..._base_.datasets.a_atl_0_paper_5b_GF2_19class import *
     from ..._base_.default_runtime import *
-    from ..._base_.schedules.schedule_80k import *
+    from ..._base_.schedules.schedule_160k import *
 
 crop_size = (512, 512)
 num_classes = 19
-pretrained = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/deeplabv3plus/resnet101_v1c-4channel_BGR.pth'
+pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/2-对比实验的权重/deeplabv3plus/resnet101_v1c-4channel_BGR.pth'
 
 
 # model settings
@@ -115,9 +115,24 @@ param_scheduler = [
         eta_min=1e-4,
         power=0.9,
         begin=0,
-        end=80000,
+        end=160000,
         by_epoch=False)
 ]
+
+train_cfg = dict(type=IterBasedTrainLoop, max_iters=160000, val_interval=8000)
+val_cfg = dict(type=ValLoop)
+test_cfg = dict(type=TestLoop)
+
+default_hooks.update(
+    dict(
+    timer=dict(type=IterTimerHook),
+    logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
+    param_scheduler=dict(type=ParamSchedulerHook),
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=8000, max_keep_ckpts=10),
+    sampler_seed=dict(type=DistSamplerSeedHook),
+    visualization=dict(type=SegVisualizationHook)))
+
+
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
