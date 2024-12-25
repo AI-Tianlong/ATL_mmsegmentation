@@ -67,7 +67,7 @@ class DepthwiseSeparableASPPContrastHead(DepthwiseSeparableASPPHead):
         output = super().forward(inputs)
 
         self.step += 1
-        embedding = self.proj_head(inputs[-1])
+        embedding = self.proj_head(inputs[-1]) # 最后的一个特征图
 
         return output, embedding
 
