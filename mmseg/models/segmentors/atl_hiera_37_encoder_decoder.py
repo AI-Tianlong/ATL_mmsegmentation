@@ -143,6 +143,7 @@ class ATL_Hiera_EncoderDecoder(BaseSegmentor):
                       batch_img_metas: List[dict]) -> Tensor:
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
+        # import pdb; pdb.set_trace()
         x = self.extract_feat(inputs)  # 过backbone+neck抽特征，然后输入到decode_head--> [1024,1024,1024,1024]层级
         seg_logits = self.decode_head.predict(x, batch_img_metas, self.test_cfg) # [2, 40, 512, 512]
 
@@ -161,6 +162,7 @@ class ATL_Hiera_EncoderDecoder(BaseSegmentor):
             self.train_cfg)
         # 这里，有一个 acc_seg 的指标，是在 loss_by_feat 里面计算的
 
+        # import pdb; pdb.set_trace()
         losses.update(add_prefix(loss_decode, 'decode'))  # decode.atl_loss
         # pdb.set_trace()
         return losses
@@ -197,6 +199,7 @@ class ATL_Hiera_EncoderDecoder(BaseSegmentor):
         # For ResNet:             x = [[2,256,128,128],  [2,512,64,64],  [2,1024,64,64], [2,2048,64,64]]
         # For BEiT-Adapter-Large: x = [[2,1024,128,128], [2,1024,64,64], [2,1024,32,32], [2,1024,16,16]]
         # For ViT-Adapter-Base:   x = [[2,768,128,128],  [2,768,64,64],  [2,768,32,32],  [2,768,16,16]]
+
         losses = dict()
 
         loss_decode = self._decode_head_forward_train(x, data_samples)
@@ -208,7 +211,8 @@ class ATL_Hiera_EncoderDecoder(BaseSegmentor):
                 x, data_samples)  # 辅助头的参数正确导入了，所以这里是对的，数值比较高
             losses.update(loss_aux)
 
-        import pdb; pdb.set_trace()
+        
+        # import pdb; pdb.set_trace()
         return losses # loss 是个字典
 
     def predict(self,
@@ -245,15 +249,12 @@ class ATL_Hiera_EncoderDecoder(BaseSegmentor):
             ] * inputs.shape[0]
 
         seg_logits = self.inference(inputs, batch_img_metas)  # [2,10,512,512]-->[2, 37, 512, 512] UperHead 的输出
-        # whole inference或者slide inference，都是调用的这个函数，这个函数里面调用的是 encode_decode
-
-        # 就是这里，输出看一下特征图。
-        # import pdb; pdb.set_trace() 
         
-        # 没有softmax的logits
-        # 后处理的时候，应该对每个层级的特征图，单独做一个softmax，然后再叠加
+        # 临时的！ 需要后处理去计算！
+        seg_logit = seg_logits[:, -19:, :, :]  # [2,19,128,128]   
 
-        return self.postprocess_result(seg_logits, data_samples) #然后是最后的后处理，保存单个通道的那种
+
+        return self.postprocess_result(seg_logit, data_samples) #然后是最后的后处理，保存单个通道的那种
 
     def _forward(self,
                  inputs: Tensor,
@@ -314,8 +315,9 @@ class ATL_Hiera_EncoderDecoder(BaseSegmentor):
                 batch_img_metas[0]['img_shape'] = crop_img.shape[2:]
                 # the output of encode_decode is seg logits tensor map
                 # with shape [N, C, H, W]
-                crop_seg_logit = self.encode_decode(crop_img, batch_img_metas) #[1,40,512,512]
                 # import pdb;pdb.set_trace()
+                crop_seg_logit = self.encode_decode(crop_img, batch_img_metas) #[1,40,512,512]
+                
                 # preds [1,22,512,512]
 
                 # import pdb;pdb.set_trace()

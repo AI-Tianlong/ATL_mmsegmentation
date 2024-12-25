@@ -6,7 +6,8 @@ from mmcv.cnn import ConvModule, DepthwiseSeparableConvModule, build_norm_layer
 
 from mmseg.models.losses import accuracy
 from mmseg.registry import MODELS
-from mmseg.utils import SampleList, resize
+from mmseg.utils import SampleList, ConfigType
+from ..utils import resize
 from .aspp_head import ASPPHead, ASPPModule
 
 from typing import List, Tuple
@@ -77,10 +78,22 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
     def __init__(self, 
                  c1_in_channels, 
                  c1_channels,
+                 num_classes,
+                 dilations=(1, 12, 24, 36),
                  proj: str = 'convmlp',
                  **kwargs):
         
-        super().__init__(**kwargs)
+
+        self.hiera_num_classes = num_classes
+        num_classes = sum(num_classes)
+        
+
+        super().__init__(num_classes=num_classes, 
+                         dilations=dilations,
+                          **kwargs)
+
+        # import pdb; pdb.set_trace()
+
         assert c1_in_channels >= 0
         self.aspp_modules = DepthwiseSeparableASPPModule(
             dilations=self.dilations,
@@ -168,13 +181,13 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
-        seg_logits_ = seg_logits[0]
+        seg_logit = seg_logits[0]
         tree_triplet_embedding = seg_logits[1]
         seg_label = self._stack_batch_gt(batch_data_samples)
 
         loss = dict()
         seg_logit = resize(
-            input=seg_logits_,
+            input=seg_logit,
             size=seg_label.shape[2:],
             mode='bilinear',
             align_corners=self.align_corners)
@@ -196,7 +209,7 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
                 loss[loss_decode.loss_name] = loss_decode(
                     self.step,
                     tree_triplet_embedding,
-                    seg_logits_,
+                    seg_logit,
                     seg_label,
                     weight=seg_weight,
                     ignore_index=self.ignore_index)
@@ -204,7 +217,7 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
                 loss[loss_decode.loss_name] += loss_decode(
                     self.step,
                     tree_triplet_embedding,
-                    seg_logits_,
+                    seg_logit,
                     seg_label,
                     weight=seg_weight,
                     ignore_index=self.ignore_index)
@@ -217,5 +230,58 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
         #     align_corners=self.align_corners)
         
         # 正好最后19个 19个类别
-        loss['acc_seg'] = accuracy(seg_logit[:, :19], seg_label)
+        loss['acc_seg'] = accuracy(seg_logit[:, self.hiera_num_classes[-1]:, :, :],seg_label)
         return loss
+
+
+
+    # ==================== 以下是推理用的函数 ====================
+    def predict(self, inputs: Tuple[Tensor], batch_img_metas: List[dict],
+                test_cfg: ConfigType) -> Tensor:
+        """Forward function for prediction.
+
+        Args:
+            inputs (Tuple[Tensor]): List of multi-level img features.
+            batch_img_metas (dict): List Image info where each dict may also
+                contain: 'img_shape', 'scale_factor', 'flip', 'img_path',
+                'ori_shape', and 'pad_shape'.
+                For details on the values of these keys see
+                `mmseg/datasets/pipelines/formatting.py:PackSegInputs`.
+            test_cfg (dict): The testing config.
+
+        Returns:
+            Tensor: Outputs segmentation logits map.
+        """
+        seg_logits = self.forward(inputs)  # 过decode_head的forward--->[2,40,128,128]
+        seg_logit = seg_logits[0]
+
+
+        return self.predict_by_feat(seg_logit, batch_img_metas)   # [2,40,512,512]
+
+    def predict_by_feat(self, seg_logits: Tensor,
+                        batch_img_metas: List[dict]) -> Tensor:
+        """Transform a batch of output seg_logits to the input shape.  # 缩放！
+
+        Args:
+            seg_logits (Tensor): The output from decode head forward function.
+            batch_img_metas (list[dict]): Meta information of each image, e.g.,
+                image size, scaling factor, etc.
+
+        Returns:
+            Tensor: Outputs segmentation logits map.
+        """
+
+        if isinstance(batch_img_metas[0]['img_shape'], torch.Size):
+            # slide inference
+            size = batch_img_metas[0]['img_shape']
+        elif 'pad_shape' in batch_img_metas[0]:
+            size = batch_img_metas[0]['pad_shape'][:2]
+        else:
+            size = batch_img_metas[0]['img_shape']
+
+        seg_logits = resize(
+            input=seg_logits,
+            size=size,
+            mode='bilinear',
+            align_corners=self.align_corners)
+        return seg_logits

@@ -25,7 +25,6 @@ from mmseg.models.decode_heads.atl_hiera_37_sep_aspp_head import ATL_Hiera_Depth
 from mmseg.models.decode_heads.fcn_head import FCNHead
 # Loss
 from mmseg.models.losses.atl_hiera_37_loss import ATL_Hiera_Loss
-from mmseg.models.losses.atl_loss import ATL_Loss, S2_5B_Dataset_21Classes_Map_nobackground
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
 # Evaluation
 from mmseg.evaluation import IoUMetric
@@ -90,11 +89,11 @@ model = dict(
         c1_in_channels=256,
         c1_channels=48,
         dropout_ratio=0.1,
-        num_classes=num_classes,
+        num_classes=[5,10,19],
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
-            type=ATL_Hiera_Loss, loss_weight=1.0)),
+            type=ATL_Hiera_Loss, num_classes=[5,10,19], loss_weight=1.0)),
     auxiliary_head=dict(
         type=FCNHead,
         in_channels=1024,
@@ -127,6 +126,20 @@ param_scheduler = [
         end=80000,
         by_epoch=False)
 ]
+
+train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=8000)
+val_cfg = dict(type=ValLoop)
+test_cfg = dict(type=TestLoop)
+
+default_hooks.update(
+    dict(
+    timer=dict(type=IterTimerHook),
+    logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
+    param_scheduler=dict(type=ParamSchedulerHook),
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=8000, max_keep_ckpts=10),
+    sampler_seed=dict(type=DistSamplerSeedHook),
+    visualization=dict(type=SegVisualizationHook)))
+
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
