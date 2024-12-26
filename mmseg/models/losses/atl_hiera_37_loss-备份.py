@@ -113,13 +113,8 @@ def Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     # import pdb; pdb.set_trace()
     # b, _, h, w = pred_seg_logits.shape # [2, 34, 128, 128]
     # 让所有推理过一个 sigmoid
+    pred_sigmoid = torch.sigmoid(pred_seg_logits.float()) # 让预测值过一个sigmoid函数，变为0-1 (1, 26, 1024, 2048)
     
-    # sigmoid,每一个通道的值，自己去算sigmoid，和其他人没关系
-    pred_sigmoid = torch.sigmoid(pred_seg_logits.float()) # 让预测值过一个sigmoid函数，变为0-1 (1, 34, 512, 512) # 之和自己的值有关系
-    # softmax,每一个相同位置的像素去整体算softmax值，和其他通道有关系。
-    pred_softmax = torch.softmax(pred_seg_logits, dim=1) # 让预测值过一个softmax函数，变为0-1 (1, 34, 512, 512) # 和其他通道的值也有关系
-    # TODO: 这里的softmax，应该每一个层级自己做，还是整体做。
-
     label_L1 = label_level_list[0]  # 无效标签为255
     label_L2 = label_level_list[1] 
     label_L3 = label_level_list[2] 
@@ -518,22 +513,22 @@ class ATL_Hiera_Loss(nn.Module):
                 embedding,         # [2,256,64,64]
                 pred_seg_logits,   # [2,34,128,128] [5+10+19]
                 label,
+                weight=None,
                 **kwargs):
         
         # import pdb; pdb.set_trace()
 
-        
+
         hiera_label_list = convert_low_level_label_to_High_level(label, FiveBillion_19Classes_HieraMap_nobackground)
         
-        # Tree-Min Loss
         tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=255)  # 10.9371
-        # L1 cross entropy loss
+        # import pdb; pdb.set_trace()
         ce_loss_L1 = self.cross_entropy_loss(pred_seg_logits[:,:len(L1_map),:,:], hiera_label_list[0])
-        # L2 cross entropy loss
+        # import pdb; pdb.set_trace()
         ce_loss_L2 = self.cross_entropy_loss(pred_seg_logits[:,len(L1_map):len(L1_map)+len(L2_map),:,:], hiera_label_list[1])
-        # L3 cross entropy loss
+        # import pdb; pdb.set_trace()
         ce_loss_L3 = self.cross_entropy_loss(pred_seg_logits[:,-len(L3_map):,:,:], hiera_label_list[2])
-
+        # import pdb; pdb.set_trace()
 
         loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
 
@@ -544,7 +539,7 @@ class ATL_Hiera_Loss(nn.Module):
 
         if torch.distributed.get_world_size()==torch.nonzero(class_counts, as_tuple=False).size(0):
             factor = 1/4*(1+torch.cos(torch.tensor((step.item()-80000)/80000*math.pi))) if step.item()<80000 else 0.5
-            loss += factor*loss_triplet
+            loss+=factor*loss_triplet
             
         return loss*self.loss_weight
 

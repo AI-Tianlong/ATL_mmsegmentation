@@ -40,10 +40,10 @@ class ATL_UPerHead(BaseDecodeHead):
 
         # 分开输出的话
         if num_level_classes is not None:
-            #     self.conv_seg_L1 = nn.Conv2d(self.channels, num_level_classes[0], kernel_size=1) #(1024-->6)
-            #     self.conv_seg_L2 = nn.Conv2d(self.channels, num_level_classes[1], kernel_size=1) #(1024-->12)
-            #     self.conv_seg_L3 = self.conv_seg #(1024-->22)
-            #     # self.conv_seg_L3 = self.conv_seg
+            self.conv_seg_L1 = nn.Conv2d(self.channels, num_level_classes[0], kernel_size=1) #(1024-->6)
+            self.conv_seg_L2 = nn.Conv2d(self.channels, num_level_classes[1], kernel_size=1) #(1024-->12)
+            self.conv_seg_L3 = self.conv_seg #(1024-->22)
+            # self.conv_seg_L3 = self.conv_seg
 
             self.num_level_classes = num_level_classes
 
@@ -171,38 +171,38 @@ class ATL_UPerHead(BaseDecodeHead):
         return feats
 
     # 分开输出的话
-    # def cls_seg(self, feat, conv_seg):
-    #     """Classify each pixel."""
-    #     if self.dropout is not None:
-    #         feat = self.dropout(feat)
-    #     output = conv_seg(feat)
-    #     return output
+    def cls_seg(self, feat, conv_seg):
+        """Classify each pixel."""
+        if self.dropout is not None:
+            feat = self.dropout(feat)
+        output = conv_seg(feat)
+        return output
 
     # 把最后三个分开，然后分别输出
-    # def forward(self, inputs):
-    #     """Forward function."""
-    #     output = self._forward_feature(inputs)  # [2,1024,128,128]
-    #     # output_L1 = self.cls_seg(output, self.conv_seg_L1)  # [2,6,128,128]
-
-    #     output_L1 = self.cls_seg(output, self.conv_seg_L1)  # [2,6,128,128]
-    #     output_L2 = self.cls_seg(output, self.conv_seg_L2)  # [2,12,128,128]
-    #     output_L3 = self.cls_seg(output, self.conv_seg_L3 )    # [2,22,128,128]
-    #     # output = torch.cat([output_L1, output_L2, output_L3], dim=1)  # [2,40,128,128]
-    #     # 消融实验1：只让模型输出最后output_L3的结果,然后用普通的Loss和普通的EncoderDecoder训练
-
-    #     # import pdb; pdb.set_trace()
-    #     return output_L1, output_L2, output_L3
-
-    # 合在一起输出一个40通道的特征图
     def forward(self, inputs):
         """Forward function."""
         output = self._forward_feature(inputs)  # [2,1024,128,128]
-        output = self.cls_seg(output)  # [2,40,128,128]
+        # output_L1 = self.cls_seg(output, self.conv_seg_L1)  # [2,6,128,128]
 
+        output_L1 = self.cls_seg(output, self.conv_seg_L1)  # [2,6,128,128]
+        output_L2 = self.cls_seg(output, self.conv_seg_L2)  # [2,12,128,128]
+        output_L3 = self.cls_seg(output, self.conv_seg_L3 )    # [2,22,128,128]
+        # output = torch.cat([output_L1, output_L2, output_L3], dim=1)  # [2,40,128,128]
         # 消融实验1：只让模型输出最后output_L3的结果,然后用普通的Loss和普通的EncoderDecoder训练
 
         # import pdb; pdb.set_trace()
-        return output
+        return output_L1, output_L2, output_L3
+
+    # # 合在一起输出一个40通道的特征图
+    # def forward(self, inputs):
+    #     """Forward function."""
+    #     output = self._forward_feature(inputs)  # [2,1024,128,128]
+    #     output = self.cls_seg(output)  # [2,40,128,128]
+
+    #     # 消融实验1：只让模型输出最后output_L3的结果,然后用普通的Loss和普通的EncoderDecoder训练
+
+    #     # import pdb; pdb.set_trace()
+    #     return output
 
 
 # 这里要把三个输出都合并，然后在cat在一起。其实还是[2,40,128,128]

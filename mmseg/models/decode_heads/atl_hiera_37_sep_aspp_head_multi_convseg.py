@@ -61,7 +61,7 @@ class DepthwiseSeparableASPPModule(ASPPModule):
 
 
 @MODELS.register_module()
-class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
+class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
     """Encoder-Decoder with Atrous Separable Convolution for Semantic Image
     Segmentation.
 
@@ -78,19 +78,26 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
     def __init__(self, 
                  c1_in_channels, 
                  c1_channels,
-                 num_classes,
+                 num_classes_level_list=[5,10,19],
                  dilations=(1, 12, 24, 36),
                  proj: str = 'convmlp',
                  **kwargs):
-        
 
-        self.hiera_num_classes = num_classes
-        num_classes = sum(num_classes)
-        
-
-        super().__init__(num_classes=num_classes, 
+        num_classes = num_classes_level_list[-1]
+        super().__init__(num_classes=num_classes,
                          dilations=dilations,
-                          **kwargs)
+                         **kwargs)
+        
+                
+        if isinstance(num_classes_level_list, list):
+            self.num_classes_level_list = num_classes_level_list  # [5,9,10]
+
+            self.conv_seg_L1 = nn.Conv2d(self.channels, num_classes_level_list[0], kernel_size=1) #(1024-->6)
+            self.conv_seg_L2 = nn.Conv2d(self.channels, num_classes_level_list[1], kernel_size=1) #(1024-->12)
+            self.conv_seg_L3 = self.conv_seg #(1024-->22)
+
+        elif isinstance(num_classes_level_list, int):
+            num_classes = num_classes
 
         # import pdb; pdb.set_trace()
 
@@ -134,8 +141,25 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
         self.register_buffer('step', torch.zeros(1))
 
 
-    def forward(self, inputs):
-        """Forward function."""
+        # 分开输出的话
+    def cls_seg(self, feat, conv_seg):
+        """Classify each pixel."""
+        if self.dropout is not None:
+            feat = self.dropout(feat)
+        output = conv_seg(feat)
+        return output
+
+    def _forward_feature(self, inputs):
+        """Forward function for feature maps before classifying each pixel with
+        ``self.cls_seg`` fc.
+
+        Args:
+            inputs (list[Tensor]): List of multi-level img features.
+
+        Returns:
+            feats (Tensor): A tensor of shape (batch_size, self.channels,
+                H, W) which is feature map for last layer of decoder head.
+        """
         x = self._transform_inputs(inputs)
         aspp_outs = [
             resize(
@@ -156,14 +180,39 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
                 align_corners=self.align_corners)
             output = torch.cat([output, c1_output], dim=1)
         output = self.sep_bottleneck(output)
-        output = self.cls_seg(output)
 
+        return output
+
+
+
+    def forward(self, inputs):
+        
+        # [[2,256,128,128] [2,512,64,64] [2,1024,64,64] [2,2048,64,64]]->(2,2048,64,64)
+        # 经过head，变成了 [2,512,128,128]
+        # 再经过cls_seg,变成[2,19,128,128]
+        output = self._forward_feature(inputs) 
+
+        import pdb; pdb.set_trace()
+
+        output_L1 = self.cls_seg(output, self.conv_seg_L1)  # [2,5,128,128]
+        output_L2 = self.cls_seg(output, self.conv_seg_L2)  # [2,10,128,128]
+        output_L3 = self.cls_seg(output, self.conv_seg)  # [2,19,128,128]
+        
+        output_cat = torch.cat([output_L1, output_L2, output_L3],dim=1)  # [2,34,128,128]
+        output_list = [output_L1, output_L2, output_L3]
+
+        import pdb; pdb.set_trace()
         self.step += 1
         embedding = self.proj_head(inputs[-1]) # 最后的一个特征图
 
-        return output, embedding
+        return output_cat, embedding
 
-
+    """
+    >>> decode_head.loss(): decode.forward()--->decode.loss_by_feat()
+    >>> seg_logits = self.forward(inputs)  # [2,40,128,128]
+    >>> losses = self.loss_by_feat(seg_logits, batch_data_samples)
+    >>> return losses
+    """
     def loss_by_feat(
             self,
             seg_logits: Tuple[Tensor],  # (out, embedding)
@@ -186,6 +235,7 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
         seg_label = self._stack_batch_gt(batch_data_samples)
 
         loss = dict()
+        # [2,40,128,128]--->[2,40,512,512]  
         seg_logit = resize(
             input=seg_logit,
             size=seg_label.shape[2:],
@@ -204,6 +254,7 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
         else:
             losses_decode = self.loss_decode
 
+        # 去执行 loss_hiera的forward函数
         for loss_decode in losses_decode:
             if loss_decode.loss_name not in loss:  # loss['atl_loss_ce'],log就打印decode.atl_loss_ce
                 loss[loss_decode.loss_name] = loss_decode(
@@ -223,7 +274,7 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
                     ignore_index=self.ignore_index)
 
         # import pdb; pdb.set_trace()
-        # 正好最后19个 19个类别
+        # 取L3的seg_logit 作为 acc
         loss['acc_seg'] = accuracy(seg_logit[:, -self.hiera_num_classes[-1]:, :, :], seg_label)
         return loss
 
