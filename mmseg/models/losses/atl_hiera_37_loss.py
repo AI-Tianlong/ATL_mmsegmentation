@@ -548,7 +548,7 @@ class ATL_Hiera_Loss(nn.Module):
                                                 label=hiera_label_list[2],
                                                 ignore_index=self.ignore_index)
 
-        import pdb; pdb.set_trace()
+        # import pdb; pdb.set_trace()
 
         # loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
         loss = ce_loss_L1 + ce_loss_L2 + ce_loss_L3

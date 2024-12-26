@@ -7,27 +7,27 @@ from mmengine.optim.scheduler.lr_scheduler import LinearLR, PolyLR
 from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
 from torch.optim import AdamW
 
-from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
-                                       RandomCrop, ResizeShortestEdge)
-# Evaluation
-from mmseg.evaluation import IoUMetric
-# Backbone
-from mmseg.models.backbones.resnet import ResNetV1c
+from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,RandomCrop,
+                                       ResizeShortestEdge)
+from mmseg.models.decode_heads.uper_head import UPerHead
+
+
+# EncoderDecoder
+from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
+from mmseg.models.segmentors.atl_hiera_37_encoder_decoder import ATL_Hiera_EncoderDecoder
 # SegDataPreProcessor
 from mmseg.models.data_preprocessor import SegDataPreProcessor
-from mmseg.models.decode_heads.atl_hiera_37_sep_aspp_head import \
-    ATL_Hiera_DepthwiseSeparableASPPHead
-from mmseg.models.decode_heads.fcn_head import FCNHead
+# Backbone
+from mmseg.models.backbones.resnet import ResNetV1c
 # DecodeHead
 from mmseg.models.decode_heads.sep_aspp_head import DepthwiseSeparableASPPHead
-from mmseg.models.decode_heads.uper_head import UPerHead
+from mmseg.models.decode_heads.atl_hiera_37_sep_aspp_head import ATL_Hiera_DepthwiseSeparableASPPHead
+from mmseg.models.decode_heads.fcn_head import FCNHead
 # Loss
 from mmseg.models.losses.atl_hiera_37_loss import ATL_Hiera_Loss
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
-from mmseg.models.segmentors.atl_hiera_37_encoder_decoder import \
-    ATL_Hiera_EncoderDecoder
-# EncoderDecoder
-from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
+# Evaluation
+from mmseg.evaluation import IoUMetric
 
 with read_base():
     from ..._base_.datasets.a_atl_0_paper_5b_GF2_19class import *
@@ -45,18 +45,20 @@ L3_num_classes = 19  # number of L1 Level label  # 21
 
 # 总的类别数，包括背景，L1+L2+L3级标签数
 
-num_classes = L1_num_classes + L2_num_classes + L3_num_classes  # 37
+num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37 
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 crop_size = (512, 512)
 pretrained = 'checkpoints/2-对比实验的权重/deeplabv3plus/resnet101_v1c-4channel_BGR.pth'
 
+
+
 # model settings
 norm_cfg = dict(type=SyncBN, requires_grad=True)
 data_preprocessor = dict(
     type=SegDataPreProcessor,
-    mean=[454.1608733420, 320.6480230485, 238.9676917808, 301.4478970428],
-    std=[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602],
+    mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428],
+    std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602],
     # bgr_to_rgb=True,
     pad_val=0,
     seg_pad_val=255,
@@ -69,7 +71,7 @@ model = dict(
     backbone=dict(
         type=ResNetV1c,
         depth=101,
-        in_channels=4,
+        in_channels = 4,
         num_stages=4,
         out_indices=(0, 1, 2, 3),
         dilations=(1, 1, 2, 4),
@@ -87,16 +89,11 @@ model = dict(
         c1_in_channels=256,
         c1_channels=48,
         dropout_ratio=0.1,
-        num_classes=[5, 10, 19],
+        num_classes=[5,10,19],
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
-<<<<<<< HEAD
-            type=ATL_Hiera_Loss, num_classes=[5, 10, 19], loss_weight=1.0)),
-=======
-            type=ATL_Hiera_Loss, num_classes=[5,10,19], loss_weight=1.0),
-            ignore_index=255),
->>>>>>> db4710c8400278567fdd87f13e8b60541a694bd1
+            type=ATL_Hiera_Loss, num_classes=[5,10,19], loss_weight=1.0)),
     auxiliary_head=dict(
         type=FCNHead,
         in_channels=1024,
@@ -113,6 +110,8 @@ model = dict(
     # model training and testing settings
     train_cfg=dict(),
     test_cfg=dict(mode='whole', merge_hirtal=True))
+
+
 
 # optimizer
 optimizer = dict(type=SGD, lr=0.01, momentum=0.9, weight_decay=0.0005)
@@ -134,16 +133,13 @@ test_cfg = dict(type=TestLoop)
 
 default_hooks.update(
     dict(
-        timer=dict(type=IterTimerHook),
-        logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
-        param_scheduler=dict(type=ParamSchedulerHook),
-        checkpoint=dict(
-            type=CheckpointHook,
-            by_epoch=False,
-            interval=8000,
-            max_keep_ckpts=10),
-        sampler_seed=dict(type=DistSamplerSeedHook),
-        visualization=dict(type=SegVisualizationHook)))
+    timer=dict(type=IterTimerHook),
+    logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
+    param_scheduler=dict(type=ParamSchedulerHook),
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=4000, max_keep_ckpts=10),
+    sampler_seed=dict(type=DistSamplerSeedHook),
+    visualization=dict(type=SegVisualizationHook)))
+
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
