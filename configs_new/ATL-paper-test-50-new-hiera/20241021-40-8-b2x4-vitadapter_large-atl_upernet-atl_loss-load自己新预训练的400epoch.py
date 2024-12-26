@@ -17,7 +17,7 @@ from mmseg.evaluation import ATL_IoUMetric  # 多卡时有问题
 from mmseg.evaluation import IoUMetric
 from mmseg.models.backbones import BEiTAdapter, ViTAdapter
 from mmseg.models.decode_heads.atl_fcn_head import ATL_FCNHead
-from mmseg.models.decode_heads.atl_uper_head import (ATL_UPerHead,
+from mmseg.models.decode_heads.atl_hiera_37_uper_head_multi_convseg import (ATL_UPerHead,
                                                      ATL_UPerHead_fenkai)
 from mmseg.models.decode_heads.fcn_head import FCNHead
 from mmseg.models.decode_heads.uper_head import UPerHead
