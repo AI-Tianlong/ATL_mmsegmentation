@@ -458,7 +458,7 @@ class TreeTripletLoss(nn.Module):
             for postive_list in L2_map:
                 if class_ in postive_list:
                     postive_list_cuda = torch.tensor(postive_list).cuda()
-                    index_pos = torch.isin(labels, torch.tensor(postive_list_cuda)) & ~index_anchor
+                    index_pos = torch.isin(labels, postive_list_cuda) & ~index_anchor
             
             index_neg = index_anchor.clone()
             index_neg = (index_anchor | index_pos)
@@ -513,22 +513,22 @@ class ATL_Hiera_Loss(nn.Module):
                 embedding,         # [2,256,64,64]
                 pred_seg_logits,   # [2,34,128,128] [5+10+19]
                 label,
-                weight=None,
                 **kwargs):
         
         # import pdb; pdb.set_trace()
 
-
+        
         hiera_label_list = convert_low_level_label_to_High_level(label, FiveBillion_19Classes_HieraMap_nobackground)
         
+        # Tree-Min Loss
         tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=255)  # 10.9371
-        # import pdb; pdb.set_trace()
+        # L1 cross entropy loss
         ce_loss_L1 = self.cross_entropy_loss(pred_seg_logits[:,:len(L1_map),:,:], hiera_label_list[0])
-        # import pdb; pdb.set_trace()
+        # L2 cross entropy loss
         ce_loss_L2 = self.cross_entropy_loss(pred_seg_logits[:,len(L1_map):len(L1_map)+len(L2_map),:,:], hiera_label_list[1])
-        # import pdb; pdb.set_trace()
+        # L3 cross entropy loss
         ce_loss_L3 = self.cross_entropy_loss(pred_seg_logits[:,-len(L3_map):,:,:], hiera_label_list[2])
-        # import pdb; pdb.set_trace()
+
 
         loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
 
