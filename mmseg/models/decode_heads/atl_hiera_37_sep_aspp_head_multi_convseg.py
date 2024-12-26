@@ -79,16 +79,19 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
                  c1_in_channels, 
                  c1_channels,
                  num_classes_level_list=[5,10,19],
+                 merge_hiera: bool = True,
                  dilations=(1, 12, 24, 36),
                  proj: str = 'convmlp',
                  **kwargs):
 
-        num_classes = num_classes_level_list[-1]
+        num_classes = num_classes_level_list[-1] # 去创建 self.conv_seg
         super().__init__(num_classes=num_classes,
                          dilations=dilations,
                          **kwargs)
-        
-                
+
+
+        self.merge_hiera = merge_hiera
+
         if isinstance(num_classes_level_list, list):
             self.num_classes_level_list = num_classes_level_list  # [5,9,10]
 
@@ -181,7 +184,7 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
             output = torch.cat([output, c1_output], dim=1)
         output = self.sep_bottleneck(output)
 
-        return output
+        return output # [2,512,128,128]
 
 
 
@@ -192,8 +195,6 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
         # 再经过cls_seg,变成[2,19,128,128]
         output = self._forward_feature(inputs) 
 
-        import pdb; pdb.set_trace()
-
         output_L1 = self.cls_seg(output, self.conv_seg_L1)  # [2,5,128,128]
         output_L2 = self.cls_seg(output, self.conv_seg_L2)  # [2,10,128,128]
         output_L3 = self.cls_seg(output, self.conv_seg)  # [2,19,128,128]
@@ -201,9 +202,8 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
         output_cat = torch.cat([output_L1, output_L2, output_L3],dim=1)  # [2,34,128,128]
         output_list = [output_L1, output_L2, output_L3]
 
-        import pdb; pdb.set_trace()
-        self.step += 1
-        embedding = self.proj_head(inputs[-1]) # 最后的一个特征图
+        self.step += 1                         # 一个像素用256维的向量表示
+        embedding = self.proj_head(inputs[-1]) # 最后的一个特征图 # [2,2048,64,64]->[2,256,64,64]
 
         return output_cat, embedding
 
@@ -230,12 +230,16 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
+
+        assert isinstance(seg_logits, tuple), 'please checkout the decode_head.forward()'
+
         seg_logit = seg_logits[0]
         tree_triplet_embedding = seg_logits[1]
+
         seg_label = self._stack_batch_gt(batch_data_samples)
 
         loss = dict()
-        # [2,40,128,128]--->[2,40,512,512]  
+        # [2,34,128,128]--->[2,34,512,512]  
         seg_logit = resize(
             input=seg_logit,
             size=seg_label.shape[2:],
@@ -275,7 +279,7 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
 
         # import pdb; pdb.set_trace()
         # 取L3的seg_logit 作为 acc
-        loss['acc_seg'] = accuracy(seg_logit[:, -self.hiera_num_classes[-1]:, :, :], seg_label)
+        loss['acc_seg'] = accuracy(seg_logit[:, -self.num_classes_level_list[-1]:, :, :], seg_label)
         return loss
 
 
@@ -298,106 +302,71 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
             Tensor: Outputs segmentation logits map.
         """
         seg_logits = self.forward(inputs)  # 过decode_head的forward--->[2,40,128,128]
-        seg_logit = seg_logits[0]
+        seg_logits = seg_logits[0]
 
-        return self.predict_by_feat(seg_logit, batch_img_metas)   # [2,40,512,512]
+        return self.predict_by_feat(seg_logits, batch_img_metas)   # [2,40,512,512]
     
     
-    
-    # def predict_by_feat(self, seg_logit: Tuple[Tensor],
-    #                     batch_img_metas: List[dict]) -> Tensor:
-    #     """Transform a batch of output seg_logits to the input shape.
+    def predict_by_feat(self, seg_logits: Tuple[Tensor],
+                        batch_img_metas: List[dict]) -> Tensor:
+        """Transform a batch of output seg_logits to the input shape.
 
-    #     Args:
-    #         seg_logits (Tensor): The output from decode head forward function.
-    #         batch_img_metas (list[dict]): Meta information of each image, e.g.,
-    #             image size, scaling factor, etc.
+        Args:
+            seg_logits (Tensor): The output from decode head forward function.
+            batch_img_metas (list[dict]): Meta information of each image, e.g.,
+                image size, scaling factor, etc.
 
-    #     Returns:
-    #         Tensor: Outputs segmentation logits map.
-    #     """
-    #     # HSSN decode_head output is: (out, embedding): tuple
-    #     # only need 'out' here.
+        Returns:
+            Tensor: Outputs segmentation logits map.
+        """
+        # HSSN decode_head output is: (out, embedding): tuple
+        # only need 'out' here.
+        B, C, H, W = seg_logits.shape
 
-    #     if seg_logit.size(1) == 26:  # For cityscapes dataset，19 + 7
-    #         hiera_num_classes = 7
-    #         seg_logit[:, 0:2] += seg_logit[:, -7]
-    #         seg_logit[:, 2:5] += seg_logit[:, -6]
-    #         seg_logit[:, 5:8] += seg_logit[:, -5]
-    #         seg_logit[:, 8:10] += seg_logit[:, -4]
-    #         seg_logit[:, 10:11] += seg_logit[:, -3]
-    #         seg_logit[:, 11:13] += seg_logit[:, -2]
-    #         seg_logit[:, 13:19] += seg_logit[:, -1]
+        if self.num_classes_level_list is not None:
+            num_levels_classes=[0,
+                                self.num_classes_level_list[0], 
+                                self.num_classes_level_list[0]+self.num_classes_level_list[1], 
+                                self.num_classes_level_list[0]+self.num_classes_level_list[1]+self.num_classes_level_list[2]]
+        if self.merge_hiera:
+           # [5,10,19] --> [0,5,15,34]
+            
+            new_L3_seg_logits = torch.zeros((B, self.num_classes_level_list[-1], H, W), device=seg_logits.device)# [21,512,512]
+            
+            L1_seg_logits = seg_logits[:, num_levels_classes[0]:num_levels_classes[1], :, :] # [B, 5, 512, 512]  [0-4]
+            L2_seg_logits = seg_logits[:, num_levels_classes[1]:num_levels_classes[2], :, :] # [B, 10, 512, 512] [5-14]
+            L3_seg_logits = seg_logits[:, num_levels_classes[2]:num_levels_classes[3], :, :] # [B, 19, 512, 512] [16,34]
 
-    #     elif seg_logit.size(1) == 12:  # For Pascal_person dataset, 7 + 5
-    #         hiera_num_classes = 5
-    #         seg_logit[:, 0:1] = seg_logit[:, 0:1] + \
-    #             seg_logit[:, 7] + seg_logit[:, 10]
-    #         seg_logit[:, 1:5] = seg_logit[:, 1:5] + \
-    #             seg_logit[:, 8] + seg_logit[:, 11]
-    #         seg_logit[:, 5:7] = seg_logit[:, 5:7] + \
-    #             seg_logit[:, 9] + seg_logit[:, 11]
+            # import pdb; pdb.set_trace()
+            seg_logits_list =  [L1_seg_logits, L2_seg_logits, L3_seg_logits] 
 
-    #     elif seg_logit.size(1) == 25:  # For LIP dataset, 20 + 5
-    #         hiera_num_classes = 5
-    #         seg_logit[:, 0:1] = seg_logit[:, 0:1] + \
-    #             seg_logit[:, 20] + seg_logit[:, 23]
-    #         seg_logit[:, 1:8] = seg_logit[:, 1:8] + \
-    #             seg_logit[:, 21] + seg_logit[:, 24]
-    #         seg_logit[:, 10:12] = seg_logit[:, 10:12] + \
-    #             seg_logit[:, 21] + seg_logit[:, 24]
-    #         seg_logit[:, 13:16] = seg_logit[:, 13:16] + \
-    #             seg_logit[:, 21] + seg_logit[:, 24]
-    #         seg_logit[:, 8:10] = seg_logit[:, 8:10] + \
-    #             seg_logit[:, 22] + seg_logit[:, 24]
-    #         seg_logit[:, 12:13] = seg_logit[:, 12:13] + \
-    #             seg_logit[:, 22] + seg_logit[:, 24]
-    #         seg_logit[:, 16:20] = seg_logit[:, 16:20] + \
-    #             seg_logit[:, 22] + seg_logit[:, 24]
+            # 不需要过 softmax 再去加吧？
+            from mmseg.models.losses.atl_hiera_37_loss import FiveBillion_19Classes_HieraMap_nobackground
+            self.level_classes_map = FiveBillion_19Classes_HieraMap_nobackground
+            for seg_logits_list_index, high_level_dict_key in enumerate(self.level_classes_map):
+                # 0, Classes_Map_L1  1, Classes_Map_L2 2, Classes_Map_L3
+                for high_index_, high_level_name in enumerate(self.level_classes_map[high_level_dict_key]):
+                    L3_index_list = self.level_classes_map[high_level_dict_key][high_level_name]
+                    for L3_index_ in L3_index_list:
+                        new_L3_seg_logits[:,L3_index_,:,:] += seg_logits_list[seg_logits_list_index][:,high_index_,:,:]
+                        # print(high_index_, L3_index_)
+                        # print(seg_logits_list[seg_logits_list_index][:,high_index_,:,:].shape, new_L3_seg_logits.shape, '\n')
+        else:
+            new_L3_seg_logits = seg_logits[:, num_levels_classes[2]:num_levels_classes[3], :, :]
 
-    #     # elif seg_logit.size(1) == 144 # For Mapillary dataset, 124+16+4
-    #     # unofficial repository not release mapillary until 2023/2/6
-
-    #     if isinstance(batch_img_metas[0]['img_shape'], torch.Size):
-    #         # slide inference
-    #         size = batch_img_metas[0]['img_shape']
-    #     elif 'pad_shape' in batch_img_metas[0]:
-    #         size = batch_img_metas[0]['pad_shape'][:2]
-    #     else:
-    #         size = batch_img_metas[0]['img_shape']
-    #     seg_logit = seg_logit[:, :-hiera_num_classes]
-    #     seg_logit = resize(
-    #         input=seg_logit,
-    #         size=size,
-    #         mode='bilinear',
-    #         align_corners=self.align_corners)
-
-    #     return seg_logit
-    
-    # def predict_by_feat(self, seg_logits: Tensor,
-    #                     batch_img_metas: List[dict]) -> Tensor:
-    #     """Transform a batch of output seg_logits to the input shape.  # 缩放！
-
-    #     Args:
-    #         seg_logits (Tensor): The output from decode head forward function.
-    #         batch_img_metas (list[dict]): Meta information of each image, e.g.,
-    #             image size, scaling factor, etc.
-
-    #     Returns:
-    #         Tensor: Outputs segmentation logits map.
-    #     """
-
-    #     if isinstance(batch_img_metas[0]['img_shape'], torch.Size):
-    #         # slide inference
-    #         size = batch_img_metas[0]['img_shape']
-    #     elif 'pad_shape' in batch_img_metas[0]:
-    #         size = batch_img_metas[0]['pad_shape'][:2]
-    #     else:
-    #         size = batch_img_metas[0]['img_shape']
-
-    #     seg_logits = resize(
-    #         input=seg_logits,
-    #         size=size,
-    #         mode='bilinear',
-    #         align_corners=self.align_corners)
-    #     return seg_logits
+        if isinstance(batch_img_metas[0]['img_shape'], torch.Size):
+            # slide inference
+            size = batch_img_metas[0]['img_shape']
+        elif 'pad_shape' in batch_img_metas[0]:
+            size = batch_img_metas[0]['pad_shape'][:2]
+        else:
+            size = batch_img_metas[0]['img_shape']
+        
+        seg_logits = new_L3_seg_logits
+        seg_logits = resize(
+            input=seg_logits,
+            size=size,
+            mode='bilinear',
+            align_corners=self.align_corners)
+        
+        return seg_logits

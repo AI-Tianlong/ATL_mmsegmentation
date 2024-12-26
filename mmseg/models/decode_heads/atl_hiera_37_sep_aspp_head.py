@@ -79,11 +79,12 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
                  c1_in_channels, 
                  c1_channels,
                  num_classes,
+                 merge_hiera: bool = True,
                  dilations=(1, 12, 24, 36),
                  proj: str = 'convmlp',
                  **kwargs):
         
-
+        self.merge_hiera = merge_hiera
         self.hiera_num_classes = num_classes
         num_classes = sum(num_classes)
         
@@ -268,12 +269,14 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
         # only need 'out' here.
         B, C, H, W = seg_logits.shape
 
+
         if self.hiera_num_classes is not None:
-           # [5,10,19] --> [0,5,15,34]
             num_levels_classes=[0,
                                 self.hiera_num_classes[0], 
                                 self.hiera_num_classes[0]+self.hiera_num_classes[1], 
                                 self.hiera_num_classes[0]+self.hiera_num_classes[1]+self.hiera_num_classes[0]+self.hiera_num_classes[2]]
+        if self.merge_hiera:
+           # [5,10,19] --> [0,5,15,34]
             
             new_L3_seg_logits = torch.zeros((B, self.hiera_num_classes[-1], H, W), device=seg_logits.device)# [21,512,512]
             
@@ -281,6 +284,7 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
             L2_seg_logits = seg_logits[:, num_levels_classes[1]:num_levels_classes[2], :, :] # [B, 10, 512, 512] [5-14]
             L3_seg_logits = seg_logits[:, num_levels_classes[2]:num_levels_classes[3], :, :] # [B, 19, 512, 512] [16,34]
 
+            # import pdb; pdb.set_trace()
             seg_logits_list =  [L1_seg_logits, L2_seg_logits, L3_seg_logits] 
 
             # 不需要过 softmax 再去加吧？
@@ -294,7 +298,8 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
                         new_L3_seg_logits[:,L3_index_,:,:] += seg_logits_list[seg_logits_list_index][:,high_index_,:,:]
                         # print(high_index_, L3_index_)
                         # print(seg_logits_list[seg_logits_list_index][:,high_index_,:,:].shape, new_L3_seg_logits.shape, '\n')
-        
+        else:
+            new_L3_seg_logits = seg_logits[:, num_levels_classes[2]:num_levels_classes[3], :, :]
 
         if isinstance(batch_img_metas[0]['img_shape'], torch.Size):
             # slide inference
@@ -314,30 +319,3 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
         return seg_logits
 
     
-    # def predict_by_feat(self, seg_logits: Tensor,
-    #                     batch_img_metas: List[dict]) -> Tensor:
-    #     """Transform a batch of output seg_logits to the input shape.  # 缩放！
-
-    #     Args:
-    #         seg_logits (Tensor): The output from decode head forward function.
-    #         batch_img_metas (list[dict]): Meta information of each image, e.g.,
-    #             image size, scaling factor, etc.
-
-    #     Returns:
-    #         Tensor: Outputs segmentation logits map.
-    #     """
-
-    #     if isinstance(batch_img_metas[0]['img_shape'], torch.Size):
-    #         # slide inference
-    #         size = batch_img_metas[0]['img_shape']
-    #     elif 'pad_shape' in batch_img_metas[0]:
-    #         size = batch_img_metas[0]['pad_shape'][:2]
-    #     else:
-    #         size = batch_img_metas[0]['img_shape']
-
-    #     seg_logits = resize(
-    #         input=seg_logits,
-    #         size=size,
-    #         mode='bilinear',
-    #         align_corners=self.align_corners)
-    #     return seg_logits
