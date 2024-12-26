@@ -535,17 +535,19 @@ class ATL_Hiera_Loss(nn.Module):
         ce_loss_L3 = self.cross_entropy_loss(pred_seg_logits[:,-len(L3_map):,:,:], hiera_label_list[2])
 
 
-        loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
+        # loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
+        loss = ce_loss_L1 + ce_loss_L2 + ce_loss_L3
 
-        loss_triplet, class_count = self.tree_triplet_loss(embedding, label)
-        class_counts = [torch.ones_like(class_count) for _ in range(torch.distributed.get_world_size())]
-        torch.distributed.all_gather(class_counts, class_count, async_op=False)
-        class_counts = torch.cat(class_counts, dim=0)
+        # loss_triplet, class_count = self.tree_triplet_loss(embedding, label)
+        # class_counts = [torch.ones_like(class_count) for _ in range(torch.distributed.get_world_size())]
+        # torch.distributed.all_gather(class_counts, class_count, async_op=False)
+        # class_counts = torch.cat(class_counts, dim=0)
 
-        if torch.distributed.get_world_size()==torch.nonzero(class_counts, as_tuple=False).size(0):
-            factor = 1/4*(1+torch.cos(torch.tensor((step.item()-80000)/80000*math.pi))) if step.item()<80000 else 0.5
-            loss += factor*loss_triplet
+        # if torch.distributed.get_world_size()==torch.nonzero(class_counts, as_tuple=False).size(0):
+        #     factor = 1/4*(1+torch.cos(torch.tensor((step.item()-80000)/80000*math.pi))) if step.item()<80000 else 0.5
+        #     loss += factor*loss_triplet
             
+        
         return loss*self.loss_weight
 
     @property

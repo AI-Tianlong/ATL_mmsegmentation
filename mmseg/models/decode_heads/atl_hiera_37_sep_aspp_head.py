@@ -249,6 +249,10 @@ class ATL_Hiera_DepthwiseSeparableASPPHead(ASPPHead):
         seg_logits = self.forward(inputs)  # 过decode_head的forward--->[2,40,128,128]
         seg_logit = seg_logits[0]
 
+        if self.test_cfg.merge_hirtal:
+            # L3[:, 0:1] = L3[:, 0:1] + L2[:, 0:1] + L1[:, 0:1]
+
+
         return self.predict_by_feat(seg_logit, batch_img_metas)   # [2,40,512,512]
     
     
