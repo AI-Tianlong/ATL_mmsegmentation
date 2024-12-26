@@ -93,7 +93,8 @@ model = dict(
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
-            type=ATL_Hiera_Loss, num_classes=[5,10,19], loss_weight=1.0)),
+            type=ATL_Hiera_Loss, num_classes=[5,10,19], loss_weight=1.0),
+            ignore_index=255),
     auxiliary_head=dict(
         type=FCNHead,
         in_channels=1024,
@@ -127,7 +128,7 @@ param_scheduler = [
         by_epoch=False)
 ]
 
-train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=8000)
+train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=4000)
 val_cfg = dict(type=ValLoop)
 test_cfg = dict(type=TestLoop)
 

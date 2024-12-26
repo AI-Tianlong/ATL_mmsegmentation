@@ -273,9 +273,10 @@ class CrossEntropyLoss(nn.Module):
                 weight=None,
                 avg_factor=None,
                 reduction_override=None,
-                ignore_index=-100, # 这里默认255了
+                ignore_index=-100, # 这里默认255了, 那里给他改成255的？没有默认255？！！
                 **kwargs):
         """Forward function."""
+        # import pdb; pdb.set_trace()
         assert reduction_override in (None, 'none', 'mean', 'sum')
         reduction = (
             reduction_override if reduction_override else self.reduction)
