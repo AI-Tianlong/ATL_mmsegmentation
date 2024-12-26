@@ -51,8 +51,6 @@ num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37
 crop_size = (512, 512)
 pretrained = 'checkpoints/2-对比实验的权重/deeplabv3plus/resnet101_v1c-4channel_BGR.pth'
 
-
-
 # model settings
 norm_cfg = dict(type=SyncBN, requires_grad=True)
 data_preprocessor = dict(
@@ -82,6 +80,7 @@ model = dict(
         contract_dilation=True),
     decode_head=dict(
         type=ATL_Hiera_DepthwiseSeparableASPPHead,
+        merge_hiera=False,
         in_channels=2048,
         in_index=3,
         channels=512,
@@ -110,7 +109,7 @@ model = dict(
             type=CrossEntropyLoss, use_sigmoid=False, loss_weight=0.4)),
     # model training and testing settings
     train_cfg=dict(),
-    test_cfg=dict(mode='whole', merge_hirtal=True))
+    test_cfg=dict(mode='whole'))
 
 
 
@@ -137,7 +136,7 @@ default_hooks.update(
     timer=dict(type=IterTimerHook),
     logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
     param_scheduler=dict(type=ParamSchedulerHook),
-    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=8000, max_keep_ckpts=10),
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=4000, max_keep_ckpts=10),
     sampler_seed=dict(type=DistSamplerSeedHook),
     visualization=dict(type=SegVisualizationHook)))
 

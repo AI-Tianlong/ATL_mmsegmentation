@@ -497,8 +497,12 @@ class TreeTripletLoss(nn.Module):
 
 
 
+
+
+
+# 消融实验--------------> 只保留三个celoss 
 @MODELS.register_module()
-class ATL_Hiera_Loss(nn.Module):
+class ATL_Hiera_Loss_convseg(nn.Module):
 
     def __init__(self,
                  num_classes,
@@ -513,13 +517,11 @@ class ATL_Hiera_Loss(nn.Module):
         
         self.ignore_index = ignore_index
         
-        self.cross_entropy_loss = CrossEntropyLoss()
         self.cross_entropy_loss_L1 = CrossEntropyLoss(loss_name='loss_ce_L1')
         self.cross_entropy_loss_L2 = CrossEntropyLoss(loss_name='loss_ce_L2')
         self.cross_entropy_loss_L3 = CrossEntropyLoss(loss_name='loss_ce_L3')
 
         self._loss_name = loss_name
-
 
     def forward(self,
                 step,
@@ -533,8 +535,9 @@ class ATL_Hiera_Loss(nn.Module):
         
         hiera_label_list = convert_low_level_label_to_High_level(label, FiveBillion_19Classes_HieraMap_nobackground)
         
-        # Tree-Min Loss
+        ## Tree-Min Loss
         tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=255)  # 10.9371
+        
         # L1 cross entropy loss              # [2,34,512,512] [2,5,512,512] [2,10,512,512] [2,19,512,512]
         ce_loss_L1 = self.cross_entropy_loss_L1(cls_score=pred_seg_logits[:,:len(L1_map),:,:],
                                                 label=hiera_label_list[0],
@@ -547,6 +550,7 @@ class ATL_Hiera_Loss(nn.Module):
         ce_loss_L3 = self.cross_entropy_loss_L3(cls_score=pred_seg_logits[:,-len(L3_map):,:,:], 
                                                 label=hiera_label_list[2],
                                                 ignore_index=self.ignore_index)
+
 
         # import pdb; pdb.set_trace()
 
