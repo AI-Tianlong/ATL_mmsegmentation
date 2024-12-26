@@ -250,23 +250,6 @@ class ATL_Hiera_EncoderDecoder(BaseSegmentor):
 
         seg_logits = self.inference(inputs, batch_img_metas)  # [2,10,512,512]-->[2, 37, 512, 512] UperHead 的输出
         
-        # 临时的！ 需要后处理去计算！
-        # import pdb; pdb.set_trace()
-        if seg_logits.size(1) == 26:  # For cityscapes dataset，19 + 7
-            hiera_num_classes = 7
-            if self.test_cfg.merge_hiera:
-                seg_logits[:, 0:2] += seg_logits[:, -7]
-                seg_logits[:, 2:5] += seg_logits[:, -6]
-                seg_logits[:, 5:8] += seg_logits[:, -5]
-                seg_logits[:, 8:10] += seg_logits[:, -4]
-                seg_logits[:, 10:11] += seg_logits[:, -3]
-                seg_logits[:, 11:13] += seg_logits[:, -2]
-                seg_logits[:, 13:19] += seg_logits[:, -1]
-
-            seg_logits = seg_logits[:, :-hiera_num_classes]
-
-
-
         return self.postprocess_result(seg_logits, data_samples) #然后是最后的后处理，保存单个通道的那种
 
     def _forward(self,

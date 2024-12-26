@@ -504,14 +504,22 @@ class ATL_Hiera_Loss(nn.Module):
                  num_classes,
                  use_sigmoid=False,
                  loss_name = 'loss_hiera',
-                 loss_weight=1.0):
+                 loss_weight=1.0,
+                 ignore_index=255):
         super().__init__()
         self.num_classes = num_classes
         self.loss_weight = loss_weight
         self.tree_triplet_loss = TreeTripletLoss(ignore_index = 255)
+        
+        self.ignore_index = ignore_index
+        
         self.cross_entropy_loss = CrossEntropyLoss()
+        self.cross_entropy_loss_L1 = CrossEntropyLoss(loss_name='loss_ce_L1')
+        self.cross_entropy_loss_L2 = CrossEntropyLoss(loss_name='loss_ce_L2')
+        self.cross_entropy_loss_L3 = CrossEntropyLoss(loss_name='loss_ce_L3')
 
         self._loss_name = loss_name
+
 
     def forward(self,
                 step,
@@ -527,13 +535,20 @@ class ATL_Hiera_Loss(nn.Module):
         
         # Tree-Min Loss
         tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=255)  # 10.9371
-        # L1 cross entropy loss
-        ce_loss_L1 = self.cross_entropy_loss(pred_seg_logits[:,:len(L1_map),:,:], hiera_label_list[0])
+        # L1 cross entropy loss              # [2,34,512,512] [2,5,512,512] [2,10,512,512] [2,19,512,512]
+        ce_loss_L1 = self.cross_entropy_loss_L1(cls_score=pred_seg_logits[:,:len(L1_map),:,:],
+                                                label=hiera_label_list[0],
+                                                ignore_index=self.ignore_index)
         # L2 cross entropy loss
-        ce_loss_L2 = self.cross_entropy_loss(pred_seg_logits[:,len(L1_map):len(L1_map)+len(L2_map),:,:], hiera_label_list[1])
-        # L3 cross entropy loss
-        ce_loss_L3 = self.cross_entropy_loss(pred_seg_logits[:,-len(L3_map):,:,:], hiera_label_list[2])
+        ce_loss_L2 = self.cross_entropy_loss_L2(cls_score=pred_seg_logits[:,len(L1_map):len(L1_map)+len(L2_map),:,:], 
+                                                label=hiera_label_list[1],
+                                                ignore_index=self.ignore_index)
+        
+        ce_loss_L3 = self.cross_entropy_loss_L3(cls_score=pred_seg_logits[:,-len(L3_map):,:,:], 
+                                                label=hiera_label_list[2],
+                                                ignore_index=self.ignore_index)
 
+        import pdb; pdb.set_trace()
 
         # loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
         loss = ce_loss_L1 + ce_loss_L2 + ce_loss_L3

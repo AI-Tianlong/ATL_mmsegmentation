@@ -42,7 +42,7 @@ with read_base():
 
 crop_size = (512, 512)
 num_classes = 19
-pretrained = '/opt/AI-Tianlong/0-ATL-paper-work/0-预训练好的权重/2-对比实验的权重/deeplabv3plus/resnet101_v1c-4channel_BGR.pth'
+pretrained = 'checkpoints/2-对比实验的权重/deeplabv3plus/resnet101_v1c-4channel_BGR.pth'
 
 
 # model settings
