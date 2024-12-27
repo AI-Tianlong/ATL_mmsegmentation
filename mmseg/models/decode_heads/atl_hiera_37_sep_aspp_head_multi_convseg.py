@@ -205,6 +205,8 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
         self.step += 1                         # 一个像素用256维的向量表示
         embedding = self.proj_head(inputs[-1]) # 最后的一个特征图 # [2,2048,64,64]->[2,256,64,64]
 
+        output_cat = output_L3
+
         return output_cat, embedding
 
     """
@@ -260,22 +262,35 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
 
         # 去执行 loss_hiera的forward函数
         for loss_decode in losses_decode:
+            # 普通的Crossentropy loss 用这个！
             if loss_decode.loss_name not in loss:  # loss['atl_loss_ce'],log就打印decode.atl_loss_ce
                 loss[loss_decode.loss_name] = loss_decode(
-                    self.step,
-                    tree_triplet_embedding,
                     seg_logit,
                     seg_label,
                     weight=seg_weight,
                     ignore_index=self.ignore_index)
             else: # 如果同名的话，累加loss值
                 loss[loss_decode.loss_name] += loss_decode(
-                    self.step,
-                    tree_triplet_embedding,
                     seg_logit,
                     seg_label,
                     weight=seg_weight,
                     ignore_index=self.ignore_index)
+            # if loss_decode.loss_name not in loss:  # loss['atl_loss_ce'],log就打印decode.atl_loss_ce
+            #     loss[loss_decode.loss_name] = loss_decode(
+            #         self.step,
+            #         tree_triplet_embedding,
+            #         seg_logit,
+            #         seg_label,
+            #         weight=seg_weight,
+            #         ignore_index=self.ignore_index)
+            # else: # 如果同名的话，累加loss值
+            #     loss[loss_decode.loss_name] += loss_decode(
+            #         self.step,
+            #         tree_triplet_embedding,
+            #         seg_logit,
+            #         seg_label,
+            #         weight=seg_weight,
+            #         ignore_index=self.ignore_index)
 
         # import pdb; pdb.set_trace()
         # 取L3的seg_logit 作为 acc

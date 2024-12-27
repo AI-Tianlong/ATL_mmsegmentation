@@ -29,8 +29,7 @@ from mmseg.models.backbones.resnet import ResNetV1c
 from mmseg.models.decode_heads.sep_aspp_head import DepthwiseSeparableASPPHead
 from mmseg.models.decode_heads.fcn_head import FCNHead
  
-from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
-from mmseg.models.losses.atl_loss import ATL_Loss, S2_5B_Dataset_21Classes_Map_nobackground
+
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
 from torch.optim.sgd import SGD
 from mmseg.evaluation import IoUMetric

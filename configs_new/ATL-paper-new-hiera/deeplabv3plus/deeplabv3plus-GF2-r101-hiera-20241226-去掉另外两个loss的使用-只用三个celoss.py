@@ -20,13 +20,11 @@ from mmseg.models.data_preprocessor import SegDataPreProcessor
 # Backbone
 from mmseg.models.backbones.resnet import ResNetV1c
 # DecodeHead
-from mmseg.models.decode_heads.atl_hiera_37_sep_aspp_head_multi_convseg import ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg
 from mmseg.models.decode_heads.sep_aspp_head import DepthwiseSeparableASPPHead
 from mmseg.models.decode_heads.atl_hiera_37_sep_aspp_head import ATL_Hiera_DepthwiseSeparableASPPHead
 from mmseg.models.decode_heads.fcn_head import FCNHead
 # Loss
 from mmseg.models.losses.atl_hiera_37_loss import ATL_Hiera_Loss
-from mmseg.models.losses.atl_hiera_37_loss_convseg import ATL_Hiera_Loss_convseg
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
 # Evaluation
 from mmseg.evaluation import IoUMetric
@@ -54,6 +52,7 @@ crop_size = (512, 512)
 pretrained = 'checkpoints/2-对比实验的权重/deeplabv3plus/resnet101_v1c-4channel_BGR.pth'
 
 
+
 # model settings
 norm_cfg = dict(type=SyncBN, requires_grad=True)
 data_preprocessor = dict(
@@ -67,7 +66,6 @@ data_preprocessor = dict(
 
 model = dict(
     type=ATL_Hiera_EncoderDecoder,
-    # type=EncoderDecoder,
     data_preprocessor=data_preprocessor,
     pretrained=pretrained,
     backbone=dict(
@@ -83,9 +81,7 @@ model = dict(
         style='pytorch',
         contract_dilation=True),
     decode_head=dict(
-        type=ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg,
-        merge_hiera=False,
-        # type=DepthwiseSeparableASPPHead,
+        type=ATL_Hiera_DepthwiseSeparableASPPHead,
         in_channels=2048,
         in_index=3,
         channels=512,
@@ -93,15 +89,12 @@ model = dict(
         c1_in_channels=256,
         c1_channels=48,
         dropout_ratio=0.1,
-        # num_classes_level_list=[5,10,19],
-        num_classes=19,
+        num_classes=[5,10,19],
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
-            type=ATL_Hiera_Loss_convseg, num_classes=[5,10,19], loss_weight=1.0),
+            type=ATL_Hiera_Loss, num_classes=[5,10,19], loss_weight=1.0),
             ignore_index=255),
-        # loss_decode=dict(
-        #     type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
     auxiliary_head=dict(
         type=FCNHead,
         in_channels=1024,
@@ -117,7 +110,7 @@ model = dict(
             type=CrossEntropyLoss, use_sigmoid=False, loss_weight=0.4)),
     # model training and testing settings
     train_cfg=dict(),
-    test_cfg=dict(mode='whole'))
+    test_cfg=dict(mode='whole', merge_hirtal=True))
 
 
 
@@ -135,7 +128,7 @@ param_scheduler = [
         by_epoch=False)
 ]
 
-train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=2000)
+train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=4000)
 val_cfg = dict(type=ValLoop)
 test_cfg = dict(type=TestLoop)
 
@@ -144,7 +137,7 @@ default_hooks.update(
     timer=dict(type=IterTimerHook),
     logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
     param_scheduler=dict(type=ParamSchedulerHook),
-    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=2000, max_keep_ckpts=10),
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=8000, max_keep_ckpts=10),
     sampler_seed=dict(type=DistSamplerSeedHook),
     visualization=dict(type=SegVisualizationHook)))
 
