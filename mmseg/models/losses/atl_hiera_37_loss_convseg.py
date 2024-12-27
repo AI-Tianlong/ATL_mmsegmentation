@@ -515,7 +515,7 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         self.loss_weight = loss_weight
         self.tree_triplet_loss = TreeTripletLoss(ignore_index = 255)
         
-        self.ignore_index = ignore_index
+        self.ignore_index = ignore_index  # 应该都是255了
         
         self.cross_entropy_loss_L1 = CrossEntropyLoss(loss_name='loss_ce_L1')
         self.cross_entropy_loss_L2 = CrossEntropyLoss(loss_name='loss_ce_L2')
@@ -528,15 +528,21 @@ class ATL_Hiera_Loss_convseg(nn.Module):
                 embedding,         # [2,256,64,64]
                 pred_seg_logits,   # [2,34,128,128] [5+10+19]
                 label,
+                ignore_index=-100,
                 **kwargs):
         
         # import pdb; pdb.set_trace()
 
         
-        hiera_label_list = convert_low_level_label_to_High_level(label, FiveBillion_19Classes_HieraMap_nobackground)
         
+        hiera_label_list = convert_low_level_label_to_High_level(label, FiveBillion_19Classes_HieraMap_nobackground)
+        import pdb; pdb.set_trace()
+        import numpy as np
+        np.save('/opt/AI-Tianlong/openmmlab/atl-test/hiera_label_list_0.npy', hiera_label_list[0].cpu())
+        import pdb; pdb.set_trace()
+
         ## Tree-Min Loss
-        tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=255)  # 10.9371
+        tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
         
         # L1 cross entropy loss              # [2,34,512,512] [2,5,512,512] [2,10,512,512] [2,19,512,512]
         ce_loss_L1 = self.cross_entropy_loss_L1(cls_score=pred_seg_logits[:,:len(L1_map),:,:],
@@ -555,8 +561,10 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         # import pdb; pdb.set_trace()
 
         # loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
-        loss = ce_loss_L1 + ce_loss_L2 + ce_loss_L3
+        # loss = ce_loss_L1 + ce_loss_L2 + ce_loss_L3
+        loss = ce_loss_L3 
 
+        import pdb; pdb.set_trace()
         # loss_triplet, class_count = self.tree_triplet_loss(embedding, label)
         # class_counts = [torch.ones_like(class_count) for _ in range(torch.distributed.get_world_size())]
         # torch.distributed.all_gather(class_counts, class_count, async_op=False)

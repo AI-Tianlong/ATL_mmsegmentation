@@ -92,8 +92,7 @@ model = dict(
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
-            type=ATL_Hiera_Loss, num_classes=[5,10,19], loss_weight=1.0),
-            ignore_index=255),
+            type=ATL_Hiera_Loss, num_classes=[5,10,19], loss_weight=1.0)),
     auxiliary_head=dict(
         type=FCNHead,
         in_channels=1024,
