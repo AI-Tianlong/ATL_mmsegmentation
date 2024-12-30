@@ -264,8 +264,8 @@ def Tree_Min_Loss(pred_seg_logits, # Tensor:[B,5+10+19,512,512]  or List:[2,5,51
     # 权重调整：在多任务学习或多损失函数的情况下，不同的损失函数可能会有不同的量级。乘以一个系数可以平衡这些损失函数，使它们对最终的总损失有类似的重要性。
     # 训练动态调整：通过乘以一个系数，可以加快或减慢训练过程中的梯度更新速度。一个较大的系数会使梯度变得更大，从而加快参数更新的速度。
     # 强调特定损失：有时我们希望特定的损失在总损失中占据更大的比例，以便模型更加关注特定的目标。通过乘以一个系数，可以增加该损失在总损失中的权重。
-    import pdb; pdb.set_trace()
-    return 5*loss
+    # import pdb; pdb.set_trace()
+    return 1*loss
     # return loss
 
 
@@ -556,7 +556,6 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         self.ignore_index = ignore_index  # 应该都是255了
         
         self.cross_entropy_loss = CrossEntropyLoss(loss_name='loss_hiera_ce')
-        self.cross_entropy_loss = CrossEntropyLoss(loss_name='loss_hiera_ce')
         self.cross_entropy_loss_L1 = CrossEntropyLoss(loss_name='loss_ce_L1')
         self.cross_entropy_loss_L2 = CrossEntropyLoss(loss_name='loss_ce_L2')
         self.cross_entropy_loss_L3 = CrossEntropyLoss(loss_name='loss_ce_L3')
@@ -586,12 +585,12 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         # np.save('/opt/AI-Tianlong/openmmlab/atl-test/hiera_label_list_0.npy', hiera_label_list[0].cpu())
         # import pdb; pdb.set_trace()
 
-        ## Tree-Min Loss
+        # Tree-Min Loss                # [list]
         tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
-        
-        # L1 cross entropy loss              # [2,34,512,512] [2,5,512,512] [2,10,512,512] [2,19,512,512]
-        ce_loss_L1 = self.cross_entropy_loss_L1(cls_score=pred_seg_logits[:,:len(L1_map),:,:],
-                                                label=hiera_label_list[0],
+
+        ce_loss_L1 = self.cross_entropy_loss_L1(pred_seg_logits[0],
+                                                hiera_label_list[0],
+                                                weight=None,
                                                 ignore_index=self.ignore_index)
 
 
@@ -606,10 +605,16 @@ class ATL_Hiera_Loss_convseg(nn.Module):
                                                 ignore_index=self.ignore_index)
       
         # loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
-        # loss = ce_loss_L1 + ce_loss_L2 + ce_loss_L3
-        loss = ce_loss_L3 
-
-        import pdb; pdb.set_trace()
+        
+        # loss = ce_loss_L1 + ce_loss_L3                 # 消融 L1 L3
+        # loss = ce_loss_L2 + ce_loss_L3               # 消融 L2 L3
+        # loss = 1 * ce_loss_L1 + 1 * ce_loss_L2 +  1* ce_loss_L3  # 64.54的性能
+        # loss = 0.3 * ce_loss_L1 + 0.3 * ce_loss_L2 +  ce_loss_L3  # 64.54的性能
+        loss = (5 * ce_loss_L1 + 10 * ce_loss_L2 + 19 * ce_loss_L3)/(5+10+19)  # 消融 L1 L2 L3  5:10:19 = 0.147:0.294:0.553
+        
+        loss += tree_min_loss   
+                                                                                  #                        
+        
         # loss_triplet, class_count = self.tree_triplet_loss(embedding, label)
         # class_counts = [torch.ones_like(class_count) for _ in range(torch.distributed.get_world_size())]
         # torch.distributed.all_gather(class_counts, class_count, async_op=False)
