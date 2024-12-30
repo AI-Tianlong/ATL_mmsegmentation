@@ -94,7 +94,7 @@ def convert_low_level_label_to_High_level(label, classes_map):
     return label_list  # [L1级label, L2级label, L3级label] #tensor [2,512,512][2,512,512][2,512,512]
 
 
-def Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
+def Tree_Min_Loss(pred_seg_logits, # Tensor:[B,5+10+19,512,512]  or List:[2,5,512,512][2,10,512,512][2,19,512,512]
                   label_level_list,  # [512,512](0-4) [512,512](0,10) [512,512](0,20)   
                   num_classes, # 19
                   eps=1e-8, 
@@ -115,9 +115,12 @@ def Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     # 让所有推理过一个 sigmoid
     
     # sigmoid,每一个通道的值，自己去算sigmoid，和其他人没关系
-    pred_sigmoid = torch.sigmoid(pred_seg_logits.float()) # 让预测值过一个sigmoid函数，变为0-1 (1, 34, 512, 512) # 之和自己的值有关系
+    if isinstance(pred_seg_logits, list):
+        pred_sigmoid = [torch.sigmoid(pred_seg_logits[i].float()) for i in range(len(pred_seg_logits))]
+    elif isinstance(pred_seg_logits, torch.Tensor):
+        pred_sigmoid = torch.sigmoid(pred_seg_logits.float()) # 让预测值过一个sigmoid函数，变为0-1 (1, 34, 512, 512) # 之和自己的值有关系
     # softmax,每一个相同位置的像素去整体算softmax值，和其他通道有关系。
-    pred_softmax = torch.softmax(pred_seg_logits, dim=1) # 让预测值过一个softmax函数，变为0-1 (1, 34, 512, 512) # 和其他通道的值也有关系
+    # pred_softmax = torch.softmax(pred_seg_logits, dim=1) # 让预测值过一个softmax函数，变为0-1 (1, 34, 512, 512) # 和其他通道的值也有关系
     # TODO: 这里的softmax，应该每一个层级自己做，还是整体做。
 
     label_L1 = label_level_list[0]  # 无效标签为255
@@ -147,9 +150,22 @@ def Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     # 5 6 7 8 9 10 11 12 13 14  [5,15) L2的概率值
     # 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 [15,37) L3的概率值
     # import pdb; pdb.set_trace()
-    pred_sigmoid_L1 = pred_sigmoid[:,0:len(L1_map),:,:]    # 前5个是L1
-    pred_sigmoid_L2 = pred_sigmoid[:,len(L1_map):len(L1_map)+len(L2_map),:,:]  # 前5-15个是L2
-    pred_sigmoid_L3 = pred_sigmoid[:,-len(L3_map):,:,:] # 最后的19个是L3   
+    if isinstance(pred_sigmoid, list):
+        pred_sigmoid_L1 = pred_sigmoid[0]    # 前5个是L1
+        pred_sigmoid_L2 = pred_sigmoid[1]
+        pred_sigmoid_L3 = pred_sigmoid[2]
+        assert pred_sigmoid_L1.shape[1]==len(L1_map), "The number of L1 classes is not equal to the number of L1 classes."
+        assert pred_sigmoid_L2.shape[1]==len(L2_map), "The number of L2 classes is not equal to the number of L2 classes."
+        assert pred_sigmoid_L3.shape[1]==len(L3_map), "The number of L3 classes is not equal to the number of L3 classes."
+    
+    elif isinstance(pred_sigmoid, torch.Tensor):
+        pred_sigmoid_L1 = pred_sigmoid[:,0:len(L1_map),:,:]    # 前5个是L1
+        pred_sigmoid_L2 = pred_sigmoid[:,len(L1_map):len(L1_map)+len(L2_map),:,:]  # 前5-15个是L2
+        pred_sigmoid_L3 = pred_sigmoid[:,-len(L3_map):,:,:] # 最后的19个是L3   
+        
+        assert pred_sigmoid_L1.shape[1]==len(L1_map), "The number of L1 classes is not equal to the number of L1 classes."
+        assert pred_sigmoid_L2.shape[1]==len(L2_map), "The number of L2 classes is not equal to the number of L2 classes."
+        assert pred_sigmoid_L3.shape[1]==len(L3_map), "The number of L3 classes is not equal to the number of L3 classes."
     
 
     # ==============================《约束1 去更新L2 L1 使父类的特征图的值要大于等于子类的特征图的值包含其中最大的sigmoid值》==================
@@ -248,6 +264,7 @@ def Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     # 权重调整：在多任务学习或多损失函数的情况下，不同的损失函数可能会有不同的量级。乘以一个系数可以平衡这些损失函数，使它们对最终的总损失有类似的重要性。
     # 训练动态调整：通过乘以一个系数，可以加快或减慢训练过程中的梯度更新速度。一个较大的系数会使梯度变得更大，从而加快参数更新的速度。
     # 强调特定损失：有时我们希望特定的损失在总损失中占据更大的比例，以便模型更加关注特定的目标。通过乘以一个系数，可以增加该损失在总损失中的权重。
+    import pdb; pdb.set_trace()
     return 5*loss
     # return loss
 
@@ -268,10 +285,19 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
         num_classes: int, 类别数
         indices_high: list, 父类对应的子类的的索引范围
     """
-    b, _, h, w = pred_seg_logits[0] # [2, _, 512, 512]
+    # import pdb; pdb.set_trace()
+    # b, _, h, w = pred_seg_logits.shape # [2, 34, 128, 128]
     # 让所有推理过一个 sigmoid
-    pred_sigmoid = torch.sigmoid(pred_seg_logits.float()) # 让预测值过一个sigmoid函数，变为0-1 (1, 26, 1024, 2048)
     
+    # sigmoid,每一个通道的值，自己去算sigmoid，和其他人没关系
+    if isinstance(pred_seg_logits, list):
+        pred_sigmoid = [torch.sigmoid(pred_seg_logits[i].float()) for i in range(len(pred_seg_logits))]
+    elif isinstance(pred_seg_logits, torch.Tensor):
+        pred_sigmoid = torch.sigmoid(pred_seg_logits.float()) # 让预测值过一个sigmoid函数，变为0-1 (1, 34, 512, 512) # 之和自己的值有关系
+    # softmax,每一个相同位置的像素去整体算softmax值，和其他通道有关系。
+    pred_softmax = torch.softmax(pred_seg_logits, dim=1) # 让预测值过一个softmax函数，变为0-1 (1, 34, 512, 512) # 和其他通道的值也有关系
+    # TODO: 这里的softmax，应该每一个层级自己做，还是整体做。
+
     label_L1 = label_level_list[0]  # 无效标签为255
     label_L2 = label_level_list[1] 
     label_L3 = label_level_list[2] 
@@ -284,13 +310,13 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     # 处理L1标签       # 将ignore的像素值的位置设置为全0向量。
     invalid_pos = (label_L3==ignore_index) # 无效的位置 #ignore # 变成one hot向量
     label_L1[invalid_pos]=0  # 无效的位置设置为19, 之后忽略掉
-    label_L1_one_hot = F.one_hot(label_L1, num_classes=len(L1_map)).permute(0,3,1,2) 
+    label_L1_one_hot = F.one_hot(label_L1, num_classes=len(L1_map)).permute(0,3,1,2)  # [2,5,512,512]
     # 处理L2标签
     label_L2[invalid_pos]=0  # 无效的位置设置为19, 之后忽略掉
-    label_L2_one_hot = F.one_hot(label_L2, num_classes=len(L2_map)).permute(0,3,1,2) 
+    label_L2_one_hot = F.one_hot(label_L2, num_classes=len(L2_map)).permute(0,3,1,2)  # [2,10,512,512]
     # 处理L3标签
     label_L3[invalid_pos]=0  # 无效的位置设置为19, 之后忽略掉
-    label_L3_one_hot = F.one_hot(label_L3, num_classes=len(L3_map)).permute(0,3,1,2) 
+    label_L3_one_hot = F.one_hot(label_L3, num_classes=len(L3_map)).permute(0,3,1,2)  # [2,19,512,512]
     
 
     # 计算loss
@@ -298,11 +324,23 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     # 0 1 2 3 4  [0,5) L1的概率值
     # 5 6 7 8 9 10 11 12 13 14  [5,15) L2的概率值
     # 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 [15,37) L3的概率值
-    pred_sigmoid_L1 = pred_sigmoid[:,0:len(L1_map),:,:]    # 前5个是L1
-    pred_sigmoid_L2 = pred_sigmoid[:,len(L1_map):len(L1_map)+len(L2_map),:,:]  # 前5-15个是L2
-    pred_sigmoid_L3 = pred_sigmoid[:,-len(L3_map):,:,:] # 最后的19个是L3   
+    # import pdb; pdb.set_trace()
+    if isinstance(pred_sigmoid, list):
+        pred_sigmoid_L1 = pred_sigmoid[0]    # 前5个是L1
+        pred_sigmoid_L2 = pred_sigmoid[1]
+        pred_sigmoid_L3 = pred_sigmoid[2]
+        assert pred_sigmoid_L1.shape[1]==len(L1_map), "The number of L1 classes is not equal to the number of L1 classes."
+        assert pred_sigmoid_L2.shape[1]==len(L2_map), "The number of L2 classes is not equal to the number of L2 classes."
+        assert pred_sigmoid_L3.shape[1]==len(L3_map), "The number of L3 classes is not equal to the number of L3 classes."
     
-
+    elif isinstance(pred_sigmoid, torch.Tensor):
+        pred_sigmoid_L1 = pred_sigmoid[:,0:len(L1_map),:,:]    # 前5个是L1
+        pred_sigmoid_L2 = pred_sigmoid[:,len(L1_map):len(L1_map)+len(L2_map),:,:]  # 前5-15个是L2
+        pred_sigmoid_L3 = pred_sigmoid[:,-len(L3_map):,:,:] # 最后的19个是L3   
+        
+        assert pred_sigmoid_L1.shape[1]==len(L1_map), "The number of L1 classes is not equal to the number of L1 classes."
+        assert pred_sigmoid_L2.shape[1]==len(L2_map), "The number of L2 classes is not equal to the number of L2 classes."
+        assert pred_sigmoid_L3.shape[1]==len(L3_map), "The number of L3 classes is not equal to the number of L3 classes."
     # ==============================《约束1 去更新L2 L1 使父类的特征图的值要大于等于子类的特征图的值包含其中最大的sigmoid值》==================
     # 根据法则1, 更新L2的sigmoid值，确保L2中的每个类特征图上的值，是L2、L3的最大值
     # 更新sigmoid的值，根据法则1
@@ -518,6 +556,7 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         self.ignore_index = ignore_index  # 应该都是255了
         
         self.cross_entropy_loss = CrossEntropyLoss(loss_name='loss_hiera_ce')
+        self.cross_entropy_loss = CrossEntropyLoss(loss_name='loss_hiera_ce')
         self.cross_entropy_loss_L1 = CrossEntropyLoss(loss_name='loss_ce_L1')
         self.cross_entropy_loss_L2 = CrossEntropyLoss(loss_name='loss_ce_L2')
         self.cross_entropy_loss_L3 = CrossEntropyLoss(loss_name='loss_ce_L3')
@@ -548,11 +587,11 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         # import pdb; pdb.set_trace()
 
         ## Tree-Min Loss
-        # tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
-
-        ce_loss_L1 = self.cross_entropy_loss_L1(pred_seg_logits[0],
-                                                hiera_label_list[0],
-                                                weight=None,
+        tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
+        
+        # L1 cross entropy loss              # [2,34,512,512] [2,5,512,512] [2,10,512,512] [2,19,512,512]
+        ce_loss_L1 = self.cross_entropy_loss_L1(cls_score=pred_seg_logits[:,:len(L1_map),:,:],
+                                                label=hiera_label_list[0],
                                                 ignore_index=self.ignore_index)
 
 
@@ -567,13 +606,10 @@ class ATL_Hiera_Loss_convseg(nn.Module):
                                                 ignore_index=self.ignore_index)
       
         # loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
-        
-        # loss = ce_loss_L1 + ce_loss_L3                 # 消融 L1 L3
-        # loss = ce_loss_L2 + ce_loss_L3               # 消融 L2 L3
-        # loss = 0.3 * ce_loss_L1 + 0.3 * ce_loss_L2 +  ce_loss_L3)  # 64.54的性能
-        loss = (5 * ce_loss_L1 + 10 * ce_loss_L2 + 19 * ce_loss_L3)/(5+10+19)  # 消融 L1 L2 L3  5:10:19 = 0.147:0.294:0.553
-                                                                                  #                        
-        
+        # loss = ce_loss_L1 + ce_loss_L2 + ce_loss_L3
+        loss = ce_loss_L3 
+
+        import pdb; pdb.set_trace()
         # loss_triplet, class_count = self.tree_triplet_loss(embedding, label)
         # class_counts = [torch.ones_like(class_count) for _ in range(torch.distributed.get_world_size())]
         # torch.distributed.all_gather(class_counts, class_count, async_op=False)

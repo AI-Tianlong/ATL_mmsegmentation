@@ -295,6 +295,7 @@ class CrossEntropyLoss(nn.Module):
             avg_non_ignore=self.avg_non_ignore,
             ignore_index=ignore_index,
             **kwargs)
+        # import pdb;pdb.set_trace()
         return loss_cls
 
     @property
