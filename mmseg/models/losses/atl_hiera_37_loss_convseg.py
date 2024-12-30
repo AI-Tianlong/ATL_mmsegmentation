@@ -264,8 +264,8 @@ def Tree_Min_Loss(pred_seg_logits, # Tensor:[B,5+10+19,512,512]  or List:[2,5,51
     # 权重调整：在多任务学习或多损失函数的情况下，不同的损失函数可能会有不同的量级。乘以一个系数可以平衡这些损失函数，使它们对最终的总损失有类似的重要性。
     # 训练动态调整：通过乘以一个系数，可以加快或减慢训练过程中的梯度更新速度。一个较大的系数会使梯度变得更大，从而加快参数更新的速度。
     # 强调特定损失：有时我们希望特定的损失在总损失中占据更大的比例，以便模型更加关注特定的目标。通过乘以一个系数，可以增加该损失在总损失中的权重。
-    import pdb; pdb.set_trace()
-    return 5*loss
+    # import pdb; pdb.set_trace()
+    return 1*loss
     # return loss
 
 
@@ -437,7 +437,7 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     # 训练动态调整：通过乘以一个系数，可以加快或减慢训练过程中的梯度更新速度。一个较大的系数会使梯度变得更大，从而加快参数更新的速度。
     # 强调特定损失：有时我们希望特定的损失在总损失中占据更大的比例，以便模型更加关注特定的目标。通过乘以一个系数，可以增加该损失在总损失中的权重。
     # return 5*loss
-    return loss
+    return 1*loss
 
 
 class TreeTripletLoss(nn.Module):
@@ -586,7 +586,7 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         # import pdb; pdb.set_trace()
 
         # Tree-Min Loss                # [list]
-        tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
+        tree_min_loss = Focal_Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
 
         ce_loss_L1 = self.cross_entropy_loss_L1(pred_seg_logits[0],
                                                 hiera_label_list[0],
