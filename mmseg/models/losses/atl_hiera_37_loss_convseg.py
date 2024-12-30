@@ -517,6 +517,7 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         
         self.ignore_index = ignore_index  # 应该都是255了
         
+        self.cross_entropy_loss = CrossEntropyLoss(loss_name='loss_hiera_ce')
         self.cross_entropy_loss_L1 = CrossEntropyLoss(loss_name='loss_ce_L1')
         self.cross_entropy_loss_L2 = CrossEntropyLoss(loss_name='loss_ce_L2')
         self.cross_entropy_loss_L3 = CrossEntropyLoss(loss_name='loss_ce_L3')
@@ -533,38 +534,46 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         
         # import pdb; pdb.set_trace()
 
-        
-        
+        if isinstance(pred_seg_logits, list) and len(pred_seg_logits) == 3:
+            pred_seg_logits = pred_seg_logits
+        elif isinstance(pred_seg_logits, torch.Tensor):
+            assert isinstance(pred_seg_logits, list), f'pred_seg_logits should be a list, \
+                but got a Tensor {pred_seg_logits.shape}, please check decode_head.loss_by_feat()' 
+            pred_seg_logits = pred_seg_logits
+    
         hiera_label_list = convert_low_level_label_to_High_level(label, FiveBillion_19Classes_HieraMap_nobackground)
-        import pdb; pdb.set_trace()
-        import numpy as np
-        np.save('/opt/AI-Tianlong/openmmlab/atl-test/hiera_label_list_0.npy', hiera_label_list[0].cpu())
-        import pdb; pdb.set_trace()
-
-        ## Tree-Min Loss
-        tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
-        
-        # L1 cross entropy loss              # [2,34,512,512] [2,5,512,512] [2,10,512,512] [2,19,512,512]
-        ce_loss_L1 = self.cross_entropy_loss_L1(cls_score=pred_seg_logits[:,:len(L1_map),:,:],
-                                                label=hiera_label_list[0],
-                                                ignore_index=self.ignore_index)
-        # L2 cross entropy loss
-        ce_loss_L2 = self.cross_entropy_loss_L2(cls_score=pred_seg_logits[:,len(L1_map):len(L1_map)+len(L2_map),:,:], 
-                                                label=hiera_label_list[1],
-                                                ignore_index=self.ignore_index)
-        
-        ce_loss_L3 = self.cross_entropy_loss_L3(cls_score=pred_seg_logits[:,-len(L3_map):,:,:], 
-                                                label=hiera_label_list[2],
-                                                ignore_index=self.ignore_index)
-
-
+        # import pdb; pdb.set_trace()
+        # import numpy as np
+        # np.save('/opt/AI-Tianlong/openmmlab/atl-test/hiera_label_list_0.npy', hiera_label_list[0].cpu())
         # import pdb; pdb.set_trace()
 
-        # loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
-        # loss = ce_loss_L1 + ce_loss_L2 + ce_loss_L3
-        loss = ce_loss_L3 
+        ## Tree-Min Loss
+        # tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
 
-        import pdb; pdb.set_trace()
+        ce_loss_L1 = self.cross_entropy_loss_L1(pred_seg_logits[0],
+                                                hiera_label_list[0],
+                                                weight=None,
+                                                ignore_index=self.ignore_index)
+
+
+        ce_loss_L2 = self.cross_entropy_loss_L2(pred_seg_logits[1],
+                                                hiera_label_list[1],
+                                                weight=None,
+                                                ignore_index=self.ignore_index)
+
+        ce_loss_L3 = self.cross_entropy_loss_L3(pred_seg_logits[2],
+                                                hiera_label_list[2],
+                                                weight=None,
+                                                ignore_index=self.ignore_index)
+      
+        # loss = tree_min_loss + ce_loss_L1 + ce_loss_L2 + ce_loss_L3
+        
+        # loss = ce_loss_L1 + ce_loss_L3                 # 消融 L1 L3
+        # loss = ce_loss_L2 + ce_loss_L3               # 消融 L2 L3
+        # loss = 0.3 * ce_loss_L1 + 0.3 * ce_loss_L2 +  ce_loss_L3)  # 64.54的性能
+        loss = (5 * ce_loss_L1 + 10 * ce_loss_L2 + 19 * ce_loss_L3)/(5+10+19)  # 消融 L1 L2 L3  5:10:19 = 0.147:0.294:0.553
+                                                                                  #                        
+        
         # loss_triplet, class_count = self.tree_triplet_loss(embedding, label)
         # class_counts = [torch.ones_like(class_count) for _ in range(torch.distributed.get_world_size())]
         # torch.distributed.all_gather(class_counts, class_count, async_op=False)

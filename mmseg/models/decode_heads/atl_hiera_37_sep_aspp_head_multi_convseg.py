@@ -205,9 +205,9 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
         self.step += 1                         # 一个像素用256维的向量表示
         embedding = self.proj_head(inputs[-1]) # 最后的一个特征图 # [2,2048,64,64]->[2,256,64,64]
 
-        output_cat = output_L3
-
-        return output_cat, embedding
+        # return output_list, embedding
+        return output_list, embedding
+        # return output_cat
 
     """
     >>> decode_head.loss(): decode.forward()--->decode.loss_by_feat()
@@ -215,16 +215,12 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
     >>> losses = self.loss_by_feat(seg_logits, batch_data_samples)
     >>> return losses
     """
-    def loss_by_feat(
-            self,
-            seg_logits: Tuple[Tensor],  # (out, embedding)
-            batch_data_samples: SampleList) -> dict:
-        """Compute segmentation loss. Will fix in future.
+    def loss_by_feat(self, seg_logits: Tensor,
+                     batch_data_samples: SampleList) -> dict:
+        """Compute segmentation loss.
 
         Args:
-            seg_logits (Tuple[Tensor]): The output from decode head
-                forward function.
-                For this decode_head output are (out, embedding): tuple
+            seg_logits (Tensor): The output from decode head forward function.
             batch_data_samples (List[:obj:`SegDataSample`]): The seg
                 data samples. It usually includes information such
                 as `metainfo` and `gt_sem_seg`.
@@ -232,99 +228,83 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
         Returns:
             dict[str, Tensor]: a dictionary of loss components
         """
+        if isinstance(seg_logits, tuple):
+            if len(seg_logits) == 2:
+                seg_logits, embedding = seg_logits
 
-        assert isinstance(seg_logits, tuple), 'please checkout the decode_head.forward()'
+                if isinstance(seg_logits, list) and len(seg_logits) == 3:
+                    seg_logits = seg_logits
+                elif isinstance(seg_logits, torch.Tensor) and seg_logits.shape[1]==sum(self.num_classes_level_list):
+                    seg_logits = seg_logits
 
-        seg_logit = seg_logits[0]
-        tree_triplet_embedding = seg_logits[1]
-
-        seg_label = self._stack_batch_gt(batch_data_samples)
-
+        # seg_logits: [2,65,128,128]
+        seg_label = self._stack_batch_gt(batch_data_samples)  # [2,1,512,512]
         loss = dict()
-        # [2,34,128,128]--->[2,34,512,512]  
-        seg_logit = resize(
-            input=seg_logit,
-            size=seg_label.shape[2:],
-            mode='bilinear',
-            align_corners=self.align_corners)
+        # 原来是直接把，[2,65,128,128]---双线性插值--->[2,65,512,512]
+        if isinstance(seg_logits, list) and len(seg_logits) == 3:
+            for i in range(len(seg_logits)):
+                seg_logits[i] = resize(
+                    input=seg_logits[i],
+                    size=seg_label.shape[2:],
+                    mode='bilinear',
+                    align_corners=self.align_corners)
+        elif isinstance(seg_logits, torch.Tensor) and seg_logits.shape[1]==sum(self.num_classes_level_list):
+            seg_logits = resize(
+                    input=seg_logits,
+                    size=seg_label.shape[2:],
+                    mode='bilinear',
+                    align_corners=self.align_corners)
         
         if self.sampler is not None:
-            seg_weight = self.sampler.sample(seg_logit, seg_label)
+            seg_weight = self.sampler.sample(seg_logits, seg_label)
         else:
             seg_weight = None
-        
-        seg_label = seg_label.squeeze(1)
-        
+            # print('走的这里')
+
+        seg_label = seg_label.squeeze(1)  # [2,1,512,512]-->[2,512,512]
+
         if not isinstance(self.loss_decode, nn.ModuleList):
             losses_decode = [self.loss_decode]
         else:
             losses_decode = self.loss_decode
-
-        # 去执行 loss_hiera的forward函数
+        
         for loss_decode in losses_decode:
-            # 普通的Crossentropy loss 用这个！
             if loss_decode.loss_name not in loss:  # loss['atl_loss_ce'],log就打印decode.atl_loss_ce
+                # pdb.set_trace()
                 loss[loss_decode.loss_name] = loss_decode(
-                    seg_logit,
+                    self.step,
+                    embedding,
+                    seg_logits,
                     seg_label,
                     weight=seg_weight,
                     ignore_index=self.ignore_index)
-            else: # 如果同名的话，累加loss值
+                # pdb.set_trace()
+            else:
+                # pdb.set_trace()
                 loss[loss_decode.loss_name] += loss_decode(
-                    seg_logit,
+                    self.step,
+                    embedding,
+                    seg_logits,
                     seg_label,
                     weight=seg_weight,
                     ignore_index=self.ignore_index)
-            # if loss_decode.loss_name not in loss:  # loss['atl_loss_ce'],log就打印decode.atl_loss_ce
-            #     loss[loss_decode.loss_name] = loss_decode(
-            #         self.step,
-            #         tree_triplet_embedding,
-            #         seg_logit,
-            #         seg_label,
-            #         weight=seg_weight,
-            #         ignore_index=self.ignore_index)
-            # else: # 如果同名的话，累加loss值
-            #     loss[loss_decode.loss_name] += loss_decode(
-            #         self.step,
-            #         tree_triplet_embedding,
-            #         seg_logit,
-            #         seg_label,
-            #         weight=seg_weight,
-            #         ignore_index=self.ignore_index)
+                # pdb.set_trace()
+        # pdb.set_trace()
 
-        # import pdb; pdb.set_trace()
-        # 取L3的seg_logit 作为 acc
-        loss['acc_seg'] = accuracy(seg_logit[:, -self.num_classes_level_list[-1]:, :, :], seg_label)
+        if isinstance(seg_logits, list) and len(seg_logits) == 3:
+            seg_logits = seg_logits[2]
+        elif isinstance(seg_logits, torch.Tensor) and seg_logits.shape[1]==sum(self.num_classes_level_list):
+            seg_logits = seg_logits[:,-self.num_classes_level_list[-1]:,:,:]
+
+        loss['acc_seg'] = accuracy(
+            seg_logits, seg_label, ignore_index=self.ignore_index)
+        # pdb.set_trace()
         return loss
 
 
-
-    # ==================== 以下是推理用的函数 ====================
-    def predict(self, inputs: Tuple[Tensor], batch_img_metas: List[dict],
-                test_cfg: ConfigType) -> Tensor:
-        """Forward function for prediction.
-
-        Args:
-            inputs (Tuple[Tensor]): List of multi-level img features.
-            batch_img_metas (dict): List Image info where each dict may also
-                contain: 'img_shape', 'scale_factor', 'flip', 'img_path',
-                'ori_shape', and 'pad_shape'.
-                For details on the values of these keys see
-                `mmseg/datasets/pipelines/formatting.py:PackSegInputs`.
-            test_cfg (dict): The testing config.
-
-        Returns:
-            Tensor: Outputs segmentation logits map.
-        """
-        seg_logits = self.forward(inputs)  # 过decode_head的forward--->[2,40,128,128]
-        seg_logits = seg_logits[0]
-
-        return self.predict_by_feat(seg_logits, batch_img_metas)   # [2,40,512,512]
-    
-    
-    def predict_by_feat(self, seg_logits: Tuple[Tensor],
+    def predict_by_feat(self, seg_logits: Tensor,
                         batch_img_metas: List[dict]) -> Tensor:
-        """Transform a batch of output seg_logits to the input shape.
+        """Transform a batch of output seg_logits to the input shape.  # 缩放！
 
         Args:
             seg_logits (Tensor): The output from decode head forward function.
@@ -334,40 +314,16 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
         Returns:
             Tensor: Outputs segmentation logits map.
         """
-        # HSSN decode_head output is: (out, embedding): tuple
-        # only need 'out' here.
-        B, C, H, W = seg_logits.shape
+        if isinstance(seg_logits, tuple):
+            if len(seg_logits) == 2:
+                seg_logits, embedding = seg_logits
 
-        if self.num_classes_level_list is not None:
-            num_levels_classes=[0,
-                                self.num_classes_level_list[0], 
-                                self.num_classes_level_list[0]+self.num_classes_level_list[1], 
-                                self.num_classes_level_list[0]+self.num_classes_level_list[1]+self.num_classes_level_list[2]]
-        if self.merge_hiera:
-           # [5,10,19] --> [0,5,15,34]
-            
-            new_L3_seg_logits = torch.zeros((B, self.num_classes_level_list[-1], H, W), device=seg_logits.device)# [21,512,512]
-            
-            L1_seg_logits = seg_logits[:, num_levels_classes[0]:num_levels_classes[1], :, :] # [B, 5, 512, 512]  [0-4]
-            L2_seg_logits = seg_logits[:, num_levels_classes[1]:num_levels_classes[2], :, :] # [B, 10, 512, 512] [5-14]
-            L3_seg_logits = seg_logits[:, num_levels_classes[2]:num_levels_classes[3], :, :] # [B, 19, 512, 512] [16,34]
-
-            # import pdb; pdb.set_trace()
-            seg_logits_list =  [L1_seg_logits, L2_seg_logits, L3_seg_logits] 
-
-            # 不需要过 softmax 再去加吧？
-            from mmseg.models.losses.atl_hiera_37_loss import FiveBillion_19Classes_HieraMap_nobackground
-            self.level_classes_map = FiveBillion_19Classes_HieraMap_nobackground
-            for seg_logits_list_index, high_level_dict_key in enumerate(self.level_classes_map):
-                # 0, Classes_Map_L1  1, Classes_Map_L2 2, Classes_Map_L3
-                for high_index_, high_level_name in enumerate(self.level_classes_map[high_level_dict_key]):
-                    L3_index_list = self.level_classes_map[high_level_dict_key][high_level_name]
-                    for L3_index_ in L3_index_list:
-                        new_L3_seg_logits[:,L3_index_,:,:] += seg_logits_list[seg_logits_list_index][:,high_index_,:,:]
-                        # print(high_index_, L3_index_)
-                        # print(seg_logits_list[seg_logits_list_index][:,high_index_,:,:].shape, new_L3_seg_logits.shape, '\n')
-        else:
-            new_L3_seg_logits = seg_logits[:, num_levels_classes[2]:num_levels_classes[3], :, :]
+                if isinstance(seg_logits, list) and len(seg_logits) == 3:
+                    seg_logits = seg_logits[2]
+                    assert seg_logits.shape[1] == self.num_classes_level_list[-1]
+                elif isinstance(seg_logits, torch.Tensor) and seg_logits.shape[1]==sum(self.num_classes_level_list):
+                    seg_logits = seg_logits[:,-self.num_classes_level_list[-1]:,:,:]
+                    assert seg_logits.shape[1] == self.num_classes_level_list[-1]
 
         if isinstance(batch_img_metas[0]['img_shape'], torch.Size):
             # slide inference
@@ -376,12 +332,186 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
             size = batch_img_metas[0]['pad_shape'][:2]
         else:
             size = batch_img_metas[0]['img_shape']
-        
-        seg_logits = new_L3_seg_logits
+            
         seg_logits = resize(
             input=seg_logits,
             size=size,
             mode='bilinear',
             align_corners=self.align_corners)
-        
         return seg_logits
+
+
+
+
+    
+    # def loss_by_feat(
+    #         self,
+    #         seg_logits: Tuple[Tensor],  # (out, embedding)
+    #         batch_data_samples: SampleList) -> dict:
+    #     """Compute segmentation loss. Will fix in future.
+
+    #     Args:
+    #         seg_logits (Tuple[Tensor]): The output from decode head
+    #             forward function.
+    #             For this decode_head output are (out, embedding): tuple
+    #         batch_data_samples (List[:obj:`SegDataSample`]): The seg
+    #             data samples. It usually includes information such
+    #             as `metainfo` and `gt_sem_seg`.
+
+    #     Returns:
+    #         dict[str, Tensor]: a dictionary of loss components
+    #     """
+
+    #     assert isinstance(seg_logits, tuple), 'please checkout the decode_head.forward()'
+
+    #     seg_logit = seg_logits[0]
+    #     tree_triplet_embedding = seg_logits[1]
+
+    #     seg_label = self._stack_batch_gt(batch_data_samples)
+
+    #     loss = dict()
+    #     # [2,34,128,128]--->[2,34,512,512]  
+    #     seg_logit = resize(
+    #         input=seg_logit,
+    #         size=seg_label.shape[2:],
+    #         mode='bilinear',
+    #         align_corners=self.align_corners)
+        
+    #     if self.sampler is not None:
+    #         seg_weight = self.sampler.sample(seg_logit, seg_label)
+    #     else:
+    #         seg_weight = None
+        
+    #     seg_label = seg_label.squeeze(1)
+        
+    #     if not isinstance(self.loss_decode, nn.ModuleList):
+    #         losses_decode = [self.loss_decode]
+    #     else:
+    #         losses_decode = self.loss_decode
+
+    #     # 去执行 loss_hiera的forward函数
+    #     for loss_decode in losses_decode:
+    #         # 普通的Crossentropy loss 用这个！
+    #         if loss_decode.loss_name not in loss:  # loss['atl_loss_ce'],log就打印decode.atl_loss_ce
+    #             loss[loss_decode.loss_name] = loss_decode(
+    #                 seg_logit,
+    #                 seg_label,
+    #                 weight=seg_weight,
+    #                 ignore_index=self.ignore_index)
+    #         else: # 如果同名的话，累加loss值
+    #             loss[loss_decode.loss_name] += loss_decode(
+    #                 seg_logit,
+    #                 seg_label,
+    #                 weight=seg_weight,
+    #                 ignore_index=self.ignore_index)
+    #         # if loss_decode.loss_name not in loss:  # loss['atl_loss_ce'],log就打印decode.atl_loss_ce
+    #         #     loss[loss_decode.loss_name] = loss_decode(
+    #         #         self.step,
+    #         #         tree_triplet_embedding,
+    #         #         seg_logit,
+    #         #         seg_label,
+    #         #         weight=seg_weight,
+    #         #         ignore_index=self.ignore_index)
+    #         # else: # 如果同名的话，累加loss值
+    #         #     loss[loss_decode.loss_name] += loss_decode(
+    #         #         self.step,
+    #         #         tree_triplet_embedding,
+    #         #         seg_logit,
+    #         #         seg_label,
+    #         #         weight=seg_weight,
+    #         #         ignore_index=self.ignore_index)
+
+    #     # import pdb; pdb.set_trace()
+    #     # 取L3的seg_logit 作为 acc
+
+    #     loss['acc_seg'] = accuracy(seg_logit[:, -self.num_classes_level_list[-1]:, :, :], seg_label)
+    #     return loss
+
+
+
+    # ==================== 以下是推理用的函数 ====================
+    # def predict(self, inputs: Tuple[Tensor], batch_img_metas: List[dict],
+    #             test_cfg: ConfigType) -> Tensor:
+    #     """Forward function for prediction.
+
+    #     Args:
+    #         inputs (Tuple[Tensor]): List of multi-level img features.
+    #         batch_img_metas (dict): List Image info where each dict may also
+    #             contain: 'img_shape', 'scale_factor', 'flip', 'img_path',
+    #             'ori_shape', and 'pad_shape'.
+    #             For details on the values of these keys see
+    #             `mmseg/datasets/pipelines/formatting.py:PackSegInputs`.
+    #         test_cfg (dict): The testing config.
+
+    #     Returns:
+    #         Tensor: Outputs segmentation logits map.
+    #     """
+    #     seg_logits = self.forward(inputs)  # 过decode_head的forward--->[2,40,128,128]
+    #     seg_logits = seg_logits[0]
+
+    #     return self.predict_by_feat(seg_logits, batch_img_metas)   # [2,40,512,512]
+    
+    
+    # def predict_by_feat(self, seg_logits: Tuple[Tensor],
+    #                     batch_img_metas: List[dict]) -> Tensor:
+    #     """Transform a batch of output seg_logits to the input shape.
+
+    #     Args:
+    #         seg_logits (Tensor): The output from decode head forward function.
+    #         batch_img_metas (list[dict]): Meta information of each image, e.g.,
+    #             image size, scaling factor, etc.
+
+    #     Returns:
+    #         Tensor: Outputs segmentation logits map.
+    #     """
+    #     # HSSN decode_head output is: (out, embedding): tuple
+    #     # only need 'out' here.
+    #     B, C, H, W = seg_logits.shape
+
+    #     if self.num_classes_level_list is not None:
+    #         num_levels_classes=[0,
+    #                             self.num_classes_level_list[0], 
+    #                             self.num_classes_level_list[0]+self.num_classes_level_list[1], 
+    #                             self.num_classes_level_list[0]+self.num_classes_level_list[1]+self.num_classes_level_list[2]]
+    #     if self.merge_hiera:
+    #        # [5,10,19] --> [0,5,15,34]
+            
+    #         new_L3_seg_logits = torch.zeros((B, self.num_classes_level_list[-1], H, W), device=seg_logits.device)# [21,512,512]
+            
+    #         L1_seg_logits = seg_logits[:, num_levels_classes[0]:num_levels_classes[1], :, :] # [B, 5, 512, 512]  [0-4]
+    #         L2_seg_logits = seg_logits[:, num_levels_classes[1]:num_levels_classes[2], :, :] # [B, 10, 512, 512] [5-14]
+    #         L3_seg_logits = seg_logits[:, num_levels_classes[2]:num_levels_classes[3], :, :] # [B, 19, 512, 512] [16,34]
+
+    #         # import pdb; pdb.set_trace()
+    #         seg_logits_list =  [L1_seg_logits, L2_seg_logits, L3_seg_logits] 
+
+    #         # 不需要过 softmax 再去加吧？
+    #         from mmseg.models.losses.atl_hiera_37_loss import FiveBillion_19Classes_HieraMap_nobackground
+    #         self.level_classes_map = FiveBillion_19Classes_HieraMap_nobackground
+    #         for seg_logits_list_index, high_level_dict_key in enumerate(self.level_classes_map):
+    #             # 0, Classes_Map_L1  1, Classes_Map_L2 2, Classes_Map_L3
+    #             for high_index_, high_level_name in enumerate(self.level_classes_map[high_level_dict_key]):
+    #                 L3_index_list = self.level_classes_map[high_level_dict_key][high_level_name]
+    #                 for L3_index_ in L3_index_list:
+    #                     new_L3_seg_logits[:,L3_index_,:,:] += seg_logits_list[seg_logits_list_index][:,high_index_,:,:]
+    #                     # print(high_index_, L3_index_)
+    #                     # print(seg_logits_list[seg_logits_list_index][:,high_index_,:,:].shape, new_L3_seg_logits.shape, '\n')
+    #     else:
+    #         new_L3_seg_logits = seg_logits[:, num_levels_classes[2]:num_levels_classes[3], :, :]
+
+    #     if isinstance(batch_img_metas[0]['img_shape'], torch.Size):
+    #         # slide inference
+    #         size = batch_img_metas[0]['img_shape']
+    #     elif 'pad_shape' in batch_img_metas[0]:
+    #         size = batch_img_metas[0]['pad_shape'][:2]
+    #     else:
+    #         size = batch_img_metas[0]['img_shape']
+        
+    #     seg_logits = new_L3_seg_logits
+    #     seg_logits = resize(
+    #         input=seg_logits,
+    #         size=size,
+    #         mode='bilinear',
+    #         align_corners=self.align_corners)
+        
+    #     return seg_logits
