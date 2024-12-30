@@ -325,9 +325,9 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
 
         if not isinstance(self.loss_decode, nn.ModuleList):
             losses_decode = [self.loss_decode]
-
         else:
             losses_decode = self.loss_decode
+        
         for loss_decode in losses_decode:
             if loss_decode.loss_name not in loss:  # loss['atl_loss_ce'],log就打印decode.atl_loss_ce
                 # pdb.set_trace()
@@ -371,7 +371,7 @@ class BaseDecodeHead(BaseModule, metaclass=ABCMeta):
             size = batch_img_metas[0]['pad_shape'][:2]
         else:
             size = batch_img_metas[0]['img_shape']
-
+            
         seg_logits = resize(
             input=seg_logits,
             size=size,
