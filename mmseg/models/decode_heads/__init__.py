@@ -37,7 +37,7 @@ from .stdc_head import STDCHead
 from .uper_head import UPerHead
 from .vpd_depth_head import VPDDepthHead
 
-from .atl_hiera_37_uper_head_multi_convseg import ATL_UPerHead, ATL_UPerHead_fenkai
+from .atl_hiera_37_uper_head_multi_convseg import ATL_UPerHead, ATL_hiera_UPerHead_Multi_convseg
 from .atl_fcn_head import ATL_FCNHead
 from .atl_sep_aspp_head_hyp import DepthwiseSeparableASPPHead_hyp
 from .atl_uper_head_multi_embedding import ATL_multi_embedding_UPerHead
@@ -54,7 +54,8 @@ __all__ = [
     'SegformerHead', 'ISAHead', 'STDCHead', 'IterativeDecodeHead',
     'KernelUpdateHead', 'KernelUpdator', 'MaskFormerHead', 'Mask2FormerHead',
     'LightHamHead', 'PIDHead', 'DDRHead', 'VPDDepthHead',
-    'SideAdapterCLIPHead', 'ATL_UPerHead','ATL_FCNHead','ATL_UPerHead_fenkai',
+    'SideAdapterCLIPHead', 'ATL_UPerHead','ATL_FCNHead',
     'DepthwiseSeparableASPPHead_hyp','ATL_multi_embedding_UPerHead',
-    'ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg'
+    'ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg',
+    'ATL_hiera_UPerHead_Multi_convseg','ATL_multi_embedding_FCNHead'
 ]
