@@ -167,3 +167,8 @@ class Mask2FormerHead(MMDET_Mask2FormerHead):
                                   mask_pred).contiguous()
         # seg_logits = torch.einsum('bqc, bqhw->bchw', cls_score, mask_pred)
         return seg_logits
+    
+
+
+
+    

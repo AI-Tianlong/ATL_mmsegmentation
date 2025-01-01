@@ -560,9 +560,6 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         self.ignore_index = ignore_index  # 应该都是255了
         
         self.cross_entropy_loss = CrossEntropyLoss(loss_name='loss_hiera_ce')
-        self.cross_entropy_loss_L1 = CrossEntropyLoss(loss_name='loss_ce_L1')
-        self.cross_entropy_loss_L2 = CrossEntropyLoss(loss_name='loss_ce_L2')
-        self.cross_entropy_loss_L3 = CrossEntropyLoss(loss_name='loss_ce_L3')
 
         self._loss_name = loss_name
 
@@ -584,26 +581,33 @@ class ATL_Hiera_Loss_convseg(nn.Module):
             pred_seg_logits = pred_seg_logits
     
         hiera_label_list = convert_low_level_label_to_High_level(label, FiveBillion_19Classes_HieraMap_nobackground)
+<<<<<<< HEAD
 
         # Focal Tree-Min Loss                # [list]
         # tree_min_loss = Focal_Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
+=======
+>>>>>>> 858ad45e86469c60b37929fc5ddfcf6cc7433cf9
 
-        # Tree-Min Loss                # [list]
+        # Focal Tree-Min Loss                # [list]
         tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
 
+<<<<<<< HEAD
 
         ce_loss_L1 = self.cross_entropy_loss_L1(pred_seg_logits[0],
+=======
+        ce_loss_L1 = self.cross_entropy_loss(pred_seg_logits[0],
+>>>>>>> 858ad45e86469c60b37929fc5ddfcf6cc7433cf9
                                                 hiera_label_list[0],
                                                 weight=None,
                                                 ignore_index=self.ignore_index)
 
 
-        ce_loss_L2 = self.cross_entropy_loss_L2(pred_seg_logits[1],
+        ce_loss_L2 = self.cross_entropy_loss(pred_seg_logits[1],
                                                 hiera_label_list[1],
                                                 weight=None,
                                                 ignore_index=self.ignore_index)
 
-        ce_loss_L3 = self.cross_entropy_loss_L3(pred_seg_logits[2],
+        ce_loss_L3 = self.cross_entropy_loss(pred_seg_logits[2],
                                                 hiera_label_list[2],
                                                 weight=None,
                                                 ignore_index=self.ignore_index)
@@ -615,7 +619,11 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         # loss = 1 * ce_loss_L1 + 1 * ce_loss_L2 +  1* ce_loss_L3  # 64.54的性能
         # loss = 0.3 * ce_loss_L1 + 0.3 * ce_loss_L2 +  ce_loss_L3  # 64.54的性能
         loss = (5 * ce_loss_L1 + 10 * ce_loss_L2 + 19 * ce_loss_L3)/(5+10+19)  # 消融 L1 L2 L3  5:10:19 = 0.147:0.294:0.553
+<<<<<<< HEAD
         loss += tree_min_loss   
+=======
+        # loss += tree_min_loss   
+>>>>>>> 858ad45e86469c60b37929fc5ddfcf6cc7433cf9
                                                                                   #                        
         
         # loss_triplet, class_count = self.tree_triplet_loss(embedding, label)

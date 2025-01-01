@@ -144,7 +144,7 @@ class ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg(ASPPHead):
         self.register_buffer('step', torch.zeros(1))
 
 
-        # 分开输出的话
+    # 分开输出的话
     def cls_seg(self, feat, conv_seg):
         """Classify each pixel."""
         if self.dropout is not None:

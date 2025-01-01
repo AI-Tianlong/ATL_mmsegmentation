@@ -43,8 +43,7 @@ model = dict(
     backbone=dict(type=BEiT, ),
     decode_head=dict(
         type=Mask2FormerHead,  # 千万别自己实现，全是坑
-        in_channels=[1024, 1024, 1024,
-                     1024],  # BEiT-Adapter [1024,1024,1024,1024]
+        in_channels=[1024, 1024, 1024, 1024],  # BEiT-Adapter [1024,1024,1024,1024]
         in_index=[0, 1, 2, 3],
         feat_channels=256,  # 类别多的话：1024
         out_channels=256,   # 类别多的话：1024
