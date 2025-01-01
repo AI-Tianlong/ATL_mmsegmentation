@@ -18,9 +18,10 @@ from .utils import get_class_weight, weight_reduce_loss
 
 # reduce_zero_label 后的值 
 
-L1_map = [[0,1,2,3,4],[5,6,7],[8,9,10,11,12,13,14,15,16],[17],[18]]
-L2_map = [[0,1],[2],[3,4],[5,6,7],[8],[9,10],[11,12],[13,14,15,16],[17],[18]]
-L3_map = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
+L1_L2map = [[0,1,2],[3],[4,5,6,7],[8],[9]]
+L1_L3map = [[0,1,2,3,4],[5,6,7],[8,9,10,11,12,13,14,15,16],[17],[18]]
+L2_L3map = [[0,1],[2],[3,4],[5,6,7],[8],[9,10],[11,12],[13,14,15,16],[17],[18]]
+L3_L3map = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18]
 
 FiveBillion_19Classes_HieraMap_nobackground = dict(
     # class_L1_{L1中的标签号}_{L1中的标签名称}=[L3级标签的值]
@@ -135,13 +136,13 @@ def Tree_Min_Loss(pred_seg_logits, # Tensor:[B,5+10+19,512,512]  or List:[2,5,51
     # 处理L1标签       # 将ignore的像素值的位置设置为全0向量。
     invalid_pos = (label_L3==ignore_index) # 无效的位置 #ignore # 变成one hot向量
     label_L1[invalid_pos]=0  # 无效的位置设置为19, 之后忽略掉
-    label_L1_one_hot = F.one_hot(label_L1, num_classes=len(L1_map)).permute(0,3,1,2)  # [2,5,512,512]
+    label_L1_one_hot = F.one_hot(label_L1, num_classes=len(L1_L3map)).permute(0,3,1,2)  # [2,5,512,512]
     # 处理L2标签
     label_L2[invalid_pos]=0  # 无效的位置设置为19, 之后忽略掉
-    label_L2_one_hot = F.one_hot(label_L2, num_classes=len(L2_map)).permute(0,3,1,2)  # [2,10,512,512]
+    label_L2_one_hot = F.one_hot(label_L2, num_classes=len(L2_L3map)).permute(0,3,1,2)  # [2,10,512,512]
     # 处理L3标签
     label_L3[invalid_pos]=0  # 无效的位置设置为19, 之后忽略掉
-    label_L3_one_hot = F.one_hot(label_L3, num_classes=len(L3_map)).permute(0,3,1,2)  # [2,19,512,512]
+    label_L3_one_hot = F.one_hot(label_L3, num_classes=len(L3_L3map)).permute(0,3,1,2)  # [2,19,512,512]
     
 
     # 计算loss
@@ -154,18 +155,18 @@ def Tree_Min_Loss(pred_seg_logits, # Tensor:[B,5+10+19,512,512]  or List:[2,5,51
         pred_sigmoid_L1 = pred_sigmoid[0]    # 前5个是L1
         pred_sigmoid_L2 = pred_sigmoid[1]
         pred_sigmoid_L3 = pred_sigmoid[2]
-        assert pred_sigmoid_L1.shape[1]==len(L1_map), "The number of L1 classes is not equal to the number of L1 classes."
-        assert pred_sigmoid_L2.shape[1]==len(L2_map), "The number of L2 classes is not equal to the number of L2 classes."
-        assert pred_sigmoid_L3.shape[1]==len(L3_map), "The number of L3 classes is not equal to the number of L3 classes."
+        assert pred_sigmoid_L1.shape[1]==len(L1_L3map), "The number of L1 classes is not equal to the number of L1 classes."
+        assert pred_sigmoid_L2.shape[1]==len(L2_L3map), "The number of L2 classes is not equal to the number of L2 classes."
+        assert pred_sigmoid_L3.shape[1]==len(L3_L3map), "The number of L3 classes is not equal to the number of L3 classes."
     
     elif isinstance(pred_sigmoid, torch.Tensor):
-        pred_sigmoid_L1 = pred_sigmoid[:,0:len(L1_map),:,:]    # 前5个是L1
-        pred_sigmoid_L2 = pred_sigmoid[:,len(L1_map):len(L1_map)+len(L2_map),:,:]  # 前5-15个是L2
-        pred_sigmoid_L3 = pred_sigmoid[:,-len(L3_map):,:,:] # 最后的19个是L3   
+        pred_sigmoid_L1 = pred_sigmoid[:,0:len(L1_L3map),:,:]    # 前5个是L1
+        pred_sigmoid_L2 = pred_sigmoid[:,len(L1_L3map):len(L1_L3map)+len(L2_L3map),:,:]  # 前5-15个是L2
+        pred_sigmoid_L3 = pred_sigmoid[:,-len(L3_L3map):,:,:] # 最后的19个是L3   
         
-        assert pred_sigmoid_L1.shape[1]==len(L1_map), "The number of L1 classes is not equal to the number of L1 classes."
-        assert pred_sigmoid_L2.shape[1]==len(L2_map), "The number of L2 classes is not equal to the number of L2 classes."
-        assert pred_sigmoid_L3.shape[1]==len(L3_map), "The number of L3 classes is not equal to the number of L3 classes."
+        assert pred_sigmoid_L1.shape[1]==len(L1_L3map), "The number of L1 classes is not equal to the number of L1 classes."
+        assert pred_sigmoid_L2.shape[1]==len(L2_L3map), "The number of L2 classes is not equal to the number of L2 classes."
+        assert pred_sigmoid_L3.shape[1]==len(L3_L3map), "The number of L3 classes is not equal to the number of L3 classes."
     
 
     # ==============================《约束1 去更新L2 L1 使父类的特征图的值要大于等于子类的特征图的值包含其中最大的sigmoid值》==================
@@ -177,7 +178,7 @@ def Tree_Min_Loss(pred_seg_logits, # Tensor:[B,5+10+19,512,512]  or List:[2,5,51
 
     # 更新sigmoid的值，根据法则1
     # 更新L2  --> 原始的L3 和 原始L2的最大值
-    for L2_index, L3_index_list_in_L2 in enumerate(L2_map):
+    for L2_index, L3_index_list_in_L2 in enumerate(L2_L3map):
         
         # 0，[0,1]   # L2的0 和 L3的0、1 这三个一起去找最大值，然后赋值给L2
         # 1，[2]
@@ -193,7 +194,7 @@ def Tree_Min_Loss(pred_seg_logits, # Tensor:[B,5+10+19,512,512]  or List:[2,5,51
                                                                                          [pred_sigmoid_L2[:,L2_index:L2_index+1,:,:]], dim=1), 1, True)[0]  # 0-4 5-16 17-36
 
     # 更新L1 --> 更新后的L2 和 原始L1的最大值
-    for L1_index, L2_index_list_in_L1 in enumerate(L1_map):
+    for L1_index, L2_index_list_in_L1 in enumerate(L1_L2map):
             # 0, [0, 1, 2, 3, 4]
             # 1, [5, 6, 7]
             # 2, [8, 9, 10, 11, 12, 13, 14, 15, 16]
@@ -208,7 +209,7 @@ def Tree_Min_Loss(pred_seg_logits, # Tensor:[B,5+10+19,512,512]  or List:[2,5,51
     update_min_pred_sigmoid_L3 = pred_sigmoid_L3.clone()
 
     # 更新L2的值---> 原始的L1 和原始L2的最小值
-    for L1_index, L2_index_list_in_L1 in enumerate(L1_map):
+    for L1_index, L2_index_list_in_L1 in enumerate(L1_L2map):
         for L2_index in L2_index_list_in_L1:
             # L1:0, L2_list:[0, 1, 2, 3, 4]     0-0  0-1  0-2  0-3  0-4 分别去找最小，复制给L2
             # L1:1, L2_list:[5, 6, 7]
@@ -219,7 +220,7 @@ def Tree_Min_Loss(pred_seg_logits, # Tensor:[B,5+10+19,512,512]  or List:[2,5,51
                                                                                           pred_sigmoid_L1[:,L1_index:L1_index+1,:,:]], dim=1), 1, True)[0]
 
     # 更新L3的值---> 更新后的L2 和原始L3的最小值
-    for L2_index, L3_index_list_in_L2 in enumerate(L1_map):
+    for L2_index, L3_index_list_in_L2 in enumerate(L2_L3map):
         for L3_index in L3_index_list_in_L2:
             # 0，[0,1]   # L2的0 和 L3的0找最小，给L3的0   L2的0 和 L3的1找最小，给L3的1
             # 1，[2]
@@ -248,24 +249,24 @@ def Tree_Min_Loss(pred_seg_logits, # Tensor:[B,5+10+19,512,512]  or List:[2,5,51
     # import pdb; pdb.set_trace()
     loss = ((-label_L3_one_hot*torch.log(update_min_pred_sigmoid_L3+eps) # 求负类的loss
              -(1-label_L3_one_hot)*torch.log(1-update_max_pred_sigmoid_L3+eps))
-        *valid_pos).sum()/num_valid/len(L3_map)
+        *valid_pos).sum()/num_valid/len(L3_L3map)
 
     # 求L2的 predict 和 one-hot向量的 BCE loss
     loss += ((-label_L2_one_hot*torch.log(update_min_pred_sigmoid_L2+eps) # 求负类的loss
              -(1-label_L2_one_hot)*torch.log(1-update_max_pred_sigmoid_L2+eps))
-        *valid_pos).sum()/num_valid/len(L2_map)
+        *valid_pos).sum()/num_valid/len(L2_L3map)
 
     # 求L2的 predict 和 one-hot向量的 BCE loss
     loss += ((-label_L1_one_hot*torch.log(update_min_pred_sigmoid_L1+eps) # 求负类的loss
              -(1-label_L1_one_hot)*torch.log(1-update_max_pred_sigmoid_L1+eps))
-        *valid_pos).sum()/num_valid/len(L1_map)
+        *valid_pos).sum()/num_valid/len(L1_L3map)
 
     # 然后放大5倍返回损失？why？
     # 权重调整：在多任务学习或多损失函数的情况下，不同的损失函数可能会有不同的量级。乘以一个系数可以平衡这些损失函数，使它们对最终的总损失有类似的重要性。
     # 训练动态调整：通过乘以一个系数，可以加快或减慢训练过程中的梯度更新速度。一个较大的系数会使梯度变得更大，从而加快参数更新的速度。
     # 强调特定损失：有时我们希望特定的损失在总损失中占据更大的比例，以便模型更加关注特定的目标。通过乘以一个系数，可以增加该损失在总损失中的权重。
     # import pdb; pdb.set_trace()
-    return 1*loss
+    return 5*loss
     # return loss
 
 
@@ -295,7 +296,7 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     elif isinstance(pred_seg_logits, torch.Tensor):
         pred_sigmoid = torch.sigmoid(pred_seg_logits.float()) # 让预测值过一个sigmoid函数，变为0-1 (1, 34, 512, 512) # 之和自己的值有关系
     # softmax,每一个相同位置的像素去整体算softmax值，和其他通道有关系。
-    pred_softmax = torch.softmax(pred_seg_logits, dim=1) # 让预测值过一个softmax函数，变为0-1 (1, 34, 512, 512) # 和其他通道的值也有关系
+    # pred_softmax = torch.softmax(pred_seg_logits, dim=1) # 让预测值过一个softmax函数，变为0-1 (1, 34, 512, 512) # 和其他通道的值也有关系
     # TODO: 这里的softmax，应该每一个层级自己做，还是整体做。
 
     label_L1 = label_level_list[0]  # 无效标签为255
@@ -310,13 +311,13 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     # 处理L1标签       # 将ignore的像素值的位置设置为全0向量。
     invalid_pos = (label_L3==ignore_index) # 无效的位置 #ignore # 变成one hot向量
     label_L1[invalid_pos]=0  # 无效的位置设置为19, 之后忽略掉
-    label_L1_one_hot = F.one_hot(label_L1, num_classes=len(L1_map)).permute(0,3,1,2)  # [2,5,512,512]
+    label_L1_one_hot = F.one_hot(label_L1, num_classes=len(L1_L3map)).permute(0,3,1,2)  # [2,5,512,512]
     # 处理L2标签
     label_L2[invalid_pos]=0  # 无效的位置设置为19, 之后忽略掉
-    label_L2_one_hot = F.one_hot(label_L2, num_classes=len(L2_map)).permute(0,3,1,2)  # [2,10,512,512]
+    label_L2_one_hot = F.one_hot(label_L2, num_classes=len(L2_L3map)).permute(0,3,1,2)  # [2,10,512,512]
     # 处理L3标签
     label_L3[invalid_pos]=0  # 无效的位置设置为19, 之后忽略掉
-    label_L3_one_hot = F.one_hot(label_L3, num_classes=len(L3_map)).permute(0,3,1,2)  # [2,19,512,512]
+    label_L3_one_hot = F.one_hot(label_L3, num_classes=len(L3_L3map)).permute(0,3,1,2)  # [2,19,512,512]
     
 
     # 计算loss
@@ -329,18 +330,20 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
         pred_sigmoid_L1 = pred_sigmoid[0]    # 前5个是L1
         pred_sigmoid_L2 = pred_sigmoid[1]
         pred_sigmoid_L3 = pred_sigmoid[2]
-        assert pred_sigmoid_L1.shape[1]==len(L1_map), "The number of L1 classes is not equal to the number of L1 classes."
-        assert pred_sigmoid_L2.shape[1]==len(L2_map), "The number of L2 classes is not equal to the number of L2 classes."
-        assert pred_sigmoid_L3.shape[1]==len(L3_map), "The number of L3 classes is not equal to the number of L3 classes."
+        assert pred_sigmoid_L1.shape[1]==len(L1_L3map), "The number of L1 classes is not equal to the number of L1 classes."
+        assert pred_sigmoid_L2.shape[1]==len(L2_L3map), "The number of L2 classes is not equal to the number of L2 classes."
+        assert pred_sigmoid_L3.shape[1]==len(L3_L3map), "The number of L3 classes is not equal to the number of L3 classes."
     
     elif isinstance(pred_sigmoid, torch.Tensor):
-        pred_sigmoid_L1 = pred_sigmoid[:,0:len(L1_map),:,:]    # 前5个是L1
-        pred_sigmoid_L2 = pred_sigmoid[:,len(L1_map):len(L1_map)+len(L2_map),:,:]  # 前5-15个是L2
-        pred_sigmoid_L3 = pred_sigmoid[:,-len(L3_map):,:,:] # 最后的19个是L3   
+        pred_sigmoid_L1 = pred_sigmoid[:,0:len(L1_L3map),:,:]    # 前5个是L1
+        pred_sigmoid_L2 = pred_sigmoid[:,len(L1_L3map):len(L1_L3map)+len(L2_L3map),:,:]  # 前5-15个是L2
+        pred_sigmoid_L3 = pred_sigmoid[:,-len(L3_L3map):,:,:] # 最后的19个是L3   
         
-        assert pred_sigmoid_L1.shape[1]==len(L1_map), "The number of L1 classes is not equal to the number of L1 classes."
-        assert pred_sigmoid_L2.shape[1]==len(L2_map), "The number of L2 classes is not equal to the number of L2 classes."
-        assert pred_sigmoid_L3.shape[1]==len(L3_map), "The number of L3 classes is not equal to the number of L3 classes."
+        assert pred_sigmoid_L1.shape[1]==len(L1_L3map), "The number of L1 classes is not equal to the number of L1 classes."
+        assert pred_sigmoid_L2.shape[1]==len(L2_L3map), "The number of L2 classes is not equal to the number of L2 classes."
+        assert pred_sigmoid_L3.shape[1]==len(L3_L3map), "The number of L3 classes is not equal to the number of L3 classes."
+    
+
     # ==============================《约束1 去更新L2 L1 使父类的特征图的值要大于等于子类的特征图的值包含其中最大的sigmoid值》==================
     # 根据法则1, 更新L2的sigmoid值，确保L2中的每个类特征图上的值，是L2、L3的最大值
     # 更新sigmoid的值，根据法则1
@@ -350,7 +353,7 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
 
     # 更新sigmoid的值，根据法则1
     # 更新L2  --> 原始的L3 和 原始L2的最大值
-    for L2_index, L3_index_list_in_L2 in enumerate(L2_map):
+    for L2_index, L3_index_list_in_L2 in enumerate(L2_L3map):
         
         # 0，[0,1]   # L2的0 和 L3的0、1 这三个一起去找最大值，然后赋值给L2
         # 1，[2]
@@ -366,7 +369,7 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
                                                                                          [pred_sigmoid_L2[:,L2_index:L2_index+1,:,:]], dim=1), 1, True)[0]  # 0-4 5-16 17-36
 
     # 更新L1 --> 更新后的L2 和 原始L1的最大值
-    for L1_index, L2_index_list_in_L1 in enumerate(L1_map):
+    for L1_index, L2_index_list_in_L1 in enumerate(L1_L2map):
             # 0, [0, 1, 2, 3, 4]
             # 1, [5, 6, 7]
             # 2, [8, 9, 10, 11, 12, 13, 14, 15, 16]
@@ -381,7 +384,7 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     update_min_pred_sigmoid_L3 = pred_sigmoid_L3.clone()
 
     # 更新L2的值---> 原始的L1 和原始L2的最小值
-    for L1_index, L2_index_list_in_L1 in enumerate(L1_map):
+    for L1_index, L2_index_list_in_L1 in enumerate(L1_L2map):
         for L2_index in L2_index_list_in_L1:
             # L1:0, L2_list:[0, 1, 2, 3, 4]     0-0  0-1  0-2  0-3  0-4 分别去找最小，复制给L2
             # L1:1, L2_list:[5, 6, 7]
@@ -392,7 +395,7 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
                                                                                           pred_sigmoid_L1[:,L1_index:L1_index+1,:,:]], dim=1), 1, True)[0]
 
     # 更新L3的值---> 更新后的L2 和原始L3的最小值
-    for L2_index, L3_index_list_in_L2 in enumerate(L1_map):
+    for L2_index, L3_index_list_in_L2 in enumerate(L2_L3map):
         for L3_index in L3_index_list_in_L2:
             # 0，[0,1]   # L2的0 和 L3的0找最小，给L3的0   L2的0 和 L3的1找最小，给L3的1
             # 1，[2]
@@ -412,6 +415,7 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
 
     num_valid = valid_pos.sum() # 子类标签 有效的位置的个数
 
+
     # 计算loss 交叉熵损失函数 交叉熵损失函数的定义是：-y*log(y_hat)-(1-y)*log(1-y_hat)
     # loss = 求和｛(-前19通道子类的标签*log(前19通道子类和父类预测之中小的那个) - 
     #           (1-前19通道子类的标签)*log(1-前19通道子类和父类预测之中小的那个))有效位置的索引，true和false，只算有效位置｝除以有效位置的个数/类别数(归一化)
@@ -420,24 +424,24 @@ def Focal_Tree_Min_Loss(pred_seg_logits, # [B,5+10+19,512,512]
     # 二元交叉熵，             # ,:len(L3_map), = ,:,
     loss = ((-label_L3_one_hot*torch.pow((1.0-update_min_pred_sigmoid_L3),gamma)*torch.log(update_min_pred_sigmoid_L3+eps) # 求负类的loss
              -(1-label_L3_one_hot)*torch.pow(update_max_pred_sigmoid_L3, gamma)**torch.log(1-update_max_pred_sigmoid_L3+eps))
-        *valid_pos).sum()/num_valid/len(L3_map)
+        *valid_pos).sum()/num_valid/len(L3_L3map)
 
     # 求L2的 predict 和 one-hot向量的 BCE loss
     loss += ((-label_L2_one_hot*torch.pow((1.0-update_min_pred_sigmoid_L2),gamma)*torch.log(update_min_pred_sigmoid_L2+eps) # 求负类的loss
              -(1-label_L2_one_hot)*torch.pow(update_max_pred_sigmoid_L2, gamma)**torch.log(1-update_max_pred_sigmoid_L2+eps))
-        *valid_pos).sum()/num_valid/len(L2_map)
+        *valid_pos).sum()/num_valid/len(L2_L3map)
 
-    # 求L2的 predict 和 one-hot向量的 BCE loss
+    # 求L1的 predict 和 one-hot向量的 BCE loss
     loss += ((-label_L1_one_hot*torch.pow((1.0-update_min_pred_sigmoid_L1),gamma)*torch.log(update_min_pred_sigmoid_L1+eps) # 求负类的loss
              -(1-label_L1_one_hot)*torch.pow(update_max_pred_sigmoid_L1, gamma)**torch.log(1-update_max_pred_sigmoid_L1+eps))
-        *valid_pos).sum()/num_valid/len(L1_map)
+        *valid_pos).sum()/num_valid/len(L1_L3map)
 
     # 然后放大5倍返回损失？why？
     # 权重调整：在多任务学习或多损失函数的情况下，不同的损失函数可能会有不同的量级。乘以一个系数可以平衡这些损失函数，使它们对最终的总损失有类似的重要性。
     # 训练动态调整：通过乘以一个系数，可以加快或减慢训练过程中的梯度更新速度。一个较大的系数会使梯度变得更大，从而加快参数更新的速度。
     # 强调特定损失：有时我们希望特定的损失在总损失中占据更大的比例，以便模型更加关注特定的目标。通过乘以一个系数，可以增加该损失在总损失中的权重。
+    return 5*loss
     # return 5*loss
-    return loss
 
 
 class TreeTripletLoss(nn.Module):
@@ -580,13 +584,13 @@ class ATL_Hiera_Loss_convseg(nn.Module):
             pred_seg_logits = pred_seg_logits
     
         hiera_label_list = convert_low_level_label_to_High_level(label, FiveBillion_19Classes_HieraMap_nobackground)
-        # import pdb; pdb.set_trace()
-        # import numpy as np
-        # np.save('/opt/AI-Tianlong/openmmlab/atl-test/hiera_label_list_0.npy', hiera_label_list[0].cpu())
-        # import pdb; pdb.set_trace()
+
+        # Focal Tree-Min Loss                # [list]
+        # tree_min_loss = Focal_Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
 
         # Tree-Min Loss                # [list]
         tree_min_loss = Tree_Min_Loss(pred_seg_logits, hiera_label_list, self.num_classes, ignore_index=self.ignore_index)  # 10.9371
+
 
         ce_loss_L1 = self.cross_entropy_loss_L1(pred_seg_logits[0],
                                                 hiera_label_list[0],
@@ -611,7 +615,6 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         # loss = 1 * ce_loss_L1 + 1 * ce_loss_L2 +  1* ce_loss_L3  # 64.54的性能
         # loss = 0.3 * ce_loss_L1 + 0.3 * ce_loss_L2 +  ce_loss_L3  # 64.54的性能
         loss = (5 * ce_loss_L1 + 10 * ce_loss_L2 + 19 * ce_loss_L3)/(5+10+19)  # 消融 L1 L2 L3  5:10:19 = 0.147:0.294:0.553
-        
         loss += tree_min_loss   
                                                                                   #                        
         

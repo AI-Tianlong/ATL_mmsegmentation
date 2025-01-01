@@ -97,7 +97,7 @@ test_dataloader = dict(
         data_root=None,
         data_prefix=dict(
             img_path=
-            '/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/0-河南/商丘-小麦提取/images',
+            '/opt/AI-Tianlong/0-ATL-paper-work/20-画图/img',
             # seg_map_path=''
         ),
         # ann_file='',
