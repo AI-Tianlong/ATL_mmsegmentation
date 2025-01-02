@@ -607,9 +607,9 @@ class ATL_Hiera_Loss_convseg(nn.Module):
         # loss = ce_loss_L2 + ce_loss_L3               # 消融 L2 L3
         # loss = 1 * ce_loss_L1 + 1 * ce_loss_L2 +  1* ce_loss_L3  # 64.54的性能
         # loss = 0.3 * ce_loss_L1 + 0.3 * ce_loss_L2 +  ce_loss_L3  # 64.54的性能
-        loss = (5 * ce_loss_L1 + 10 * ce_loss_L2 + 19 * ce_loss_L3)/(5+10+19)  # 消融 L1 L2 L3  5:10:19 = 0.147:0.294:0.553
+        # loss = (5 * ce_loss_L1 + 10 * ce_loss_L2 + 19 * ce_loss_L3)/(5+10+19)  # 消融 L1 L2 L3  5:10:19 = 0.147:0.294:0.553
         # loss += tree_min_loss   
-                                                                                  #                        
+        loss = ce_loss_L3                                                                         #                        
         
         # loss_triplet, class_count = self.tree_triplet_loss(embedding, label)
         # class_counts = [torch.ones_like(class_count) for _ in range(torch.distributed.get_world_size())]
