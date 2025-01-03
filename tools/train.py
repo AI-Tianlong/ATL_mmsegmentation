@@ -87,7 +87,9 @@ def main():
 
     # resume training
     cfg.resume = args.resume
-    cfg.find_unused_parameters = True  # 找到在算loss未使用的参数,忽略
+
+    # if cfg.find_unused_parameters:
+    #     cfg.find_unused_parameters = True  # 找到在算loss未使用的参数,忽略
 
     # build the runner from config
     if 'runner_type' not in cfg: 

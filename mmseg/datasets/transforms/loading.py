@@ -781,6 +781,7 @@ class LoadMultiRSImageFromFile_with_data_preproocess(BaseTransform):
         if self.normalization:
             MSI_3chan_mean = [123.675, 116.28, 103.53]
             MSI_3chan_std = [58.395, 57.12, 57.375]
+            
             MSI_4chan_mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428]
             MSI_4chan_std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602]
 

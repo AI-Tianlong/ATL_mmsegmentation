@@ -77,7 +77,7 @@ class CascadeEncoderDecoder(EncoderDecoder):
         x = self.extract_feat(inputs)
         out = self.decode_head[0].forward(x)
         for i in range(1, self.num_stages - 1):
-            out = self.decode_head[i].forward(x, out)
+            out = self.decode_head[i].forward(x, out)  #过多个 decode_head
         seg_logits_list = self.decode_head[-1].predict(x, out, batch_img_metas,
                                                        self.test_cfg)
 
@@ -92,7 +92,7 @@ class CascadeEncoderDecoder(EncoderDecoder):
         loss_decode = self.decode_head[0].loss(inputs, data_samples,
                                                self.train_cfg)
 
-        losses.update(add_prefix(loss_decode, 'decode_0'))
+        losses.update(add_prefix(loss_decode, 'decode_0')) # 第0个decode_0
         # get batch_img_metas
         batch_size = len(data_samples)
         batch_img_metas = []
@@ -107,7 +107,8 @@ class CascadeEncoderDecoder(EncoderDecoder):
             else:
                 prev_outputs = self.decode_head[i - 1].forward(
                     inputs, prev_outputs)
-            loss_decode = self.decode_head[i].loss(inputs, prev_outputs,
+            loss_decode = self.decode_head[i].loss(inputs, 
+                                                   prev_outputs,
                                                    data_samples,
                                                    self.train_cfg)
             losses.update(add_prefix(loss_decode, f'decode_{i}'))
