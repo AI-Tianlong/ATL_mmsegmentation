@@ -74,14 +74,15 @@ class ATL_Multi_Encoder_Multi_Decoder(BaseSegmentor):
     """  # noqa: E501
 
     def __init__(self,
-                 backbone: ConfigType,
+                #  backbone: ConfigType,
                  backbone_MSI_3chan: ConfigType,
                  backbone_MSI_4chan: ConfigType,
                  backbone_MSI_10chan: ConfigType,
-
+                #  decode_head: ConfigType,
                  decode_head_MSI_3chan: ConfigType,
                  decode_head_MSI_4chan: ConfigType,
                  decode_head_MSI_10chan: ConfigType,
+
                  neck: OptConfigType = None,
                  auxiliary_head: OptConfigType = None,
                  train_cfg: OptConfigType = None,
@@ -92,26 +93,26 @@ class ATL_Multi_Encoder_Multi_Decoder(BaseSegmentor):
         super().__init__(
             data_preprocessor=data_preprocessor, init_cfg=init_cfg)
         if pretrained is not None:
-            assert backbone.get('pretrained') is None, \
+            assert backbone_MSI_4chan.get('pretrained') is None, \
                 'both backbone and segmentor set pretrained weight'
-            backbone.pretrained = pretrained
-        self.backbone = MODELS.build(backbone)
-        
-        if neck is not None:
-            self.neck = MODELS.build(neck)
+            backbone_MSI_4chan.pretrained = pretrained
 
-        # build backbone 
+
+        # Build ,Multi backbone 
         self.backbone_MSI_3chan = MODELS.build(backbone_MSI_3chan)
         self.backbone_MSI_4chan = MODELS.build(backbone_MSI_4chan)
         self.backbone_MSI_10chan = MODELS.build(backbone_MSI_10chan)
-        
-        # build decode_head 
+
+        # Build Neck        
+        if neck is not None:
+            self.neck = MODELS.build(neck)
+
+        # Build Multi decode_head 
         self.decode_head_MSI_3chan = MODELS.build(decode_head_MSI_3chan)
         self.decode_head_MSI_4chan = MODELS.build(decode_head_MSI_4chan)
         self.decode_head_MSI_10chan = MODELS.build(decode_head_MSI_10chan)
 
         self.align_corners = self.decode_head_MSI_4chan.align_corners
-        self.num_classes = self.decode_head_MSI_4chan.num_classes
         self.out_channels = self.decode_head_MSI_4chan.out_channels
 
         self._init_auxiliary_head(auxiliary_head)

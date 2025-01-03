@@ -64,17 +64,17 @@ data_preprocessor = dict(
         size=crop_size)
 
 model=dict(
-        type=ATL_Hiera_EncoderDecoder,
+        type=EncoderDecoder,
         data_preprocessor=data_preprocessor,
-        # pretrained=pretrained,
         backbone=dict(
             type=BEiTAdapter,
             img_size=512,
             patch_size=16,
-            embed_dim=1024,
-            in_channels=4,  # 4个波段
-            depth=24,
-            num_heads=16,
+            embed_dim=768,  # B:768 L:1024
+            in_channels=4,  
+            depth=12,       # B:12 L:24
+            num_heads=12,   # B:12 L:16
+            deform_num_heads=12, # Adapter的参数： B:12 L:16
             mlp_ratio=4,
             qkv_bias=True,
             use_abs_pos_emb=False,
@@ -83,20 +83,20 @@ model=dict(
             drop_path_rate=0.3,
             conv_inplane=64,
             n_points=4,
-            deform_num_heads=16,
             cffn_ratio=0.25,
             deform_ratio=0.5,
             with_cp=False,  # set with_cp=True to save memory
-            interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]],
+            # interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]], # large
+            interaction_indexes=[[0, 2], [3, 5], [6, 8], [9, 11]],  # base
             init_cfg=dict(type='Pretrained', checkpoint=pretrained) # 不加预训练权重
         ),  #backbone 完全一样
         decode_head=dict(
             type=ATL_hiera_UPerHead_Multi_convseg,
             # in_channels=[1024, 1024, 1024, 1024],  # 和vit的结构保持一致，large的话1024
-            in_channels=[1024, 1024, 1024, 1024],  # 和vit的结构保持一致，large的话1024
+            in_channels=[768, 768, 768, 768],  # 和vit的结构保持一致，large的话1024
             in_index=[0, 1, 2, 3],
             pool_scales=(1, 2, 3, 6),
-            channels=1024,   # 这是个 啥参数来着？
+            channels=768,   # 这是个 啥参数来着？
             dropout_ratio=0.1,
             num_classes_level_list=[5,10,19], #37
             norm_cfg=norm_cfg,
@@ -107,7 +107,7 @@ model=dict(
             #     type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
         auxiliary_head=dict(
             type=FCNHead,
-            in_channels=1024, # 和上面的768 保持统一
+            in_channels=768, # 和上面的768 保持统一
             in_index=3,
             channels=256,
             num_convs=1,
@@ -147,7 +147,8 @@ optim_wrapper = dict(
     type=OptimWrapper,
     optimizer=optimizer,
     constructor=LayerDecayOptimizerConstructor,
-    paramwise_cfg=dict(num_layers=24, layer_decay_rate=0.9))
+    paramwise_cfg=dict(num_layers=12, layer_decay_rate=0.9))
+
 
 # learning policy
 param_scheduler = [
@@ -168,7 +169,7 @@ default_hooks.update(
     timer=dict(type=IterTimerHook),
     logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
     param_scheduler=dict(type=ParamSchedulerHook),
-    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=4000, max_keep_ckpts=10),
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=2000, max_keep_ckpts=10),
     sampler_seed=dict(type=DistSamplerSeedHook),
     visualization=dict(type=SegVisualizationHook))
 
