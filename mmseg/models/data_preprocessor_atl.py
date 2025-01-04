@@ -13,7 +13,7 @@ import numpy as np
 import torch.nn.functional as F
 # from mmseg.utils import stack_batch
 
-def multi_embedding_stack_batch(inputs: List[tuple],  # 这里规定输入的inputs是一个list，里面的元素是每一个图像的tensor。因为我是一个大list，里面套两个list, 然后里面还是一个
+def multi_encoder_stack_batch(inputs: List[tuple],  # 这里规定输入的inputs是一个list，里面的元素是每一个图像的tensor。因为我是一个大list，里面套两个list, 然后里面还是一个
                 data_samples: Optional[SampleList] = None,
                 size: Optional[tuple] = None,
                 size_divisor: Optional[int] = None,
@@ -364,7 +364,7 @@ class ATL_SegDataPreProcessor(BaseDataPreprocessor):
                                               '`data_samples` must be define.')
             
             # 将多个输入变成一个patch
-            inputs, data_samples = multi_embedding_stack_batch(
+            inputs, data_samples = multi_encoder_stack_batch(
                 inputs=inputs,
                 data_samples=data_samples,
                 size=self.size,
