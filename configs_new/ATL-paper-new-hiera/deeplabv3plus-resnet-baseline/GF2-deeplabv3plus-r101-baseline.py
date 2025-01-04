@@ -1,38 +1,27 @@
-from mmcv.transforms import (LoadImageFromFile, RandomChoice,
-                             RandomChoiceResize, RandomFlip)
 from mmengine.config import read_base
 from mmengine.optim.optimizer import OptimWrapper
 from mmengine.optim.scheduler.lr_scheduler import LinearLR, PolyLR
 from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
-from torch.optim import AdamW
-
-from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
-                                       PhotoMetricDistortion, RandomCrop,
-                                       ResizeShortestEdge)
-from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
-from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
-
-from mmseg.models.data_preprocessor import SegDataPreProcessor
-
-from mmseg.evaluation import ATL_IoUMetric #多卡时有问题
-from mmseg.models.decode_heads.atl_fcn_head import ATL_FCNHead
-from mmseg.models.decode_heads.uper_head import UPerHead
 
 from torch.nn.modules.activation import GELU
 from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
 from torch.nn.modules.normalization import GroupNorm as GN
 
-from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
-from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
 
+# EncoderDecoder
+from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
+# SegDataPreProcessor
+from mmseg.models.data_preprocessor import SegDataPreProcessor
+# Backbone
 from mmseg.models.backbones.resnet import ResNetV1c
+# DecodeHead
 from mmseg.models.decode_heads.sep_aspp_head import DepthwiseSeparableASPPHead
 from mmseg.models.decode_heads.fcn_head import FCNHead
- 
-from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
-from mmseg.models.losses.atl_loss import ATL_Loss, S2_5B_Dataset_21Classes_Map_nobackground
+# Loss
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
+# Optimizer
 from torch.optim.sgd import SGD
+# Evaluation
 from mmseg.evaluation import IoUMetric
 
 with read_base():
@@ -104,7 +93,6 @@ model = dict(
     test_cfg=dict(mode='whole'))
 
 
-
 # optimizer
 optimizer = dict(type=SGD, lr=0.01, momentum=0.9, weight_decay=0.0005)
 optim_wrapper = dict(type=OptimWrapper, optimizer=optimizer, clip_grad=None)
@@ -131,7 +119,6 @@ default_hooks.update(
     checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=2000, max_keep_ckpts=10),
     sampler_seed=dict(type=DistSamplerSeedHook),
     visualization=dict(type=SegVisualizationHook)))
-
 
 
 val_evaluator = dict(

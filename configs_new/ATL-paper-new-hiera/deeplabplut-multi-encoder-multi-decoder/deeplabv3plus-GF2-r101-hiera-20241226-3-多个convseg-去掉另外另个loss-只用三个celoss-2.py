@@ -28,6 +28,7 @@ from mmseg.models.decode_heads.fcn_head import FCNHead
 from mmseg.models.losses.atl_hiera_37_loss import ATL_Hiera_Loss
 from mmseg.models.losses.atl_hiera_37_loss_convseg import ATL_Hiera_Loss_convseg
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
+
 # Evaluation
 from mmseg.evaluation import IoUMetric
 

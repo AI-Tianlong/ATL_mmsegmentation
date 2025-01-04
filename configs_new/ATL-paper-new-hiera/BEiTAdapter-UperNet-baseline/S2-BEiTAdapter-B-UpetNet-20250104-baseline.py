@@ -34,7 +34,7 @@ from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
 from mmseg.evaluation import IoUMetric
 
 with read_base():
-    from ..._base_.datasets.a_atl_0_paper_5b_GF2_19class import *
+    from ..._base_.datasets.a_atl_0_paper_5b_s2_19class import *
     from ..._base_.default_runtime import *
     # from ..._base_.models.upernet_beit_potsdam import *
     from ..._base_.schedules.schedule_80k import *
@@ -54,12 +54,12 @@ num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 crop_size = (512, 512)
-pretrained = 'checkpoints/2-对比实验的权重/vit-adapter-offical/BEiT/beitv2_base_patch16_224_pt1k_ft21k-4chan.pth'
+pretrained = 'checkpoints/2-对比实验的权重/vit-adapter-offical/BEiT/beitv2_base_patch16_224_pt1k_ft21k-10chan.pth'
 
 data_preprocessor = dict(
         type=SegDataPreProcessor,
-        mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428],
-        std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602],
+        mean = None,
+        std = None,
         pad_val=0,
         seg_pad_val=255,
         size=crop_size)
@@ -72,7 +72,7 @@ model=dict(
             img_size=512,
             patch_size=16,
             embed_dim=768,  # B:768 L:1024
-            in_channels=4,  
+            in_channels=10,  
             depth=12,       # B:12 L:24
             num_heads=12,   # B:12 L:16
             deform_num_heads=12, # Adapter的参数： B:12 L:16
@@ -164,7 +164,7 @@ param_scheduler = [
     )
 ]
 
-train_cfg.update(type=IterBasedTrainLoop, max_iters=80000, val_interval=2000)
+train_cfg.update(type=IterBasedTrainLoop, max_iters=80000, val_interval=4000)
 default_hooks.update(
     timer=dict(type=IterTimerHook),
     logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
