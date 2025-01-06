@@ -123,6 +123,15 @@ param_scheduler = [
     )
 ]
 
+train_cfg.update(type=IterBasedTrainLoop, max_iters=80000, val_interval=4000)
+default_hooks.update(
+    timer=dict(type=IterTimerHook),
+    logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
+    param_scheduler=dict(type=ParamSchedulerHook),
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=2000, max_keep_ckpts=10),
+    sampler_seed=dict(type=DistSamplerSeedHook),
+    visualization=dict(type=SegVisualizationHook))
+
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
 test_evaluator = dict(

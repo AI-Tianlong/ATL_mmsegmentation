@@ -41,7 +41,7 @@ with read_base():
 num_classes = 19 #倒是也不太影像，这里该改成19的
 
 # model settings
-checkpoint_file = 'checkpoints/2-对比实验的权重/segnext/base/segnext_mscan_b_4chan.pth'   # noqa
+checkpoint_file = 'checkpoints/2-对比实验的权重/segnext/large/segnext_mscan_l_4chan.pth'   # noqa
 ham_norm_cfg = dict(type=GN, num_groups=32, requires_grad=True)
 crop_size = (512, 512)
 
