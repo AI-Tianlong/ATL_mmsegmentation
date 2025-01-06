@@ -59,7 +59,6 @@ data_preprocessor = dict(
 model = dict(
     type=EncoderDecoder,
     data_preprocessor=data_preprocessor,
-    pretrained=None,
     backbone=dict(
         type=MSCAN,
         init_cfg=dict(type='Pretrained', checkpoint=checkpoint_file),
