@@ -41,22 +41,23 @@ with read_base():
 num_classes = 19 #倒是也不太影像，这里该改成19的
 
 # model settings
-checkpoint_file = 'checkpoints/2-对比实验的权重/segnext/large/segnext_mscan_l_4chan.pth'   # noqa
+checkpoint_file = 'checkpoints/2-对比实验的权重/segnext/base/segnext_mscan_b_4chan.pth'   # noqa
 ham_norm_cfg = dict(type=GN, num_groups=32, requires_grad=True)
 crop_size = (512, 512)
+
 data_preprocessor = dict(
     type=SegDataPreProcessor,
-    mean=None,
-    std=None,
+    mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428],
+    std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602],
     # bgr_to_rgb=True,
     pad_val=0,
     seg_pad_val=255,
     size=crop_size,
     test_cfg=dict(size_divisor=32))
+
 model = dict(
     type=EncoderDecoder,
     data_preprocessor=data_preprocessor,
-    pretrained=None,
     backbone=dict(
         type=MSCAN,
         init_cfg=dict(type='Pretrained', checkpoint=checkpoint_file),
@@ -93,8 +94,6 @@ model = dict(
     train_cfg=dict(),
     test_cfg=dict(mode='whole'))
 
-# # dataset settings
-# train_dataloader = dict(batch_size=16)
 
 # optimizer
 optim_wrapper = dict(

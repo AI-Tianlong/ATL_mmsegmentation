@@ -48,8 +48,8 @@ crop_size = (512, 512)
 
 data_preprocessor = dict(
     type=SegDataPreProcessor,
-    mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428],
-    std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602],
+    mean=None,
+    std=None,
     # bgr_to_rgb=True,
     pad_val=0,
     seg_pad_val=255,
@@ -59,6 +59,7 @@ data_preprocessor = dict(
 model = dict(
     type=EncoderDecoder,
     data_preprocessor=data_preprocessor,
+    pretrained=None,
     backbone=dict(
         type=MSCAN,
         init_cfg=dict(type='Pretrained', checkpoint=checkpoint_file),
@@ -79,7 +80,7 @@ model = dict(
         channels=512,
         ham_channels=512,
         dropout_ratio=0.1,
-        num_classes=num_classes,
+        num_classes=21,
         norm_cfg=ham_norm_cfg,
         align_corners=False,
         loss_decode=dict(
