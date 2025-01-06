@@ -65,7 +65,7 @@ data_preprocessor = dict(
         size=crop_size)
 
 model=dict(
-        type=ATL_Hiera_EncoderDecoder,
+        type=EncoderDecoder,
         data_preprocessor=data_preprocessor,
         # pretrained=pretrained,
         backbone=dict(
