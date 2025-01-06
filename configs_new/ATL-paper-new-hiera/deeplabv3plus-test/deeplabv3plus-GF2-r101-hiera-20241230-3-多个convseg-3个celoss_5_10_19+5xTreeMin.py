@@ -98,8 +98,7 @@ model = dict(
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
-            type=ATL_Hiera_Loss_convseg, num_classes=[5,10,19], loss_weight=1.0),
-            ignore_index=255),
+            type=ATL_Hiera_Loss_convseg, num_classes=[5,10,19], loss_weight=1.0)),
         # loss_decode=dict(
         #     type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
     auxiliary_head=dict(
@@ -135,7 +134,7 @@ param_scheduler = [
         by_epoch=False)
 ]
 
-train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=2000)
+train_cfg = dict(type=IterBasedTrainLoop, max_iters=80000, val_interval=4000)
 val_cfg = dict(type=ValLoop)
 test_cfg = dict(type=TestLoop)
 

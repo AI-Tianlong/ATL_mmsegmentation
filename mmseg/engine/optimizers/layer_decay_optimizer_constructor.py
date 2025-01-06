@@ -51,7 +51,6 @@ def get_layer_id_for_convnext(var_name, max_layer_id):
     else:
         return max_layer_id + 1
 
-
 def get_stage_id_for_convnext(var_name, max_stage_id):
     """Get the stage id to set the different learning rates in ``stage_wise``
     decay_type.
@@ -208,8 +207,7 @@ class ATL_LearningRateDecayOptimizerConstructor(DefaultOptimWrapperConstructor):
                 elif getattr(module, 'backbone_MSI_3chan', None) or \
                      getattr(module, 'backbone_MSI_4chan', None) or \
                      getattr(module, 'backbone_MSI_10chan', None) is not None:  # 对于有backbone的模型
-                    
-                    import pdb; pdb.set_trace()
+
                     if 'ConvNeXt' in module.backbone_MSI_4chan.__class__.__name__:
                         layer_id = atl_get_layer_id_for_vit(
                             name, self.paramwise_cfg.get('num_layers'))
@@ -219,6 +217,7 @@ class ATL_LearningRateDecayOptimizerConstructor(DefaultOptimWrapperConstructor):
                         'MAE' in module.backbone_MSI_4chan.__class__.__name__:
                         layer_id = atl_get_layer_id_for_vit(name, num_layers)
                         print_log(f'set param {name} as id {layer_id}')
+                        # import pdb; pdb.set_trace()
 
                     elif 'ViT' in module.backbone_MSI_4chan.__class__.__name__:
                         layer_id = atl_get_layer_id_for_vit(name, num_layers)

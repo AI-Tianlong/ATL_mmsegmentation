@@ -66,7 +66,7 @@ tta_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=8,
+    batch_size=4,
     num_workers=8,
     persistent_workers=True,
     sampler=dict(type=InfiniteSampler, shuffle=True),
@@ -74,7 +74,8 @@ train_dataloader = dict(
         type=dataset_type,
         data_root=data_root,
         data_prefix=dict(
-            img_path='img_dir/train/GF2_5B_19类_size512', seg_map_path='ann_dir/train/GF2_5B_19类_size512'),
+            img_path='img_dir/train/GF2_5B_19类_size512',
+            seg_map_path='ann_dir/train/GF2_5B_19类_size512'),
         pipeline=train_pipeline))
 
 val_dataloader = dict(
@@ -85,7 +86,9 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        data_prefix=dict(img_path='img_dir/val/GF2_5B_19类_size512', seg_map_path='ann_dir/val/GF2_5B_19类_size512'),
+        data_prefix=dict(
+            img_path='img_dir/val/GF2_5B_19类_size512',
+            seg_map_path='ann_dir/val/GF2_5B_19类_size512'),
         pipeline=val_pipeline))
 # 想用大图去推理
 test_dataloader = dict(
@@ -96,7 +99,9 @@ test_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        data_prefix=dict(img_path='img_dir/val/GF2_5B_19类_size512', seg_map_path='ann_dir/val/GF2_5B_19类_size512'),
+        data_prefix=dict(
+            img_path='img_dir/val/GF2_5B_19类_size512',
+            seg_map_path='ann_dir/val/GF2_5B_19类_size512'),
         pipeline=test_pipeline))
 
 val_evaluator = dict(

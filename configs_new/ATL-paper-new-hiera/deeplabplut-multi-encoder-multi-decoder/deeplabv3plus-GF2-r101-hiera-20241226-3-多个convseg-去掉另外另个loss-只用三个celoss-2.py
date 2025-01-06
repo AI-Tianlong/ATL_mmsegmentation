@@ -1,38 +1,35 @@
-from mmcv.transforms import (LoadImageFromFile, RandomChoice,
-                             RandomChoiceResize, RandomFlip)
+# 2024-09-02 测试, 可以跑通,loss-从5开始降低。
+
+from mmcv.transforms import RandomChoiceResize, RandomFlip
 from mmengine.config import read_base
 from mmengine.optim.optimizer import OptimWrapper
 from mmengine.optim.scheduler.lr_scheduler import LinearLR, PolyLR
 from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
 from torch.optim import AdamW
 
-from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
-                                       PhotoMetricDistortion, RandomCrop,
+from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,RandomCrop,
                                        ResizeShortestEdge)
-from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
-from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
-
-from mmseg.models.data_preprocessor import SegDataPreProcessor
-
-from mmseg.evaluation import ATL_IoUMetric #多卡时有问题
-from mmseg.models.decode_heads.atl_fcn_head import ATL_FCNHead
 from mmseg.models.decode_heads.uper_head import UPerHead
 
-from torch.nn.modules.activation import GELU
-from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
-from torch.nn.modules.normalization import GroupNorm as GN
 
+# EncoderDecoder
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
-from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
-
+from mmseg.models.segmentors.atl_hiera_37_encoder_decoder import ATL_Hiera_EncoderDecoder
+# SegDataPreProcessor
+from mmseg.models.data_preprocessor import SegDataPreProcessor
+# Backbone
 from mmseg.models.backbones.resnet import ResNetV1c
+# DecodeHead
+from mmseg.models.decode_heads.atl_hiera_37_sep_aspp_head_multi_convseg import ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg
 from mmseg.models.decode_heads.sep_aspp_head import DepthwiseSeparableASPPHead
+from mmseg.models.decode_heads.atl_hiera_37_sep_aspp_head import ATL_Hiera_DepthwiseSeparableASPPHead
 from mmseg.models.decode_heads.fcn_head import FCNHead
- 
-from mmseg.models.decode_heads.atl_uper_head import ATL_UPerHead, ATL_UPerHead_fenkai
-from mmseg.models.losses.atl_loss import ATL_Loss, S2_5B_Dataset_21Classes_Map_nobackground
+# Loss
+from mmseg.models.losses.atl_hiera_37_loss import ATL_Hiera_Loss
+from mmseg.models.losses.atl_hiera_37_loss_convseg import ATL_Hiera_Loss_convseg
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
-from torch.optim.sgd import SGD
+
+# Evaluation
 from mmseg.evaluation import IoUMetric
 
 with read_base():
@@ -40,8 +37,21 @@ with read_base():
     from ..._base_.default_runtime import *
     from ..._base_.schedules.schedule_80k import *
 
+find_unuser_parameters = True
+
+# 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
+norm_cfg = dict(type=SyncBN, requires_grad=True)
+
+L1_num_classes = 5  # number of L1 Level label   # 5
+L2_num_classes = 10  # number of L1 Level label  # 11  5+11+21=37类
+L3_num_classes = 19  # number of L1 Level label  # 21
+
+# 总的类别数，包括背景，L1+L2+L3级标签数
+
+num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37 
+
+# 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 crop_size = (512, 512)
-num_classes = 19
 pretrained = 'checkpoints/2-对比实验的权重/deeplabv3plus/resnet101_v1c-4channel_BGR.pth'
 
 
@@ -57,7 +67,8 @@ data_preprocessor = dict(
     size=crop_size)
 
 model = dict(
-    type=EncoderDecoder,
+    type=ATL_Hiera_EncoderDecoder,
+    # type=EncoderDecoder,
     data_preprocessor=data_preprocessor,
     pretrained=pretrained,
     backbone=dict(
@@ -73,7 +84,9 @@ model = dict(
         style='pytorch',
         contract_dilation=True),
     decode_head=dict(
-        type=DepthwiseSeparableASPPHead,
+        type=ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg,
+        merge_hiera=False,
+        # type=DepthwiseSeparableASPPHead,
         in_channels=2048,
         in_index=3,
         channels=512,
@@ -81,11 +94,15 @@ model = dict(
         c1_in_channels=256,
         c1_channels=48,
         dropout_ratio=0.1,
-        num_classes=num_classes,
+        num_classes_level_list=[5,10,19],
+        # num_classes=19,
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
-            type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
+            type=ATL_Hiera_Loss_convseg, num_classes=[5,10,19], loss_weight=1.0),
+            ignore_index=255),
+        # loss_decode=dict(
+        #     type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
     auxiliary_head=dict(
         type=FCNHead,
         in_channels=1024,
@@ -94,7 +111,7 @@ model = dict(
         num_convs=1,
         concat_input=False,
         dropout_ratio=0.1,
-        num_classes=num_classes,
+        num_classes=L3_num_classes,
         norm_cfg=norm_cfg,
         align_corners=False,
         loss_decode=dict(
@@ -131,7 +148,6 @@ default_hooks.update(
     checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=2000, max_keep_ckpts=10),
     sampler_seed=dict(type=DistSamplerSeedHook),
     visualization=dict(type=SegVisualizationHook)))
-
 
 
 val_evaluator = dict(

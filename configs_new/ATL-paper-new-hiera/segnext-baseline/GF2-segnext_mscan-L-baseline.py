@@ -41,7 +41,7 @@ with read_base():
 num_classes = 19 #倒是也不太影像，这里该改成19的
 
 # model settings
-checkpoint_file = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/segnext/large/segnext_mscan_l_10_chan_BGR.pth'   # noqa
+checkpoint_file = 'checkpoints/2-对比实验的权重/segnext/large/segnext_mscan_l_4chan.pth'   # noqa
 ham_norm_cfg = dict(type=GN, num_groups=32, requires_grad=True)
 crop_size = (512, 512)
 data_preprocessor = dict(
@@ -60,7 +60,7 @@ model = dict(
     backbone=dict(
         type=MSCAN,
         init_cfg=dict(type='Pretrained', checkpoint=checkpoint_file),
-        in_channels=10,
+        in_channels=4,
         embed_dims=[64, 128, 320, 512],
         mlp_ratios=[8, 8, 4, 4],
         drop_rate=0.0,
@@ -120,6 +120,18 @@ param_scheduler = [
         by_epoch=False,
     )
 ]
+
+
+
+train_cfg.update(type=IterBasedTrainLoop, max_iters=80000, val_interval=4000)
+default_hooks.update(
+    timer=dict(type=IterTimerHook),
+    logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
+    param_scheduler=dict(type=ParamSchedulerHook),
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=2000, max_keep_ckpts=10),
+    sampler_seed=dict(type=DistSamplerSeedHook),
+    visualization=dict(type=SegVisualizationHook))
+
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'

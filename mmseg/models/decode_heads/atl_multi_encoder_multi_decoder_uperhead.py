@@ -17,7 +17,7 @@ from .psp_head import PPM
 
 
 @MODELS.register_module()
-class ATL_multi_embedding_UPerHead(BaseDecodeHead):
+class ATL_Multi_Encoder_Multi_Decoder_UPerHead(BaseDecodeHead):
     """Unified Perceptual Parsing for Scene Understanding.
 
     This head is the implementation of `UPerNet
@@ -169,8 +169,6 @@ class ATL_multi_embedding_UPerHead(BaseDecodeHead):
         # len(batch_data_samples) = 3 batch_size=3，每个里面两张图
         gt_semantic_segs = [getattr(data_sample, gt_semantic_seg_name).data for data_sample in batch_data_samples]
 
-        
- 
         return torch.stack(gt_semantic_segs, dim=0)
 
     def loss(self, inputs: Tuple[Tensor], 
@@ -191,7 +189,7 @@ class ATL_multi_embedding_UPerHead(BaseDecodeHead):
         """
         # inputs 是个tuple，里面是包含了四个多分辨率的特征图
         seg_logits = self.forward(inputs)  # [2,40,128,128]
-        losses = self.loss_by_feat(seg_logits, batch_data_samples,gt_semantic_seg_name)
+        losses = self.loss_by_feat(seg_logits, batch_data_samples, gt_semantic_seg_name)
         return losses
     
     def loss_by_feat(self, seg_logits: Tensor,

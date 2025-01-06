@@ -1,7 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-import warnings
 import math
-
+import warnings
 
 import torch
 import torch.nn as nn

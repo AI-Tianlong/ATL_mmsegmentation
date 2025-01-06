@@ -196,7 +196,7 @@ class ATL_Multi_Encoder_Multi_Decoder(BaseSegmentor):
                                                 self.train_cfg,
                                                 gt_semantic_seg_name)
         # import pdb;pdb.set_trace()
-        losses.update(add_prefix(loss_decode, f'decode_{gt_semantic_seg_name[16:]}')) # decode_MSI_3chan
+        losses.update(add_prefix(loss_decode, f'decode_{gt_semantic_seg_name[16:]}')) # decode_MSI_3chan.loss_ce  或者 decode_MSI_3chan.loss_hiera
         return losses
 
     def _auxiliary_head_forward_train(self, inputs: List[Tensor],
@@ -255,7 +255,7 @@ class ATL_Multi_Encoder_Multi_Decoder(BaseSegmentor):
         loss_decode_MSI_4chan = self._decode_head_forward_train(x_MSI_4chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_4chan') # x:[4个多尺度列表]]
         loss_decode_MSI_10chan = self._decode_head_forward_train(x_MSI_10chan, data_samples, gt_semantic_seg_name='gt_semantic_seg_MSI_10chan') # x:[4个多尺度列表]]
         
-        import pdb;pdb.set_trace()
+        # import pdb;pdb.set_trace()
         # decode_head返回的loss值
         new_loss_value = loss_decode_MSI_3chan['decode_MSI_3chan.loss_ce'] + loss_decode_MSI_4chan['decode_MSI_4chan.loss_ce'] + loss_decode_MSI_10chan['decode_MSI_10chan.loss_ce']
         # 以GF2的为基准，其他的两个acc不要

@@ -16,30 +16,25 @@ from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
 
 # EncoderDecoder
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
-from mmseg.models.segmentors.atl_hiera_37_encoder_decoder import ATL_Hiera_EncoderDecoder
 # SegDataPreProcessor
 from mmseg.models.data_preprocessor import SegDataPreProcessor
 # Backbone
-from mmseg.models.backbones import BEiTAdapter
 from mmseg.models.backbones import ViTAdapter
 # DecodeHead
 from mmseg.models.decode_heads.uper_head import UPerHead
-from mmseg.models.decode_heads.atl_hiera_37_uper_head_multi_convseg import ATL_hiera_UPerHead_Multi_convseg
 from mmseg.models.decode_heads.fcn_head import FCNHead
 # Loss
-from mmseg.models.losses.atl_hiera_37_loss import ATL_Hiera_Loss
-from mmseg.models.losses.atl_hiera_37_loss_convseg import ATL_Hiera_Loss_convseg
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
 # Evaluation
 from mmseg.evaluation import IoUMetric
 
 
 with read_base():
-    from ..._base_.datasets.a_atl_0_paper_5b_GF2_19class import *
+    from ..._base_.datasets.a_atl_0_paper_5b_s2_19class import *
     from ..._base_.default_runtime import *
     from ..._base_.schedules.schedule_80k import *
 
-find_unuser_parameters = True
+# find_unuser_parameters = True
 
 # 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
 norm_cfg = dict(type=SyncBN, requires_grad=True)
@@ -54,12 +49,12 @@ num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 crop_size = (512, 512)
-pretrained = '/data/AI-Tianlong/Checkpoints/2-对比实验的权重/vit-adapter-offical/mmpretrainformat-10chan-ViT-Adapter-Aug-L-BGR.pth'
+pretrained = '/opt/AI-Tianlong/openmmlab/mmsegmentation/checkpoints/2-对比实验的权重/vit-adapter-offical/ViT/vit-large/mmpretrainformat-10chan-ViT-Aug-L.pth'
 
 data_preprocessor = dict(
         type=SegDataPreProcessor,
-        mean =[454.1608733420, 320.6480230485 , 238.9676917808 , 301.4478970428],
-        std =[55.4731833972, 51.5171917858, 62.3875607521, 82.6082214602],
+        mean = None,
+        std = None,
         pad_val=0,
         seg_pad_val=255,
         size=crop_size)
@@ -96,14 +91,8 @@ model=dict(
             channels=1024,   # 这是个 啥参数来着？
             dropout_ratio=0.1,
             num_classes=L3_num_classes, #37
-            # num_level_classes=[L1_num_classes, L2_num_classes, L3_num_classes],  # 这里需要和loss的map对应上
             norm_cfg=norm_cfg,
             align_corners=False,
-            # loss_decode=dict(
-            #     type=ATL_Loss,
-            #     use_sigmoid=False,
-            #     loss_weight=1.0,
-            #     classes_map=S2_5B_Dataset_21Classes_Map_nobackground)),
             loss_decode=dict(
                 type=CrossEntropyLoss, use_sigmoid=False, loss_weight=1.0)),
         auxiliary_head=dict(
@@ -164,17 +153,14 @@ param_scheduler = [
     )
 ]
 
-load_from = None
-# load_from = '/opt/AI-Tianlong/openmmlab/mmsegmentation/work_dirs/20240920-s2_5B_S2-beit_uperner_large-b4x2-80k-ATL调试paper/iter_24000.pth'
+train_cfg.update(type=IterBasedTrainLoop, max_iters=80000, val_interval=4000)
 default_hooks.update(
-    dict(logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False)))
-
-# test_dataloader.update(
-#     dict(
-#         dataset=dict(
-#         data_root='data/0-atl-paper-s2/tiny-test',
-#         data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
-#         pipeline=test_pipeline)))
+    timer=dict(type=IterTimerHook),
+    logger=dict(type=LoggerHook, interval=50, log_metric_by_epoch=False),
+    param_scheduler=dict(type=ParamSchedulerHook),
+    checkpoint=dict(type=CheckpointHook, by_epoch=False, interval=2000, max_keep_ckpts=10),
+    sampler_seed=dict(type=DistSamplerSeedHook),
+    visualization=dict(type=SegVisualizationHook))
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
