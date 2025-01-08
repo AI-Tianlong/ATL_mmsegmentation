@@ -34,7 +34,7 @@ from mmseg.evaluation import IoUMetric
 
 
 with read_base():
-    from ..._base_.datasets.a_atl_0_paper_5b_GF2_19class import *
+    from ..._base_.datasets.a_atl_0_paper_5b_s2_19class import *
     from ..._base_.default_runtime import *
     from ..._base_.schedules.schedule_80k import *
 
@@ -61,7 +61,7 @@ model = dict(
     backbone=dict(
         type=MSCAN,
         init_cfg=dict(type='Pretrained', checkpoint=checkpoint_file),
-        in_channels=4,
+        in_channels=10,
         embed_dims=[64, 128, 320, 512],
         mlp_ratios=[8, 8, 4, 4],
         drop_rate=0.0,
