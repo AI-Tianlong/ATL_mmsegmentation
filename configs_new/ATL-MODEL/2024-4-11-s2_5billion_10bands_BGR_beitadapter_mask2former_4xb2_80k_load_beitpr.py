@@ -15,7 +15,7 @@ from mmseg.models.backbones import BEiTAdapter
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
 with read_base():
-    from .._base_.datasets.atl_s2_five_billion import *
+    from .._base_.datasets.a_atl_0_paper_5b_GF2_19class import *
     from .._base_.default_runtime import *
     from .._base_.models.mask2former_beit_potsdam import *
     from .._base_.schedules.schedule_80k import *
@@ -23,13 +23,13 @@ with read_base():
 # 一定记得改类别数！！！！！！！！！！！！！！！！！！！！！！！
 
 # reduce_zero_label = True 所以是24类
-num_classes = 24  # loss 要用，也要加 # 加上背景是25类
+num_classes = 19  # loss 要用，也要加 # 加上背景是25类
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 
 crop_size = (512, 512)
 # pretrained = None
-pretrained = '/opt/AI-Tianlong/checkpoints/atl_s2_checkpoint/10_channel_beitv2_large_patch16_224_pt1k_ft21k_BGR.pth'
+pretrained = 'checkpoints/2-对比实验的权重/vit-adapter-offical/BEiT/beitv2_large_patch16_224_pt1k_ft21k-4chan.pth'
 # pretrained = None
 data_preprocessor.update(
     dict(
@@ -56,7 +56,7 @@ model.update(
             img_size=512,
             patch_size=16,
             embed_dim=1024,
-            in_channels=10,  # 4个波段
+            in_channels=4,  # 4个波段
             depth=24,
             num_heads=16,
             mlp_ratio=4,

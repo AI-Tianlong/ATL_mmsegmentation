@@ -24,7 +24,7 @@ from mmseg.models.data_preprocessor import SegDataPreProcessor
 from mmseg.models.decode_heads.mask2former_head import Mask2FormerHead
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
-num_classes = 6  # loss 要用，也要加
+num_classes = 19  # loss 要用，也要加
 
 norm_cfg = dict(type=SyncBN, requires_grad=True)
 
@@ -38,7 +38,6 @@ data_preprocessor = dict(
 
 model = dict(
     type=EncoderDecoder,
-    pretrained=None,
     data_preprocessor=data_preprocessor,
     backbone=dict(type=BEiT, ),
     decode_head=dict(

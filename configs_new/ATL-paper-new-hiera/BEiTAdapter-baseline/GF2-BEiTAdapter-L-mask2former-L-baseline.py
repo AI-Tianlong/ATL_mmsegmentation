@@ -50,7 +50,7 @@ L3_num_classes = 19  # number of L1 Level label  # 21
 
 # 总的类别数，包括背景，L1+L2+L3级标签数
 
-num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37 
+num_classes = L3_num_classes # 37 
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 crop_size = (512, 512)
@@ -98,7 +98,7 @@ model=dict(
         in_index=[0, 1, 2, 3],
         feat_channels=1024,  # 类别多的话：256 / 1024
         out_channels=1024,   # 类别多的话：256 / 1024
-        num_classes=L3_num_classes,
+        num_classes=num_classes,
         num_queries=100,
         num_transformer_feat_level=3,
         align_corners=False,

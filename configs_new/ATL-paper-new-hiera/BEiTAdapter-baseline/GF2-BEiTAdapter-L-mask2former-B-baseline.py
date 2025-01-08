@@ -50,7 +50,7 @@ L3_num_classes = 19  # number of L1 Level label  # 21
 
 # 总的类别数，包括背景，L1+L2+L3级标签数
 
-num_classes = L1_num_classes + L2_num_classes + L3_num_classes # 37 
+num_classes = L3_num_classes # 37 
 
 # 这和后面base的模型不一样的话，如果在decode_head里，给这三个数赋值的话，会报非常难定的错误
 crop_size = (512, 512)
@@ -64,7 +64,8 @@ data_preprocessor = dict(
         seg_pad_val=255,
         size=crop_size)
 
-model=dict(
+model.update(
+    dict(
         type=EncoderDecoder,
         data_preprocessor=data_preprocessor,
         # pretrained=pretrained,
@@ -91,122 +92,20 @@ model=dict(
             interaction_indexes=[[0, 5], [6, 11], [12, 17], [18, 23]],
             init_cfg=dict(type='Pretrained', checkpoint=pretrained) # 不加预训练权重
         ),  #backbone 完全一样
-    
         decode_head=dict(
-            type=Mask2FormerHead,  # 千万别自己实现，全是坑
-            in_channels=[1024, 1024, 1024, 1024],  # BEiT-Adapter [1024,1024,1024,1024]
-            in_index=[0, 1, 2, 3],
-            feat_channels=256,  # 类别多的话：1024
-            out_channels=256,   # 类别多的话：1024
-            num_classes=num_classes,
+            in_channels=[1024, 1024, 1024, 1024],
+            feat_channels=256,
+            out_channels=256,
             num_queries=100,
-            num_transformer_feat_level=3,
-            align_corners=False,
-            pixel_decoder=dict(
-                type=MSDeformAttnPixelDecoder,  # MSDeformAttnPixelDecoder #用的自己实现的，vit-adapter
-                num_outs=3,  # mmdet的在mmdet-->models-->layers-->msdeformattn_pixel_decoder.py
-                norm_cfg=dict(type=GN, num_groups=32),
-                act_cfg=dict(type=ReLU),
-                encoder=dict(
-                    # type=DetrTransformerEncoder,# DetrTransformerEncoder # 用的mmdet实现的
-                    num_layers=6,
-                    layer_cfg=dict(
-                        # type=DetrTransformerEncoderLayer,# DetrTransformerEncoder绑定了
-                        self_attn_cfg=dict(
-                            # type=MultiScaleDeformableAttention,  # DetrTransformerEncoderLayer绑定了
-                            embed_dims=256, # 1024
-                            num_heads=8,    # 32
-                            num_levels=3,  
-                            num_points=4,
-                            im2col_step=64,
-                            dropout=0.0,
-                            batch_first=True,
-                            norm_cfg=None,
-                            init_cfg=None),
-                        ffn_cfg=dict(
-                            # type=FFN, #DetrTransformerEncoderLayer绑定了
-                            embed_dims=256,            #1024
-                            feedforward_channels=2048, #4096
-                            num_fcs=2,
-                            ffn_drop=0.0,
-                            # with_cp=True,
-                            act_cfg=dict(type=ReLU, inplace=True))),
-                    init_cfg=None),
-                positional_encoding=dict(
-                    # type=SinePositionalEncoding, # ATL 的 MSDeformAttnPixelDecoder 默认是这个
-                    num_feats=128, # 512
-                    normalize=True),
-                init_cfg=None),
-            enforce_decoder_input_project=False,
-            positional_encoding=dict(
-                #  type=SinePositionalEncoding, # Mask2FormerHead写死了
-                num_feats=128,  #512
-                normalize=True),
-            transformer_decoder=dict(
-                # type=DetrTransformerDecoder,  # Mask2FormrtHead--->DetrTransformerDecoder写死了
-                return_intermediate=True,
-                num_layers=9,
-                layer_cfg=dict(
-                    # type=DetrTransformerDecoderLayer,  # DetrTransformerDecoder 写死了
-                    self_attn_cfg=dict(
-                        # type=MultiheadAttention,  # DetrTransformerDecoderLayer 写死了
-                        embed_dims=256, # 1024
-                        num_heads=8,    # 32
-                        attn_drop=0.0,
-                        proj_drop=0.0,
-                        dropout_layer=None,
-                        batch_first=True),
-                    cross_attn_cfg=dict(  # MultiheadAttention
-                        embed_dims=256,  #1024
-                        num_heads=8,     #32
-                        attn_drop=0.0,
-                        proj_drop=0.0,
-                        dropout_layer=None,
-                        batch_first=True),
-                    ffn_cfg=dict(
-                        embed_dims=256,     # 1024
-                        feedforward_channels=2048,  #4096
-                        num_fcs=2,
-                        act_cfg=dict(type=ReLU, inplace=True),
-                        ffn_drop=0.0,
-                        dropout_layer=None,
-                        add_identity=True)),
-                init_cfg=None),
+            num_classes=num_classes,
             loss_cls=dict(
                 type=CrossEntropyLoss,
                 use_sigmoid=False,
                 loss_weight=2.0,
                 reduction='mean',
                 class_weight=[1.0] * num_classes + [0.1]),
-            loss_mask=dict(
-                type=CrossEntropyLoss,
-                use_sigmoid=True,
-                reduction='mean',
-                loss_weight=5.0),
-            loss_dice=dict(
-                type=DiceLoss,
-                use_sigmoid=True,
-                activate=True,
-                reduction='mean',
-                naive_dice=True,
-                eps=1.0,
-                loss_weight=5.0),
-            train_cfg=dict(
-                num_points=12544,
-                oversample_ratio=3.0,
-                importance_sample_ratio=0.75,
-                assigner=dict(
-                    type=HungarianAssigner,
-                    match_costs=[
-                        dict(type=ClassificationCost, weight=2.0),
-                        dict(
-                            type=CrossEntropyLossCost,
-                            weight=5.0,
-                            use_sigmoid=True),
-                        dict(type=DiceCost, weight=5.0, pred_act=True, eps=1.0)
-                    ]),
-                sampler=dict(type=MaskPseudoSampler))),
-        test_cfg=dict(mode='whole'))
+        ),
+        test_cfg=dict(mode='whole')))
 
 # dataset config
 train_pipeline = [
