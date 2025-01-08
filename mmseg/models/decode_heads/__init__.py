@@ -44,8 +44,10 @@ from .atl_fcn_head_multi_embedding import ATL_multi_embedding_FCNHead
 
 from .atl_hiera_37_sep_aspp_head_multi_convseg import ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg
 
-from .atl_multi_encoder_multi_decoder_uperhead import ATL_Multi_Encoder_Multi_Decoder_UPerHead
 
+# multi-encoder-decoder
+from .atl_multi_encoder_multi_decoder_uperhead import ATL_Multi_Encoder_Multi_Decoder_UPerHead
+from .atl_multi_encoder_multi_decoder_ham_dead import ATL_Multi_Encoder_Multi_Decoder_LightHamHead
 
 __all__ = [
     'FCNHead', 'PSPHead', 'ASPPHead', 'PSAHead', 'NLHead', 'GCHead', 'CCHead',
@@ -60,5 +62,6 @@ __all__ = [
     'DepthwiseSeparableASPPHead_hyp',
     'ATL_Hiera_DepthwiseSeparableASPPHead_Multi_convseg',
     'ATL_hiera_UPerHead_Multi_convseg','ATL_multi_embedding_FCNHead',
-    'ATL_Multi_Encoder_Multi_Decoder_UPerHead'
+    'ATL_Multi_Encoder_Multi_Decoder_UPerHead',
+    'ATL_Multi_Encoder_Multi_Decoder_LightHamHead'
 ]

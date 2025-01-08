@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 from mmcv.cnn import ConvModule
 from torch import Tensor
-
 from mmseg.registry import MODELS
 from typing import List, Tuple
 from mmseg.utils import SampleList, ConfigType
