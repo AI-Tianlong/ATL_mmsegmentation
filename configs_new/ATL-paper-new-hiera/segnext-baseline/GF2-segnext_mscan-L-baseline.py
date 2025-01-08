@@ -1,35 +1,27 @@
-from mmcv.transforms import (LoadImageFromFile, RandomChoice,
-                             RandomChoiceResize, RandomFlip)
+
 from mmengine.config import read_base
 from mmengine.optim.optimizer import OptimWrapper
 from mmengine.optim.scheduler.lr_scheduler import LinearLR, PolyLR
 from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
 from torch.optim import AdamW
 
-from mmseg.datasets.transforms import (LoadAnnotations, PackSegInputs,
-                                       PhotoMetricDistortion, RandomCrop,
-                                       ResizeShortestEdge)
-from mmseg.datasets.transforms.loading import LoadSingleRSImageFromFile
-from mmseg.engine.optimizers import LayerDecayOptimizerConstructor
-
-from mmseg.models.data_preprocessor import SegDataPreProcessor
-
-from mmseg.evaluation import ATL_IoUMetric #多卡时有问题
-from mmseg.models.backbones import BEiTAdapter
-from mmseg.models.decode_heads.atl_fcn_head import ATL_FCNHead
-from mmseg.models.decode_heads.uper_head import UPerHead
 
 from torch.nn.modules.activation import GELU
 from torch.nn.modules.batchnorm import SyncBatchNorm as SyncBN
 from torch.nn.modules.normalization import GroupNorm as GN
 
+# EncoderDecoder
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 from mmseg.models.segmentors.atl_encoder_decoder import ATL_EncoderDecoder
-from mmseg.models.backbones import ViTAdapter
+# SegDataPreProcessor
+from mmseg.models.data_preprocessor import SegDataPreProcessor
+# Backbone
 from mmseg.models.backbones import MSCAN
-
+# DecodeHead
 from mmseg.models.decode_heads.ham_head import LightHamHead
+# Loss
 from mmseg.models.losses.cross_entropy_loss import CrossEntropyLoss
+# Evaluation
 from mmseg.evaluation import IoUMetric
 
 
