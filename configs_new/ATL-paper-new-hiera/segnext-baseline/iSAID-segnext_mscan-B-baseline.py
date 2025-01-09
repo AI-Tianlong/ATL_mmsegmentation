@@ -41,7 +41,7 @@ with read_base():
 num_classes = 16 #倒是也不太影像，这里该改成19的
 
 # model settings
-checkpoint_file = 'checkpoints/2-对比实验的权重/segnext/large/segnext_mscan_l_3chan.pth'   # noqa
+checkpoint_file = 'checkpoints/2-对比实验的权重/segnext/base/segnext_mscan_b_3chan.pth'   # noqa
 ham_norm_cfg = dict(type=GN, num_groups=32, requires_grad=True)
 crop_size = (512, 512)
 
@@ -65,8 +65,8 @@ model = dict(
         embed_dims=[64, 128, 320, 512],
         mlp_ratios=[8, 8, 4, 4],
         drop_rate=0.0,
-        drop_path_rate=0.3,
-        depths=[3, 5, 27, 3],
+        drop_path_rate=0.1,
+        depths=[3, 3, 12, 3],
         attention_kernel_sizes=[5, [1, 7], [1, 11], [1, 21]],
         attention_kernel_paddings=[2, [0, 3], [0, 5], [0, 10]],
         act_cfg=dict(type=GELU),
@@ -75,8 +75,8 @@ model = dict(
         type=LightHamHead,
         in_channels=[128, 320, 512],
         in_index=[1, 2, 3],
-        channels=1024,
-        ham_channels=1024,
+        channels=512,
+        ham_channels=512,
         dropout_ratio=0.1,
         num_classes=num_classes,
         norm_cfg=ham_norm_cfg,
