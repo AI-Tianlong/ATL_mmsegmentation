@@ -10,9 +10,14 @@ from .atl_encoder_decoder_hyp import EncoderDecoder_hyp
 from .atl_encoder_decoder_multi_embedding import ATL_Multi_Embedding_EncoderDecoder
 from .atl_encoder_decoder_multi_embedding_multi_decoder import ATL_Multi_Embedding_Multi_Decoder_EncoderDecoder
 from .atl_encoder_decoder_Membedding_Sdecoder_stack_after_patch_embedding import ATL_Multi_Embedding_Single_Decoder_AfterPatchEmbedding_stack_EncoderDecoder
+
+from .atl_multi_encoder_multi_decoder import ATL_Multi_Encoder_Multi_Decoder
+from .atl_multi_encoder_multi_decoder_cfglist import ATL_Multi_Encoder_Multi_Decoder_cfglist
+
 __all__ = [
     'BaseSegmentor', 'EncoderDecoder', 'CascadeEncoderDecoder', 'SegTTAModel',
     'MultimodalEncoderDecoder', 'DepthEstimator','EncoderDecoder_hyp',
     'ATL_Multi_Embedding_EncoderDecoder', 'ATL_Multi_Embedding_Multi_Decoder_EncoderDecoder',
-    'ATL_Multi_Embedding_Single_Decoder_AfterPatchEmbedding_stack_EncoderDecoder'
+    'ATL_Multi_Embedding_Single_Decoder_AfterPatchEmbedding_stack_EncoderDecoder',
+    'ATL_Multi_Encoder_Multi_Decoder','ATL_Multi_Encoder_Multi_Decoder_cfglist',
 ]
