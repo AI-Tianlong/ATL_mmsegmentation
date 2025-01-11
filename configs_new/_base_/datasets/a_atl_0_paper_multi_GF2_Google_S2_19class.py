@@ -130,9 +130,9 @@ test_dataloader = dict(
         type=dataset_type_test,
         data_root=data_root,
         data_prefix=dict(
-            # img_path='img_dir/train/Google_5B_19类_size512', seg_map_path='ann_dir/train/Google_5B_19类_size512'), # 3chan
-            img_path='img_dir/val/GF2_5B_19类_size512',         # 4chan GF2
-            seg_map_path='ann_dir/val/GF2_5B_19类_size512'),    # 10chan
+            # img_path='img_dir/val/Google_5B_19类_size512', seg_map_path='ann_dir/val/Google_5B_19类_size512'), # 3chan
+            img_path='img_dir/val/GF2_5B_19类_size512', seg_map_path='ann_dir/val/GF2_5B_19类_size512'),    # 4chan
+            # img_path='img_dir/val/S2_5B_19类_包含雪_size512', seg_map_path='ann_dir/val/S2_5B_19类_包含雪_size512'),    # 10chan
         pipeline=test_pipeline))
 
 val_evaluator = dict(
