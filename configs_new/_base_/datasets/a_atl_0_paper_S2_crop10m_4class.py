@@ -3,25 +3,18 @@ from mmcv.transforms.processing import (RandomFlip, RandomResize, Resize,
                                         TestTimeAug)
 from mmengine.dataset.sampler import DefaultSampler, InfiniteSampler
 
-from mmseg.datasets.atl_isaid import iSAIDDataset_16
+from mmseg.datasets.atl_0_paper_crop_10m_s2_4class import \
+    ATL_S2_Crop10m_Dataset_4class
 from mmseg.datasets.transforms.formatting import PackSegInputs
 from mmseg.datasets.transforms.loading import (LoadAnnotations,
-                                               LoadSingleRSImageFromFile,
-                                               LoadSingleRSImageFromFile_spectral_GPT)
+                                               LoadSingleRSImageFromFile)
 from mmseg.datasets.transforms.transforms import (PhotoMetricDistortion,
                                                   RandomCrop)
 from mmseg.evaluation import IoUMetric
 
-
-
 # dataset settings
-dataset_type = iSAIDDataset_16
-data_root = 'data/1-paper-segmentation/iSAID/0-裁切好的训练图像/iSAID_896'
-"""
-This crop_size setting is followed by the implementation of
-`PointFlow: Flowing Semantics Through Points for Aerial Image
-Segmentation <https://arxiv.org/pdf/2103.06564.pdf>`_.
-"""
+dataset_type = ATL_S2_Crop10m_Dataset_4class
+data_root = 'data/1-paper-segmentation/1-crop_10m_东北三省_512'
 
 crop_size = (512, 512)
 train_pipeline = [
@@ -29,7 +22,7 @@ train_pipeline = [
     dict(type=LoadAnnotations),
     dict(
         type=RandomResize,
-        scale=crop_size,
+        scale=(512, 512),
         ratio_range=(0.5, 2.0),
         keep_ratio=True),
     dict(type=RandomCrop, crop_size=crop_size, cat_max_ratio=0.75),
@@ -40,7 +33,7 @@ train_pipeline = [
 
 val_pipeline = [  #
     dict(type=LoadSingleRSImageFromFile),
-    dict(type=Resize, scale=crop_size, keep_ratio=True),
+    dict(type=Resize, scale=(512, 512), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
     # does not need to do resize data transform
     dict(type=LoadAnnotations),
@@ -53,10 +46,9 @@ test_pipeline = [  #
     # dict(type=Resize, scale=(6800, 7200), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
     # does not need to do resize data transform
-    dict(type=LoadAnnotations),  # 不需要验证，不用添加 Annotations
+    # dict(type=LoadAnnotations), # 不需要验证，不用添加 Annotations
     dict(type=PackSegInputs)
 ]
-
 
 img_ratios = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75]
 tta_pipeline = [
@@ -75,15 +67,15 @@ tta_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=4,
-    num_workers=8,
+    batch_size=2,
+    num_workers=4,
     persistent_workers=True,
     sampler=dict(type=InfiniteSampler, shuffle=True),
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
         data_prefix=dict(
-            img_path='img_dir/train', seg_map_path='ann_dir_16/train'),
+            img_path='img_dir/train', seg_map_path='ann_dir/train'),
         pipeline=train_pipeline))
 
 val_dataloader = dict(
@@ -94,10 +86,24 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         data_root=data_root,
-        data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir_16/val'),
+        data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
         pipeline=val_pipeline))
-
-test_dataloader = val_dataloader
+# 想用大图去推理
+test_dataloader = dict(
+    batch_size=1,
+    num_workers=4,
+    persistent_workers=True,
+    sampler=dict(type=DefaultSampler, shuffle=False),
+    dataset=dict(
+        type=dataset_type,
+        data_root=data_root,
+        data_prefix=dict(img_path='img_dir/val', seg_map_path='ann_dir/val'),
+        # data_root=None,
+        # data_prefix=dict(
+        #     img_path='/opt/AI-Tianlong/Datasets/ATL-ATLNongYe/0-河南/images',
+        #     seg_map_path=' '),
+        # # ann_file = ' ',
+        pipeline=test_pipeline))
 
 val_evaluator = dict(
     type=IoUMetric, iou_metrics=['mIoU', 'mFscore'])  # 'mDice', 'mFscore'
