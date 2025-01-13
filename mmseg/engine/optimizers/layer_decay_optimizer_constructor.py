@@ -209,7 +209,7 @@ class ATL_LearningRateDecayOptimizerConstructor(DefaultOptimWrapperConstructor):
                      getattr(module, 'backbone_MSI_10chan', None) is not None:  # 对于有backbone的模型
 
                     if 'ConvNeXt' in module.backbone_MSI_4chan.__class__.__name__:
-                        layer_id = atl_get_layer_id_for_vit(
+                        layer_id = get_layer_id_for_convnext(
                             name, self.paramwise_cfg.get('num_layers'))
                         print_log(f'set param {name} as id {layer_id}')
                     # BEiTAdapter 要包含 BEiT!!!!!

@@ -31,6 +31,7 @@ from mmseg.models.necks.multilevel_neck import \
     MultiLevelNeck  # A neck structure connect vit backbone and decoder_heads.
 from mmseg.models.segmentors.encoder_decoder import EncoderDecoder
 
+
 num_classes = 6  # loss 要用，也要加
 
 norm_cfg = dict(type=SyncBN, requires_grad=True)
